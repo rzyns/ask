@@ -8,9 +8,7 @@
   <strong>只需询问，您的智能体即可获得。</strong>
 </p>
 
-<p align="center">
-  <img src="assets/usage.webp" alt="ASK Usage Demo" width="800"/>
-</p>
+
 
 <p align="center">
   <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
@@ -36,6 +34,10 @@
 **ASK**（Agent Skills Kit，智能体技能工具包）是 AI 智能体技能的包管理器。如同 `brew` 管理 macOS 软件包、`npm` 管理 Node.js 依赖一样，`ask` 帮助您发现、安装和管理智能体的能力扩展。
 
 ## ✨ 核心特性
+
+<p align="center">
+  <img src="assets/usage.webp" alt="ASK Usage Demo" width="800"/>
+</p>
 
 ### 📦 智能包管理
 使用直观的命令安装、卸载、更新和列出技能。通过 `ask.lock` 进行版本锁定，确保团队间环境的可复现性。

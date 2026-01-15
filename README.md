@@ -8,9 +8,7 @@
   <strong>Just ask, and your agent shall receive.</strong>
 </p>
 
-<p align="center">
-  <img src="assets/usage.webp" alt="ASK Usage Demo" width="800"/>
-</p>
+
 
 <p align="center">
   <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
@@ -36,6 +34,10 @@
 **ASK** (Agent Skills Kit) is the package manager for AI Agent Skills. Just like `brew` manages macOS packages or `npm` manages Node.js dependencies, `ask` helps you discover, install, and manage capabilities for your AI agents.
 
 ## ✨ Key Features
+
+<p align="center">
+  <img src="assets/usage.webp" alt="ASK Usage Demo" width="800"/>
+</p>
 
 ### 📦 Smart Package Management
 Install, uninstall, update, and list skills with intuitive commands. Version locking via `ask.lock` ensures reproducible environments across teams.
