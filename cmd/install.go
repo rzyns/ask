@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/git"
+	"github.com/yeasy/ask/internal/skill"
 )
 
 // installCmd represents the install command
@@ -81,6 +82,17 @@ You can provide a full git URL or a GitHub shorthand (owner/repo).`,
 			if subDir != "" {
 				skillInfo.URL = fmt.Sprintf("https://github.com/%s", input)
 			}
+
+			// Try to parse SKILL.md for better metadata
+			if skill.FindSkillMD(destPath) {
+				meta, err := skill.ParseSkillMD(destPath)
+				if err == nil && meta != nil {
+					if meta.Description != "" {
+						skillInfo.Description = meta.Description
+					}
+				}
+			}
+
 			cfg.AddSkillInfo(skillInfo)
 			err = cfg.Save()
 			if err != nil {

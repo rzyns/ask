@@ -33,50 +33,56 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 			cfg = &def
 		}
 
-		var allRepos []github.Repository
-
-		for _, source := range cfg.Sources {
-			fmt.Printf("Scanning source: %s (%s)...\n", source.Name, source.Type)
-
-			var repos []github.Repository
-			var err error
-
-			if source.Type == "topic" {
-				repos, err = github.SearchTopic(source.URL, keyword)
-			} else if source.Type == "dir" {
-				parts := strings.Split(source.URL, "/")
-				if len(parts) >= 3 {
-					owner := parts[0]
-					repo := parts[1]
-					path := strings.Join(parts[2:], "/")
-					repos, err = github.SearchDir(owner, repo, path)
-
-					// Filter client-side by keyword
-					if err == nil && keyword != "" {
-						var filtered []github.Repository
-						for _, r := range repos {
-							if strings.Contains(strings.ToLower(r.Name), strings.ToLower(keyword)) {
-								filtered = append(filtered, r)
-							}
-						}
-						repos = filtered
-					}
-				} else {
-					fmt.Printf("Invalid source URL: %s\n", source.URL)
-				}
-			}
-
-			if err != nil {
-				fmt.Printf("Error searching source %s: %v\n", source.Name, err)
-				continue
-			}
-
-			allRepos = append(allRepos, repos...)
+		// Search sources in parallel
+		type searchResult struct {
+			source string
+			repos  []github.Repository
+			err    error
 		}
 
-		if len(allRepos) == 0 {
-			fmt.Println("No skills found.")
-			return
+		results := make(chan searchResult, len(cfg.Sources))
+
+		for _, source := range cfg.Sources {
+			go func(s config.Source) {
+				var repos []github.Repository
+				var err error
+
+				if s.Type == "topic" {
+					repos, err = github.SearchTopic(s.URL, keyword)
+				} else if s.Type == "dir" {
+					parts := strings.Split(s.URL, "/")
+					if len(parts) >= 3 {
+						owner := parts[0]
+						repo := parts[1]
+						path := strings.Join(parts[2:], "/")
+						repos, err = github.SearchDir(owner, repo, path)
+
+						// Filter client-side by keyword
+						if err == nil && keyword != "" {
+							var filtered []github.Repository
+							for _, r := range repos {
+								if strings.Contains(strings.ToLower(r.Name), strings.ToLower(keyword)) {
+									filtered = append(filtered, r)
+								}
+							}
+							repos = filtered
+						}
+					}
+				}
+
+				results <- searchResult{source: s.Name, repos: repos, err: err}
+			}(source)
+		}
+
+		var allRepos []github.Repository
+		for i := 0; i < len(cfg.Sources); i++ {
+			result := <-results
+			fmt.Printf("Scanning source: %s...\n", result.source)
+			if result.err != nil {
+				fmt.Printf("  Error: %v\n", result.err)
+				continue
+			}
+			allRepos = append(allRepos, result.repos...)
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)

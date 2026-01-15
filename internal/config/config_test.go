@@ -13,8 +13,8 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	if len(config.Sources) != 2 {
-		t.Errorf("Expected 2 default sources, got %d", len(config.Sources))
+	if len(config.Sources) != 3 {
+		t.Errorf("Expected 3 default sources, got %d", len(config.Sources))
 	}
 }
 

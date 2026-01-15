@@ -1,7 +1,7 @@
 # ASK: Agent Skills Kit
 
 <p align="center">
-  <img src="https://via.placeholder.com/150/000000/FFFFFF/?text=ASK" alt="ASK Logo" width="150"/>
+  <img src="assets/logo.png" alt="ASK Logo" width="150"/>
 </p>
 
 <p align="center">
@@ -13,6 +13,10 @@
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README_zh.md">中文</a>
 </p>
 
 ---

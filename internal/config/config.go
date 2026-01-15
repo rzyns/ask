@@ -44,6 +44,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "anthropics/skills/skills",
 			},
+			{
+				Name: "mcp-servers",
+				Type: "dir",
+				URL:  "modelcontextprotocol/servers/src",
+			},
 		},
 	}
 }
@@ -60,9 +65,16 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// Populate default sources if missing
-	if len(config.Sources) == 0 {
-		config.Sources = DefaultConfig().Sources
+	// Merge default sources with existing (add missing defaults)
+	defaultSources := DefaultConfig().Sources
+	existingNames := make(map[string]bool)
+	for _, s := range config.Sources {
+		existingNames[s.Name] = true
+	}
+	for _, ds := range defaultSources {
+		if !existingNames[ds.Name] {
+			config.Sources = append(config.Sources, ds)
+		}
 	}
 
 	return &config, nil

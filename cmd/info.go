@@ -1,0 +1,83 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/skill"
+)
+
+// infoCmd represents the info command
+var infoCmd = &cobra.Command{
+	Use:   "info [skill-name]",
+	Short: "Show detailed information about a skill",
+	Long: `Display detailed metadata about an installed skill.
+Reads from the SKILL.md file if available.`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		skillName := args[0]
+		skillPath := filepath.Join("skills", skillName)
+
+		// Check if skill exists
+		if _, err := os.Stat(skillPath); os.IsNotExist(err) {
+			fmt.Printf("Skill '%s' is not installed.\n", skillName)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Skill: %s\n", skillName)
+		fmt.Printf("Path:  %s\n", skillPath)
+		fmt.Println()
+
+		// Try to parse SKILL.md
+		if skill.FindSkillMD(skillPath) {
+			meta, err := skill.ParseSkillMD(skillPath)
+			if err != nil {
+				fmt.Printf("Warning: Could not parse SKILL.md: %v\n", err)
+			} else {
+				if meta.Name != "" {
+					fmt.Printf("  Name:        %s\n", meta.Name)
+				}
+				if meta.Description != "" {
+					fmt.Printf("  Description: %s\n", meta.Description)
+				}
+				if meta.Version != "" {
+					fmt.Printf("  Version:     %s\n", meta.Version)
+				}
+				if meta.Author != "" {
+					fmt.Printf("  Author:      %s\n", meta.Author)
+				}
+				if len(meta.Dependencies) > 0 {
+					fmt.Printf("  Dependencies:\n")
+					for _, dep := range meta.Dependencies {
+						fmt.Printf("    - %s\n", dep)
+					}
+				}
+				if len(meta.Tags) > 0 {
+					fmt.Printf("  Tags: %v\n", meta.Tags)
+				}
+			}
+		} else {
+			fmt.Println("  No SKILL.md found.")
+		}
+
+		// List files in skill directory
+		fmt.Println()
+		fmt.Println("Files:")
+		entries, err := os.ReadDir(skillPath)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					fmt.Printf("  📁 %s/\n", entry.Name())
+				} else {
+					fmt.Printf("  📄 %s\n", entry.Name())
+				}
+			}
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(infoCmd)
+}
