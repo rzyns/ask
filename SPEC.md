@@ -20,16 +20,16 @@ ASK 是一个用于管理 AI Agent 技能的命令行工具，类似于 Homebrew
 | `ask init` | 初始化项目，创建 `ask.yaml` | ✅ |
 | `ask search <keyword>` | 搜索技能（并行多源） | ✅ |
 | `ask install <skill>` | 安装技能 | ✅ |
+| `ask install skill@v1.0` | 版本锁定安装 | ✅ |
 | `ask uninstall <skill>` | 卸载技能 | ✅ |
 | `ask list` | 列出已安装技能 | ✅ |
 | `ask info <skill>` | 显示技能详情 | ✅ |
+| `ask update [skill]` | 更新技能到最新版本 | ✅ |
 
 ### 待实现功能 ⏳
 
 | 命令 | 功能 | 优先级 |
 |------|------|--------|
-| `ask update [skill]` | 更新技能到最新版本 | P1 |
-| `ask install skill@v1.0` | 版本锁定安装 | P1 |
 | `ask create <name>` | 创建技能模板 | P2 |
 
 ---
@@ -57,6 +57,14 @@ sources:
     type: dir
     url: modelcontextprotocol/servers/src
 ```
+
+### 可添加的来源（待验证）
+
+| 来源 | URL | 说明 |
+|------|-----|------|
+| OpenAI Skills | `openai/skills/skills` | OpenAI Codex 官方技能 |
+| GitHub Copilot | `github/awesome-copilot/skills` | GitHub Copilot 技能 |
+| SkillsMP | skillsmp.com | 技能市场（需API） |
 
 ---
 
@@ -184,8 +192,8 @@ ask/
 ## 待办事项
 
 ### 高优先级 (P1)
-- [ ] `ask update` 命令
-- [ ] 版本锁定 (`skill@v1.0`)
+- [x] `ask update` 命令
+- [x] 版本锁定 (`skill@v1.0`)
 - [ ] Homebrew tap 仓库创建
 
 ### 中优先级 (P2)

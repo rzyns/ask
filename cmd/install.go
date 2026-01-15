@@ -17,10 +17,18 @@ var installCmd = &cobra.Command{
 	Use:   "install [url]",
 	Short: "Install a skill from a git repository",
 	Long: `Download and install a skill into the ./skills directory. 
-You can provide a full git URL or a GitHub shorthand (owner/repo).`,
+You can provide a full git URL or a GitHub shorthand (owner/repo).
+You can also specify a version: owner/repo@v1.0.0`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		input := args[0]
+
+		// Parse version if specified (skill@version)
+		var version string
+		if idx := strings.LastIndex(input, "@"); idx != -1 && !strings.HasPrefix(input, "git@") {
+			version = input[idx+1:]
+			input = input[:idx]
+		}
 
 		// Check if it's a direct URL or shorthand
 		isURL := strings.HasPrefix(input, "http") || strings.HasPrefix(input, "git@")
@@ -68,6 +76,14 @@ You can provide a full git URL or a GitHub shorthand (owner/repo).`,
 		if err != nil {
 			fmt.Printf("Failed to install skill: %v\n", err)
 			os.Exit(1)
+		}
+
+		// Checkout specific version if specified
+		if version != "" && subDir == "" {
+			fmt.Printf("Checking out version %s...\n", version)
+			if err := git.Checkout(destPath, version); err != nil {
+				fmt.Printf("Warning: Failed to checkout version %s: %v\n", version, err)
+			}
 		}
 
 		// Update config
