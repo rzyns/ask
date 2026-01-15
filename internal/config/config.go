@@ -6,8 +6,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Source represents a skill source
-type Source struct {
+// Repo represents a skill repository
+type Repo struct {
 	Name string `yaml:"name"`
 	Type string `yaml:"type"` // "topic" or "dir"
 	URL  string `yaml:"url"`  // GitHub topic or "owner/repo/path"
@@ -23,9 +23,20 @@ type SkillInfo struct {
 // Config represents the structure of ask.yaml
 type Config struct {
 	Version    string      `yaml:"version"`
+	SkillsDir  string      `yaml:"skills_dir,omitempty"`  // Skills installation directory (default: .agent/skills)
 	Skills     []string    `yaml:"skills,omitempty"`      // Legacy: simple list of skill names
 	SkillsInfo []SkillInfo `yaml:"skills_info,omitempty"` // New: skills with metadata
-	Sources    []Source    `yaml:"sources,omitempty"`
+	Repos      []Repo      `yaml:"repos,omitempty"`
+}
+
+const DefaultSkillsDir = ".agent/skills"
+
+// GetSkillsDir returns the skills directory, using default if not set
+func (c *Config) GetSkillsDir() string {
+	if c.SkillsDir == "" {
+		return DefaultSkillsDir
+	}
+	return c.SkillsDir
 }
 
 // DefaultConfig returns the default configuration
@@ -33,7 +44,7 @@ func DefaultConfig() Config {
 	return Config{
 		Version: "1.0",
 		Skills:  []string{},
-		Sources: []Source{
+		Repos: []Repo{
 			{
 				Name: "community",
 				Type: "topic",
@@ -48,6 +59,21 @@ func DefaultConfig() Config {
 				Name: "mcp-servers",
 				Type: "dir",
 				URL:  "modelcontextprotocol/servers/src",
+			},
+			{
+				Name: "scientific",
+				Type: "dir",
+				URL:  "K-Dense-AI/claude-scientific-skills/skills",
+			},
+			{
+				Name: "superpowers",
+				Type: "dir",
+				URL:  "obra/superpowers/skills",
+			},
+			{
+				Name: "openai",
+				Type: "dir",
+				URL:  "openai/skills/skills",
 			},
 		},
 	}
@@ -65,15 +91,15 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// Merge default sources with existing (add missing defaults)
-	defaultSources := DefaultConfig().Sources
+	// Merge default repos with existing (add missing defaults)
+	defaultRepos := DefaultConfig().Repos
 	existingNames := make(map[string]bool)
-	for _, s := range config.Sources {
-		existingNames[s.Name] = true
+	for _, r := range config.Repos {
+		existingNames[r.Name] = true
 	}
-	for _, ds := range defaultSources {
-		if !existingNames[ds.Name] {
-			config.Sources = append(config.Sources, ds)
+	for _, dr := range defaultRepos {
+		if !existingNames[dr.Name] {
+			config.Repos = append(config.Repos, dr)
 		}
 	}
 
@@ -94,6 +120,16 @@ func (c *Config) RemoveSkill(skillName string) {
 	for i, s := range c.Skills {
 		if s == skillName {
 			c.Skills = append(c.Skills[:i], c.Skills[i+1:]...)
+			return
+		}
+	}
+}
+
+// RemoveSkillInfo removes skill metadata from the configuration
+func (c *Config) RemoveSkillInfo(skillName string) {
+	for i, s := range c.SkillsInfo {
+		if s.Name == skillName {
+			c.SkillsInfo = append(c.SkillsInfo[:i], c.SkillsInfo[i+1:]...)
 			return
 		}
 	}

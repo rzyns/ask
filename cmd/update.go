@@ -55,7 +55,7 @@ If no skill name is provided, updates all installed skills.`,
 		}
 
 		for _, skillName := range skillsToUpdate {
-			skillPath := filepath.Join("skills", skillName)
+			skillPath := filepath.Join(config.DefaultSkillsDir, skillName)
 
 			// Check if it's a git repository
 			gitDir := filepath.Join(skillPath, ".git")
@@ -83,5 +83,5 @@ If no skill name is provided, updates all installed skills.`,
 }
 
 func init() {
-	rootCmd.AddCommand(updateCmd)
+	skillCmd.AddCommand(updateCmd)
 }

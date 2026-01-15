@@ -13,8 +13,8 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	if len(config.Sources) != 3 {
-		t.Errorf("Expected 3 default sources, got %d", len(config.Sources))
+	if len(config.Repos) != 3 {
+		t.Errorf("Expected 3 default repos, got %d", len(config.Repos))
 	}
 }
 
@@ -81,5 +81,28 @@ func TestRemoveSkill(t *testing.T) {
 	config.RemoveSkill("non-existent")
 	if len(config.Skills) != 1 {
 		t.Errorf("Removing non-existent skill should not change list size")
+	}
+}
+
+func TestRemoveSkillInfo(t *testing.T) {
+	config := DefaultConfig()
+	config.AddSkillInfo(SkillInfo{Name: "skill-a", Description: "Skill A"})
+	config.AddSkillInfo(SkillInfo{Name: "skill-b", Description: "Skill B"})
+
+	if len(config.SkillsInfo) != 2 {
+		t.Errorf("Expected 2 skill infos, got %d", len(config.SkillsInfo))
+	}
+
+	config.RemoveSkillInfo("skill-a")
+	if len(config.SkillsInfo) != 1 {
+		t.Errorf("Expected 1 skill info after removal, got %d", len(config.SkillsInfo))
+	}
+	if config.SkillsInfo[0].Name != "skill-b" {
+		t.Errorf("Expected skill-b to remain, got %s", config.SkillsInfo[0].Name)
+	}
+
+	config.RemoveSkillInfo("non-existent")
+	if len(config.SkillsInfo) != 1 {
+		t.Errorf("Removing non-existent skill info should not change list size")
 	}
 }

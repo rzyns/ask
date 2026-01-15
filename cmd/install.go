@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
@@ -16,7 +17,7 @@ import (
 var installCmd = &cobra.Command{
 	Use:   "install [url]",
 	Short: "Install a skill from a git repository",
-	Long: `Download and install a skill into the ./skills directory. 
+	Long: `Download and install a skill into the .agent/skills directory. 
 You can provide a full git URL or a GitHub shorthand (owner/repo).
 You can also specify a version: owner/repo@v1.0.0`,
 	Args: cobra.ExactArgs(1),
@@ -57,7 +58,8 @@ You can also specify a version: owner/repo@v1.0.0`,
 			skillName = parts[len(parts)-1]
 		}
 
-		destPath := filepath.Join("skills", skillName)
+		// Get skills directory (use default, will be replaced with config value after loading)
+		destPath := filepath.Join(config.DefaultSkillsDir, skillName)
 
 		fmt.Printf("Installing %s...\n", skillName)
 
@@ -86,33 +88,54 @@ You can also specify a version: owner/repo@v1.0.0`,
 			}
 		}
 
+		// Get current commit for lock file
+		var commitHash string
+		if subDir == "" {
+			commitHash, _ = git.GetCurrentCommit(destPath)
+		}
+
 		// Update config
 		cfg, err := config.LoadConfig()
 		if err == nil {
-			// Create skill info with metadata
+			// Create skill info with metadata - prioritize SKILL.md description
 			skillInfo := config.SkillInfo{
-				Name:        skillName,
-				Description: "Skill installed from " + input,
-				URL:         repoURL,
+				Name: skillName,
+				URL:  repoURL,
 			}
 			if subDir != "" {
 				skillInfo.URL = fmt.Sprintf("https://github.com/%s", input)
 			}
 
-			// Try to parse SKILL.md for better metadata
+			// Try to parse SKILL.md for description (prioritized)
 			if skill.FindSkillMD(destPath) {
 				meta, err := skill.ParseSkillMD(destPath)
-				if err == nil && meta != nil {
-					if meta.Description != "" {
-						skillInfo.Description = meta.Description
-					}
+				if err == nil && meta != nil && meta.Description != "" {
+					skillInfo.Description = meta.Description
 				}
+			}
+			// Fallback description if SKILL.md doesn't provide one
+			if skillInfo.Description == "" {
+				skillInfo.Description = "Skill installed from " + input
 			}
 
 			cfg.AddSkillInfo(skillInfo)
 			err = cfg.Save()
 			if err != nil {
 				fmt.Printf("Warning: Failed to update ask.yaml: %v\n", err)
+			}
+
+			// Update lock file
+			lockFile, _ := config.LoadLockFile()
+			lockEntry := config.LockEntry{
+				Name:        skillName,
+				URL:         skillInfo.URL,
+				Commit:      commitHash,
+				Version:     version,
+				InstalledAt: time.Now(),
+			}
+			lockFile.AddEntry(lockEntry)
+			if err := lockFile.Save(); err != nil {
+				fmt.Printf("Warning: Failed to update ask.lock: %v\n", err)
 			}
 		} else {
 			// If config doesn't exist, we might be in a non-init project
@@ -124,5 +147,5 @@ You can also specify a version: owner/repo@v1.0.0`,
 }
 
 func init() {
-	rootCmd.AddCommand(installCmd)
+	skillCmd.AddCommand(installCmd)
 }

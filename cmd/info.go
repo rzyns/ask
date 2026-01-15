@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/skill"
 )
 
@@ -18,7 +19,7 @@ Reads from the SKILL.md file if available.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		skillName := args[0]
-		skillPath := filepath.Join("skills", skillName)
+		skillPath := filepath.Join(config.DefaultSkillsDir, skillName)
 
 		// Check if skill exists
 		if _, err := os.Stat(skillPath); os.IsNotExist(err) {
@@ -79,5 +80,5 @@ Reads from the SKILL.md file if available.`,
 }
 
 func init() {
-	rootCmd.AddCommand(infoCmd)
+	skillCmd.AddCommand(infoCmd)
 }

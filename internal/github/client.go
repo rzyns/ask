@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/yeasy/ask/internal/cache"
 )
 
 const (
@@ -13,6 +15,19 @@ const (
 	SkillTopic = "agent-skill"
 	APIURL     = "https://api.github.com/search/repositories"
 )
+
+// Global cache instance
+var searchCache *cache.Cache
+
+func init() {
+	// Initialize cache with default settings
+	var err error
+	searchCache, err = cache.New("", cache.DefaultTTL)
+	if err != nil {
+		// Cache is optional, continue without it
+		searchCache = nil
+	}
+}
 
 type SearchResult struct {
 	TotalCount int          `json:"total_count"`
@@ -27,6 +42,7 @@ type Repository struct {
 	StargazersCount int       `json:"stargazers_count"`
 	CloneURL        string    `json:"clone_url"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	Source          string    `json:"-"` // Source name (e.g., "community", "anthropics")
 	Owner           struct {
 		Login string `json:"login"`
 	} `json:"owner"`
@@ -34,6 +50,16 @@ type Repository struct {
 
 // SearchTopic searches GitHub for repositories with a specific topic and keyword
 func SearchTopic(topic, keyword string) ([]Repository, error) {
+	cacheKey := fmt.Sprintf("topic:%s:%s", topic, keyword)
+
+	// Try cache first
+	if searchCache != nil {
+		var cached []Repository
+		if searchCache.Get(cacheKey, &cached) {
+			return cached, nil
+		}
+	}
+
 	// Construct query: topic:<topic> <keyword>
 	q := fmt.Sprintf("topic:%s %s", topic, keyword)
 
@@ -66,6 +92,11 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 		return nil, err
 	}
 
+	// Cache the result
+	if searchCache != nil {
+		searchCache.Set(cacheKey, result.Items)
+	}
+
 	return result.Items, nil
 }
 
@@ -78,6 +109,16 @@ type Content struct {
 
 // SearchDir searches a specific directory in a GitHub repository for subdirectories (skills)
 func SearchDir(owner, repo, path string) ([]Repository, error) {
+	cacheKey := fmt.Sprintf("dir:%s/%s/%s", owner, repo, path)
+
+	// Try cache first
+	if searchCache != nil {
+		var cached []Repository
+		if searchCache.Get(cacheKey, &cached) {
+			return cached, nil
+		}
+	}
+
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
 
 	req, err := http.NewRequest("GET", apiURL, nil)
@@ -122,6 +163,11 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 				CloneURL:        repoDetails.CloneURL,
 			})
 		}
+	}
+
+	// Cache the result
+	if searchCache != nil {
+		searchCache.Set(cacheKey, skills)
 	}
 
 	return skills, nil

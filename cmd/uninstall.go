@@ -13,7 +13,7 @@ import (
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall [skill-name]",
 	Short: "Uninstall a skill",
-	Long: `Remove a skill from the ./skills directory and update ask.yaml.
+	Long: `Remove a skill from the .agent/skills directory and update ask.yaml.
 Example: ask uninstall browser-use`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -29,9 +29,10 @@ Example: ask uninstall browser-use`,
 		targetName := filepath.Base(skillName)
 
 		cfg.RemoveSkill(targetName)
+		cfg.RemoveSkillInfo(targetName)
 
 		// 2. Remove directory
-		skillPath := filepath.Join("skills", targetName)
+		skillPath := filepath.Join(config.DefaultSkillsDir, targetName)
 		if _, err := os.Stat(skillPath); !os.IsNotExist(err) {
 			fmt.Printf("Removing %s...\n", skillPath)
 			err := os.RemoveAll(skillPath)
@@ -49,10 +50,17 @@ Example: ask uninstall browser-use`,
 			os.Exit(1)
 		}
 
+		// 3. Remove from lock file
+		lockFile, _ := config.LoadLockFile()
+		lockFile.RemoveEntry(targetName)
+		if err := lockFile.Save(); err != nil {
+			fmt.Printf("Warning: Failed to update ask.lock: %v\n", err)
+		}
+
 		fmt.Printf("Successfully uninstalled %s\n", targetName)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(uninstallCmd)
+	skillCmd.AddCommand(uninstallCmd)
 }

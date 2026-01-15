@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // searchCmd represents the search command
@@ -33,6 +34,18 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 			cfg = &def
 		}
 
+		// Build a set of installed skills for marking
+		installedSkills := make(map[string]bool)
+		for _, s := range cfg.Skills {
+			installedSkills[s] = true
+		}
+		for _, s := range cfg.SkillsInfo {
+			installedSkills[s.Name] = true
+		}
+
+		// Create progress bar for scanning sources
+		bar := ui.NewProgressBar(len(cfg.Repos), "Scanning sources")
+
 		// Search sources in parallel
 		type searchResult struct {
 			source string
@@ -40,29 +53,29 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 			err    error
 		}
 
-		results := make(chan searchResult, len(cfg.Sources))
+		results := make(chan searchResult, len(cfg.Repos))
 
-		for _, source := range cfg.Sources {
-			go func(s config.Source) {
+		for _, repo := range cfg.Repos {
+			go func(r config.Repo) {
 				var repos []github.Repository
 				var err error
 
-				if s.Type == "topic" {
-					repos, err = github.SearchTopic(s.URL, keyword)
-				} else if s.Type == "dir" {
-					parts := strings.Split(s.URL, "/")
+				if r.Type == "topic" {
+					repos, err = github.SearchTopic(r.URL, keyword)
+				} else if r.Type == "dir" {
+					parts := strings.Split(r.URL, "/")
 					if len(parts) >= 3 {
 						owner := parts[0]
-						repo := parts[1]
+						repoName := parts[1]
 						path := strings.Join(parts[2:], "/")
-						repos, err = github.SearchDir(owner, repo, path)
+						repos, err = github.SearchDir(owner, repoName, path)
 
 						// Filter client-side by keyword
 						if err == nil && keyword != "" {
 							var filtered []github.Repository
-							for _, r := range repos {
-								if strings.Contains(strings.ToLower(r.Name), strings.ToLower(keyword)) {
-									filtered = append(filtered, r)
+							for _, rp := range repos {
+								if strings.Contains(strings.ToLower(rp.Name), strings.ToLower(keyword)) {
+									filtered = append(filtered, rp)
 								}
 							}
 							repos = filtered
@@ -70,35 +83,65 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 					}
 				}
 
-				results <- searchResult{source: s.Name, repos: repos, err: err}
-			}(source)
+				// Set source name for each repo
+				for i := range repos {
+					repos[i].Source = r.Name
+				}
+
+				results <- searchResult{source: r.Name, repos: repos, err: err}
+			}(repo)
 		}
 
 		var allRepos []github.Repository
-		for i := 0; i < len(cfg.Sources); i++ {
+		var errors []string
+		for i := 0; i < len(cfg.Repos); i++ {
 			result := <-results
-			fmt.Printf("Scanning source: %s...\n", result.source)
+			bar.Add(1)
 			if result.err != nil {
-				fmt.Printf("  Error: %v\n", result.err)
+				errors = append(errors, fmt.Sprintf("%s: %v", result.source, result.err))
 				continue
 			}
 			allRepos = append(allRepos, result.repos...)
 		}
 
+		fmt.Println()
+		if len(errors) > 0 {
+			fmt.Println("Warning: Some sources failed to load:")
+			for _, err := range errors {
+				fmt.Printf("  - %s\n", err)
+			}
+			fmt.Println()
+		}
+
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tDESCRIPTION\tSTARS\tURL")
+		fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
 		for _, repo := range allRepos {
 			// Truncate description if too long
 			desc := repo.Description
-			if len(desc) > 50 {
-				desc = desc[:47] + "..."
+			if len(desc) > 40 {
+				desc = desc[:37] + "..."
 			}
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", repo.FullName, desc, repo.StargazersCount, repo.HTMLURL)
+
+			// Check if installed
+			installed := ""
+			if installedSkills[repo.Name] {
+				installed = "✓"
+			}
+
+			// Format stars (use "-" for dir-based where stars are parent repo)
+			stars := fmt.Sprintf("%d", repo.StargazersCount)
+			if repo.StargazersCount == 0 {
+				stars = "-"
+			}
+
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)
 		}
 		w.Flush()
+
+		fmt.Printf("\nFound %d skills.\n", len(allRepos))
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(searchCmd)
+	skillCmd.AddCommand(searchCmd)
 }

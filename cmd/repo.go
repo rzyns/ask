@@ -11,48 +11,48 @@ import (
 	"github.com/yeasy/ask/internal/config"
 )
 
-// sourceCmd represents the source command
-var sourceCmd = &cobra.Command{
-	Use:   "source",
-	Short: "Manage skill sources",
+// repoCmd represents the repo command
+var repoCmd = &cobra.Command{
+	Use:   "repo",
+	Short: "Manage skill repositories",
 	Long:  `Add, remove, or list skill repository sources.`,
 }
 
-// sourceAddCmd represents the source add command
-var sourceAddCmd = &cobra.Command{
-	Use:   "add [username/repo] [path]",
-	Short: "Add a skill repository source",
+// repoAddCmd represents the repo add command
+var repoAddCmd = &cobra.Command{
+	Use:   "add <owner/repo|URL>",
+	Short: "Add a skill repository",
 	Long: `Add a GitHub repository as a skill source.
-Format: username/repo [optional-path]
+Format: owner/repo or full URL
 
 Examples:
-  ask source add anthropics/skills skills
-  ask source add my-org/my-skills
-  ask source add browser-use/browser-use`,
-	Args: cobra.RangeArgs(1, 2),
+  ask repo add anthropics/skills
+  ask repo add my-org/my-skills
+  ask repo add browser-use/browser-use`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		input := args[0]
 
 		// Parse username/repo format
 		parts := strings.Split(input, "/")
-		if len(parts) != 2 {
-			fmt.Println("Error: Invalid format. Use: username/repo")
+		if len(parts) < 2 {
+			fmt.Println("Error: Invalid format. Use: owner/repo")
 			os.Exit(1)
 		}
 
 		owner := parts[0]
 		repo := parts[1]
 
-		// Optional path within repo
+		// Optional path within repo (if more than 2 parts)
 		path := ""
-		if len(args) > 1 {
-			path = args[1]
+		if len(parts) > 2 {
+			path = strings.Join(parts[2:], "/")
 		}
 
 		fmt.Printf("Validating repository %s/%s...\n", owner, repo)
 
 		// Validate repository exists and is a valid skills repo
-		valid, sourceType, detectedPath := validateSkillsRepo(owner, repo, path)
+		valid, repoType, detectedPath := validateSkillsRepo(owner, repo, path)
 		if !valid {
 			fmt.Println("Error: Repository does not appear to be a valid skills repository.")
 			fmt.Println("A valid skills repo should contain:")
@@ -73,43 +73,43 @@ Examples:
 			}
 		}
 
-		// Create source entry
-		sourceName := repo
-		sourceURL := fmt.Sprintf("%s/%s", owner, repo)
+		// Create repo entry
+		repoName := repo
+		repoURL := fmt.Sprintf("%s/%s", owner, repo)
 		if detectedPath != "" {
-			sourceURL = fmt.Sprintf("%s/%s/%s", owner, repo, detectedPath)
+			repoURL = fmt.Sprintf("%s/%s/%s", owner, repo, detectedPath)
 		}
 
-		// Check if source already exists
-		for _, s := range cfg.Sources {
-			if s.URL == sourceURL || s.Name == sourceName {
-				fmt.Printf("Source '%s' already exists.\n", sourceName)
+		// Check if repo already exists
+		for _, r := range cfg.Repos {
+			if r.URL == repoURL || r.Name == repoName {
+				fmt.Printf("Repo '%s' already exists.\n", repoName)
 				return
 			}
 		}
 
-		// Add source
-		newSource := config.Source{
-			Name: sourceName,
-			Type: sourceType,
-			URL:  sourceURL,
+		// Add repo
+		newRepo := config.Repo{
+			Name: repoName,
+			Type: repoType,
+			URL:  repoURL,
 		}
-		cfg.Sources = append(cfg.Sources, newSource)
+		cfg.Repos = append(cfg.Repos, newRepo)
 
 		if err := cfg.Save(); err != nil {
 			fmt.Printf("Error saving config: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("✓ Added source '%s' (type: %s)\n", sourceName, sourceType)
-		fmt.Printf("  URL: %s\n", sourceURL)
+		fmt.Printf("✓ Added repo '%s' (type: %s)\n", repoName, repoType)
+		fmt.Printf("  URL: %s\n", repoURL)
 	},
 }
 
-// sourceListCmd represents the source list command
-var sourceListCmd = &cobra.Command{
+// repoListCmd represents the repo list command
+var repoListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all configured skill sources",
+	Short: "List all configured skill repositories",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.LoadConfig()
 		if err != nil {
@@ -122,22 +122,22 @@ var sourceListCmd = &cobra.Command{
 			}
 		}
 
-		if len(cfg.Sources) == 0 {
-			fmt.Println("No sources configured.")
+		if len(cfg.Repos) == 0 {
+			fmt.Println("No repos configured.")
 			return
 		}
 
-		fmt.Println("Configured Sources:")
-		for _, s := range cfg.Sources {
-			fmt.Printf("  %s (%s): %s\n", s.Name, s.Type, s.URL)
+		fmt.Println("Configured Repos:")
+		for _, r := range cfg.Repos {
+			fmt.Printf("  %s (%s): %s\n", r.Name, r.Type, r.URL)
 		}
 	},
 }
 
-// sourceRemoveCmd represents the source remove command
-var sourceRemoveCmd = &cobra.Command{
+// repoRemoveCmd represents the repo remove command
+var repoRemoveCmd = &cobra.Command{
 	Use:   "remove [name]",
-	Short: "Remove a skill source",
+	Short: "Remove a skill repository",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
@@ -149,27 +149,27 @@ var sourceRemoveCmd = &cobra.Command{
 		}
 
 		found := false
-		newSources := []config.Source{}
-		for _, s := range cfg.Sources {
-			if s.Name == name {
+		newRepos := []config.Repo{}
+		for _, r := range cfg.Repos {
+			if r.Name == name {
 				found = true
 				continue
 			}
-			newSources = append(newSources, s)
+			newRepos = append(newRepos, r)
 		}
 
 		if !found {
-			fmt.Printf("Source '%s' not found.\n", name)
+			fmt.Printf("Repo '%s' not found.\n", name)
 			os.Exit(1)
 		}
 
-		cfg.Sources = newSources
+		cfg.Repos = newRepos
 		if err := cfg.Save(); err != nil {
 			fmt.Printf("Error saving config: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Removed source '%s'\n", name)
+		fmt.Printf("Removed repo '%s'\n", name)
 	},
 }
 
@@ -237,8 +237,8 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 }
 
 func init() {
-	rootCmd.AddCommand(sourceCmd)
-	sourceCmd.AddCommand(sourceAddCmd)
-	sourceCmd.AddCommand(sourceListCmd)
-	sourceCmd.AddCommand(sourceRemoveCmd)
+	rootCmd.AddCommand(repoCmd)
+	repoCmd.AddCommand(repoAddCmd)
+	repoCmd.AddCommand(repoListCmd)
+	repoCmd.AddCommand(repoRemoveCmd)
 }

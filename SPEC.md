@@ -18,22 +18,24 @@ ASK 是一个用于管理 AI Agent 技能的命令行工具，类似于 Homebrew
 | 命令 | 功能 | 状态 |
 |------|------|------|
 | `ask init` | 初始化项目，创建 `ask.yaml` | ✅ |
-| `ask search <keyword>` | 搜索技能（并行多源） | ✅ |
-| `ask install <skill>` | 安装技能 | ✅ |
-| `ask install skill@v1.0` | 版本锁定安装 | ✅ |
-| `ask uninstall <skill>` | 卸载技能 | ✅ |
-| `ask list` | 列出已安装技能 | ✅ |
-| `ask info <skill>` | 显示技能详情 | ✅ |
-| `ask update [skill]` | 更新技能到最新版本 | ✅ |
-| `ask source add <repo>` | 添加技能仓库来源 | ✅ |
-| `ask source list` | 列出所有来源 | ✅ |
-| `ask source remove <name>` | 移除来源 | ✅ |
+| **技能管理 (ask skill)** | | |
+| `ask skill search <keyword>` | 搜索技能（显示来源、标记已安装） | ✅ |
+| `ask skill install <skill>` | 安装技能（记录到 ask.lock） | ✅ |
+| `ask skill install skill@v1.0` | 版本锁定安装 | ✅ |
+| `ask skill uninstall <skill>` | 卸载技能 | ✅ |
+| `ask skill list` | 列出已安装技能 | ✅ |
+| `ask skill info <skill>` | 显示技能详情 | ✅ |
+| `ask skill update [skill]` | 更新技能到最新版本 | ✅ |
+| `ask skill outdated` | 检查可更新的技能 | ✅ |
+| `ask skill create <name>` | 创建技能模板 | ✅ |
+| **仓库管理 (ask repo)** | | |
+| `ask repo add <NAME\|URL>` | 添加技能仓库来源 | ✅ |
+| `ask repo list` | 列出所有来源 | ✅ |
+| `ask repo remove <name>` | 移除来源 | ✅ |
 
 ### 待实现功能 ⏳
 
-| 命令 | 功能 | 优先级 |
-|------|------|--------|
-| `ask create <name>` | 创建技能模板 | P2 |
+暂无
 
 ---
 
@@ -49,16 +51,25 @@ ASK 是一个用于管理 AI Agent 技能的命令行工具，类似于 Homebrew
 ### 默认来源
 
 ```yaml
-sources:
+repos:
   - name: community
     type: topic
     url: agent-skill
   - name: anthropics
     type: dir
-    url: anthropics/skills/skills
+    url: https://github.com/anthropics/skills/tree/main/skills
   - name: mcp-servers
     type: dir
-    url: modelcontextprotocol/servers/src
+    url: https://github.com/modelcontextprotocol/servers/tree/main/src
+  - name: scientific
+    type: dir
+    url: https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/skills
+  - name: superpowers
+    type: dir
+    url: https://github.com/obra/superpowers/tree/main/skills
+  - name: openai
+    type: dir
+    url: https://github.com/openai/skills/tree/main/skills
 ```
 
 ### 可添加的来源（待验证）
@@ -107,10 +118,26 @@ skills_info:         # 技能元数据
   - name: browser-use
     description: Browser automation
     url: https://github.com/browser-use/browser-use
-sources:             # 可选：自定义来源
+repos:             # 可选：自定义来源
   - name: custom
     type: dir
     url: owner/repo/path
+```
+
+---
+
+## ask.lock 规范
+
+版本锁定文件，确保可复现安装：
+
+```yaml
+version: 1
+skills:
+  - name: browser-use
+    url: https://github.com/browser-use/browser-use
+    commit: abc123def456
+    version: v1.0.0
+    installed_at: 2026-01-15T08:00:00Z
 ```
 
 ---
@@ -124,13 +151,18 @@ ask/
 ├── cmd/                  # 命令实现
 │   ├── root.go
 │   ├── init.go
+│   ├── skill.go          # 技能父命令
 │   ├── search.go
 │   ├── install.go
 │   ├── uninstall.go
+│   ├── update.go
+│   ├── outdated.go
 │   ├── list.go
-│   └── info.go
+│   ├── info.go
+│   ├── create.go
+│   └── repo.go
 ├── internal/
-│   ├── config/           # 配置管理
+│   ├── config/           # 配置管理（含 lock.go）
 │   ├── github/           # GitHub API 客户端
 │   ├── git/              # Git 操作
 │   ├── skill/            # SKILL.md 解析
@@ -200,10 +232,10 @@ ask/
 - [ ] Homebrew tap 仓库创建
 
 ### 中优先级 (P2)
-- [ ] Git sparse checkout 优化
-- [ ] 搜索结果缓存
-- [ ] 进度条显示
-- [ ] `ask create` 命令
+- [x] Git sparse checkout 优化
+- [x] 搜索结果缓存
+- [x] 进度条显示
+- [x] `ask create` 命令
 
 ### 低优先级 (P3)
 - [ ] 插件系统
@@ -216,4 +248,5 @@ ask/
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-01-15 | 0.2.0 | CLI 重构：技能命令移至 `ask skill` 子命令；技能安装路径改为 `.agent/skills/`；新增 OpenAI 等默认仓库 |
 | 2026-01-15 | 0.1.0 | 初始版本，基本功能实现 |

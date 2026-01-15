@@ -9,129 +9,171 @@
 </p>
 
 <p align="center">
-  <a href="#功能特性">功能特性</a> •
-  <a href="#安装">安装</a> •
-  <a href="#使用方法">使用方法</a> •
-  <a href="#贡献">贡献</a>
+  <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
+  <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
+  <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
+  <a href="https://github.com/yeasy/ask/actions"><img src="https://img.shields.io/github/actions/workflow/status/yeasy/ask/release.yml?style=flat-square" alt="Build"></a>
+  <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+</p>
+
+<p align="center">
+  <a href="#-快速开始">快速开始</a> · 
+  <a href="#-命令列表">命令列表</a> · 
+  <a href="#-技能来源">技能来源</a> · 
+  <a href="docs/README.md">文档</a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README_zh.md">中文</a>
 </p>
 
 ---
 
-**ASK**（Agent Skills Kit，智能体技能工具包）是一个命令行工具，专门用于管理 AI 智能体的技能包。类似于 `brew` 管理 macOS 软件包或 `npm` 管理 Node.js 依赖，`ask` 帮助您发现、安装和管理智能体的能力扩展。
+**ASK**（Agent Skills Kit，智能体技能工具包）是 AI 智能体技能的包管理器。如同 `brew` 管理 macOS 软件包、`npm` 管理 Node.js 依赖一样，`ask` 帮助您发现、安装和管理智能体的能力扩展。
 
-## 功能特性
+## ✨ 核心特性
 
-- **📦 包管理**：轻松安装、卸载和列出技能。
-- **🔍 多源搜索**：从多个来源搜索技能（基于主题和目录）。
-- **🌐 多数据源**：内置支持 `agent-skill` 主题和 [Anthropics Skills](https://github.com/anthropics/skills)。
-- **⚡️ 快速原生**：使用 Go 构建，编译为单个静态二进制文件，无运行时依赖。
-- **🛠 项目本地化**：通过 `ask.yaml` 管理依赖，保持项目可复现性。
+### 📦 智能包管理
+使用直观的命令安装、卸载、更新和列出技能。通过 `ask.lock` 进行版本锁定，确保团队间环境的可复现性。
 
-## 安装
+### 🔍 多源搜索  
+同时从多个来源搜索技能 — 社区主题、官方仓库和科研领域。清楚显示已安装的技能。
 
-### macOS (Homebrew)
+### ⚡ 极速体验
+使用 Go 构建，编译为单个静态二进制文件，零运行时依赖。并行搜索所有来源。Git 稀疏检出实现最小化下载。
+
+### � 版本锁定
+使用 `skill@v1.0` 语法锁定特定版本。在 `ask.lock` 中跟踪精确提交，实现可复现安装。
+
+### 📊 进度追踪
+安装和更新过程中实时显示进度条。清晰反馈当前操作状态。
+
+---
+
+## 🚀 快速开始
+
+**① 安装 ASK**
+
 ```bash
+# macOS (Homebrew)
 brew tap yeasy/ask
 brew install ask
+
+# 或从源码构建
+git clone https://github.com/yeasy/ask.git && cd ask
+make build && mv ask /usr/local/bin/
 ```
 
-### 手动安装
-从 [Releases](https://github.com/yeasy/ask/releases) 页面下载最新版本，或从源码构建：
+**② 初始化项目**
 
 ```bash
-git clone https://github.com/yeasy/ask.git
-cd ask
-make build
-mv ask /usr/local/bin/
+ask init    # 在当前目录创建 ask.yaml
 ```
 
-## 使用方法
+**③ 搜索并安装技能**
 
-### 1. 初始化项目
-在您的智能体根目录中初始化 `ask`：
 ```bash
-ask init
-```
-这将创建一个 `ask.yaml` 文件来跟踪您的技能。
-
-### 2. 搜索技能
-查找符合需求的技能：
-```bash
-ask search browser
-# 返回如: browser-use, web-surfer 等技能
+ask skill search browser      # 从所有来源搜索
+ask skill install browser-use # 安装技能
+ask skill list                # 查看已安装技能
 ```
 
-### 3. 安装技能
-直接从 GitHub 安装技能：
-```bash
-ask install browser-use/browser-use
-```
-这将：
-- 将仓库克隆到 `./skills/browser-use`
-- 将依赖添加到 `ask.yaml`
+---
 
-### 4. 卸载技能
-移除不再需要的技能：
-```bash
-ask uninstall browser-use
-```
-这将：
-- 删除 `skills/browser-use` 目录
-- 从 `ask.yaml` 中移除依赖
+## 📋 命令列表
 
-### 5. 列出已安装技能
-查看您的智能体已装备的技能：
-```bash
-ask list
-```
+| 命令 | 说明 |
+|------|------|
+| `ask init` | 初始化项目，创建 `ask.yaml` |
+| **技能管理** | |
+| `ask skill search <关键词>` | 从所有来源搜索技能 |
+| `ask skill install <技能>` | 安装技能到 `./skills/` |
+| `ask skill install skill@v1.0` | 安装指定版本 |
+| `ask skill uninstall <技能>` | 移除技能 |
+| `ask skill list` | 列出已安装技能 |
+| `ask skill info <技能>` | 显示技能详情 |
+| `ask skill update [技能]` | 更新技能到最新版 |
+| `ask skill outdated` | 检查可更新技能 |
+| `ask skill create <名称>` | 创建新技能模板 |
+| **仓库管理** | |
+| `ask repo list` | 列出技能来源 |
+| `ask repo add <url>` | 添加自定义来源 |
+| `ask repo remove <名称>` | 移除来源 |
 
-## 目录结构
-使用 `ask` 后，您的项目结构如下：
+---
 
-```text
-my-agent/
-├── ask.yaml          # 清单文件
-├── main.py           # 您的智能体代码
-└── skills/           # 托管技能目录
-    ├── browser-use/
-    └── web-surfer/
-```
+## 🌐 技能来源
 
-## 技能来源
-默认情况下，`ask` 搜索以下来源：
+ASK 默认搜索以下来源：
 
-1. **Community**（`topic`）：带有 `agent-skill` 主题的 GitHub 仓库。
-2. **Anthropics**（`dir`）：来自 [anthropics/skills](https://github.com/anthropics/skills/tree/main/skills) 的技能。
+| 来源 | 类型 | 说明 |
+|------|------|------|
+| **Community** | topic | 带有 `agent-skill` 主题的 GitHub 仓库 |
+| **Anthropics** | dir | 官方 [anthropics/skills](https://github.com/anthropics/skills) |
+| **MCP-Servers** | dir | [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) |
+| **Scientific** | dir | [K-Dense-AI](https://github.com/K-Dense-AI/claude-scientific-skills) 科研技能 |
+| **Superpowers** | dir | [obra/superpowers](https://github.com/obra/superpowers) 核心技能 |
+| **OpenAI** | dir | [openai/skills](https://github.com/openai/skills) Codex 技能 |
 
-您可以在 `ask.yaml` 中自定义来源：
+### 添加自定义来源
 
 ```yaml
-version: "1.0"
-skills:
-  - browser-use
-sources:
-  - name: community
-    type: topic
-    url: agent-skill
-  - name: anthropics
+# ask.yaml
+repos:
+  - name: my-team
     type: dir
-    url: anthropics/skills/skills
+    url: my-org/agent-skills/skills
 ```
 
-## 开发
-本项目包含 `Makefile` 以简化常见开发任务：
+---
 
-- `make build`：编译二进制文件为 `ask`。
-- `make test`：运行单元测试。
-- `make clean`：删除二进制文件并运行 `go clean`。
-- `make run`：运行 `go run main.go`。
-- `make deps`：下载依赖（`go mod download`）。
-- `make fmt`：格式化代码（`go fmt ./...`）。
-- `make vet`：检查代码（`go vet ./...`）。
-- `make install`：将二进制文件安装到 `$GOPATH/bin`（`go install`）。
+## 📂 项目结构
 
-## 贡献
-我们欢迎贡献！请查看我们的 [贡献指南](CONTRIBUTING.md)。
+使用 ASK 后，您的项目结构如下：
 
-## 许可证
+```
+my-agent/
+├── ask.yaml          # 清单文件
+├── ask.lock          # 版本锁定文件
+├── main.py           # 您的智能体代码
+└── .agent/
+    └── skills/       # 托管技能目录
+        ├── browser-use/
+        └── web-surfer/
+```
+
+---
+
+## 🛠 开发
+
+```bash
+make build     # 构建二进制文件
+make test      # 运行测试
+make fmt       # 格式化代码
+make vet       # 检查代码
+make install   # 安装到 $GOPATH/bin
+```
+
+---
+
+## 📚 文档
+
+查看 [docs/](docs/README.md) 目录获取详细文档：
+
+- [安装指南](docs/installation.md)
+- [命令参考](docs/commands.md)
+- [技能来源](docs/skill-sources.md)
+- [SKILL.md 格式](docs/skill-format.md)
+- [配置说明](docs/configuration.md)
+
+---
+
+## 🤝 贡献
+
+我们欢迎贡献！请查看 [贡献指南](CONTRIBUTING.md)。
+
+---
+
+## 📄 许可证
+
 MIT
