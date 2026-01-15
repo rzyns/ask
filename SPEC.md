@@ -25,6 +25,9 @@ ASK 是一个用于管理 AI Agent 技能的命令行工具，类似于 Homebrew
 | `ask list` | 列出已安装技能 | ✅ |
 | `ask info <skill>` | 显示技能详情 | ✅ |
 | `ask update [skill]` | 更新技能到最新版本 | ✅ |
+| `ask source add <repo>` | 添加技能仓库来源 | ✅ |
+| `ask source list` | 列出所有来源 | ✅ |
+| `ask source remove <name>` | 移除来源 | ✅ |
 
 ### 待实现功能 ⏳
 
