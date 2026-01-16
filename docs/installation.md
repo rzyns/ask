@@ -5,7 +5,7 @@ This guide covers all methods of installing ASK on your system.
 ## Requirements
 
 - **Operating System**: macOS, Linux, or Windows
-- **Go** (optional): 1.21+ if building from source
+- **Go** (optional): 1.24+ if building from source
 
 ---
 

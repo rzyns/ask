@@ -11,6 +11,8 @@ Welcome to the ASK (Agent Skills Kit) documentation.
 | [Skill Sources](skill-sources.md) | Understanding and configuring skill sources |
 | [Skill Format](skill-format.md) | Creating skills with SKILL.md |
 | [Configuration](configuration.md) | ask.yaml and ask.lock configuration |
+| [Troubleshooting](troubleshooting.md) | Common issues and solutions |
+| [Architecture](architecture.md) | Internal design and structure |
 
 ## Getting Help
 

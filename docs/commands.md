@@ -187,6 +187,51 @@ ask repo add my-org/skills
 
 Remove a skill source.
 
-```bash
 ask repo remove <name>
 ```
+
+---
+
+## Utilities
+
+### ask benchmark
+
+Run performance benchmarks to measure CLI speed.
+
+```bash
+ask benchmark
+```
+
+**What it does:**
+- Measures cold and hot search performance
+- Measures config load time
+- Helps diagnose performance issues
+
+---
+
+### ask completion
+
+Generate shell completion scripts.
+
+```bash
+ask completion [bash|zsh|fish|powershell]
+```
+
+---
+
+## Global Flags
+
+### --offline
+
+Run specific commands in offline mode.
+
+```bash
+ask skill search <keyword> --offline
+ask skill outdated --offline
+```
+
+**What it does:**
+- Disables all network requests
+- Forces usage of local cache for search
+- Skips remote checks for updates
+- Useful for air-gapped environments or low connectivity
