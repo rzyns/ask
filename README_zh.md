@@ -35,9 +35,7 @@
 
 ## ✨ 核心特性
 
-<p align="center">
-  <img src="assets/usage.webp" alt="ASK Usage Demo" width="800"/>
-</p>
+
 
 ### 📦 智能包管理
 使用直观的命令安装、卸载、更新和列出技能。通过 `ask.lock` 进行版本锁定，确保团队间环境的可复现性。

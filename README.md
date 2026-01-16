@@ -35,9 +35,7 @@
 
 ## ✨ Key Features
 
-<p align="center">
-  <img src="assets/usage.webp" alt="ASK Usage Demo" width="800"/>
-</p>
+
 
 ### 📦 Smart Package Management
 Install, uninstall, update, and list skills with intuitive commands. Version locking via `ask.lock` ensures reproducible environments across teams.
