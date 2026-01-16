@@ -16,6 +16,14 @@ var repoCmd = &cobra.Command{
 	Use:   "repo",
 	Short: "Manage skill repositories",
 	Long:  `Add, remove, or list skill repository sources.`,
+	Example: `  # Add a custom repository
+  ask repo add my-org/agent-skills
+  
+  # List all configured sources
+  ask repo list
+  
+  # Remove a source
+  ask repo remove my-org`,
 }
 
 // repoAddCmd represents the repo add command

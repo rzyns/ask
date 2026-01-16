@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/git"
+	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/skill"
 )
 
@@ -20,8 +21,25 @@ var installCmd = &cobra.Command{
 	Long: `Download and install a skill into the .agent/skills directory. 
 You can provide a full git URL or a GitHub shorthand (owner/repo).
 You can also specify a version: owner/repo@v1.0.0`,
+	Example: `  # Install from GitHub shorthand
+  ask skill install browser-use/browser-use
+  
+  # Install specific version
+  ask skill install anthropics/skills@v1.2.0
+  
+  # Install from subdirectory
+  ask skill install anthropics/skills/skills/browser-use
+  
+  # Install from full URL
+  ask skill install https://github.com/browser-use/browser-use.git`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Check for offline mode
+		if offline, _ := cmd.Flags().GetBool("offline"); offline || github.OfflineMode {
+			fmt.Println("Error: Cannot install skills in offline mode.")
+			os.Exit(1)
+		}
+
 		input := args[0]
 
 		// Parse version if specified (skill@version)

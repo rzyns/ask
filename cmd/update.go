@@ -16,6 +16,11 @@ var updateCmd = &cobra.Command{
 	Short: "Update installed skills to latest version",
 	Long: `Update one or all installed skills to their latest versions.
 If no skill name is provided, updates all installed skills.`,
+	Example: `  # Update all installed skills
+  ask skill update
+  
+  # Update a specific skill
+  ask skill update browser-use`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.LoadConfig()
 		if err != nil {

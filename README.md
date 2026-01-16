@@ -103,6 +103,8 @@ ask skill list                # View installed skills
 | `ask repo list` | List skill sources |
 | `ask repo add <url>` | Add custom source |
 | `ask repo remove <name>` | Remove a source |
+| **Shell Completion** | |
+| `ask completion <shell>` | Generate completion script |
 
 ---
 
@@ -158,6 +160,24 @@ make vet       # Check code
 make install   # Install to $GOPATH/bin
 ```
 
+### Shell Completion
+
+Enable tab completion for faster workflows:
+
+```bash
+# Bash
+ask completion bash > /usr/local/etc/bash_completion.d/ask
+
+# Zsh
+ask completion zsh > "${fpath[1]}/_ask"
+
+# Fish
+ask completion fish > ~/.config/fish/completions/ask.fish
+
+# PowerShell
+ask completion powershell > ask.ps1
+```
+
 ---
 
 ## 📚 Documentation
@@ -169,6 +189,8 @@ See the [docs/](docs/README.md) directory for detailed documentation:
 - [Skill Sources](docs/skill-sources.md)
 - [SKILL.md Format](docs/skill-format.md)
 - [Configuration](docs/configuration.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Architecture](docs/architecture.md)
 
 ---
 

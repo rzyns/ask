@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/github"
 )
 
 // outdatedCmd represents the outdated command
@@ -56,13 +57,21 @@ var outdatedCmd = &cobra.Command{
 			// Get current commit
 			currentCommit := getShortCommit(skillPath)
 
-			// Fetch latest from remote
-			fetchCmd := exec.Command("git", "fetch", "--quiet")
-			fetchCmd.Dir = skillPath
-			fetchCmd.Run()
+			// Fetch latest from remote (skip if offline)
+			remoteCommit := ""
+			status := "✓ Up to date"
 
-			// Get remote HEAD commit
-			remoteCommit := getRemoteHeadCommit(skillPath)
+			if !github.OfflineMode {
+				fetchCmd := exec.Command("git", "fetch", "--quiet")
+				fetchCmd.Dir = skillPath
+				fetchCmd.Run()
+
+				// Get remote HEAD commit
+				remoteCommit = getRemoteHeadCommit(skillPath)
+			} else {
+				remoteCommit = "?"
+				status = "? Unknown (Offline)"
+			}
 
 			// Get lock file info
 			lockEntry := lockFile.GetEntry(skillName)
@@ -72,10 +81,13 @@ var outdatedCmd = &cobra.Command{
 			}
 
 			// Compare
-			status := "✓ Up to date"
-			if currentCommit != remoteCommit && remoteCommit != "" {
-				status = "⬆ Update available"
-				outdatedCount++
+			// Compare
+			if !github.OfflineMode {
+				status = "✓ Up to date"
+				if currentCommit != remoteCommit && remoteCommit != "" {
+					status = "⬆ Update available"
+					outdatedCount++
+				}
 			}
 
 			currentDisplay := currentCommit

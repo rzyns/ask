@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/yeasy/ask/internal/github"
 )
 
 var cfgFile string
@@ -22,6 +23,7 @@ the Agent ecosystem.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
+	Version: "0.4.0",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -41,10 +43,16 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./ask.yaml)")
+	rootCmd.PersistentFlags().Bool("offline", false, "run in offline mode (no network requests)")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	if vid := rootCmd.PersistentFlags().Lookup("offline"); vid != nil && vid.Changed {
+		if val, _ := rootCmd.PersistentFlags().GetBool("offline"); val {
+			github.SetOffline(true)
+		}
+	}
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)

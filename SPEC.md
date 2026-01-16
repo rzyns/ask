@@ -32,10 +32,14 @@ ASK 是一个用于管理 AI Agent 技能的命令行工具，类似于 Homebrew
 | `ask repo add <NAME\|URL>` | 添加技能仓库来源 | ✅ |
 | `ask repo list` | 列出所有来源 | ✅ |
 | `ask repo remove <name>` | 移除来源 | ✅ |
+| `ask completion <shell>` | 生成shell补全脚本 | ✅ |
 
 ### 待实现功能 ⏳
 
-暂无
+无（v0.3.0 建议功能）:
+- [ ] 性能基准测试
+- [ ] 离线模式
+- [ ] 插件系统
 
 ---
 
@@ -229,13 +233,15 @@ ask/
 ### 高优先级 (P1)
 - [x] `ask update` 命令
 - [x] 版本锁定 (`skill@v1.0`)
-- [ ] Homebrew tap 仓库创建
+- [x] Shell 补全支持
+- [ ] Homebrew tap 仓库验证
 
 ### 中优先级 (P2)
 - [x] Git sparse checkout 优化
 - [x] 搜索结果缓存
 - [x] 进度条显示
 - [x] `ask create` 命令
+- [x] 完整的测试覆盖
 
 ### 低优先级 (P3)
 - [ ] 插件系统

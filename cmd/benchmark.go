@@ -1,0 +1,77 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"text/tabwriter"
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/cache"
+	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/github"
+)
+
+// benchmarkCmd represents the benchmark command
+var benchmarkCmd = &cobra.Command{
+	Use:   "benchmark",
+	Short: "Run performance benchmarks",
+	Long:  `Measure the performance of key CLI operations like search, list, and info.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Running benchmarks...")
+		fmt.Println()
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "OPERATION\tTIME\tNOTES")
+
+		// 1. Search (Cold) - Clear cache first
+		c, err := cache.New("", cache.DefaultTTL)
+		if err == nil {
+			c.Clear()
+		}
+
+		start := time.Now()
+		// We simulate search by calling the internal function directly to avoid printing to stdout
+		// But since searchCmd prints to stdout, we might just want to measure the internal call
+		// For a real benchmark, we should call the internal functions
+
+		// Load config for search
+		cfg, _ := config.LoadConfig()
+		if cfg == nil {
+			def := config.DefaultConfig()
+			cfg = &def
+		}
+
+		// Mock search execution (Cold)
+		// We'll search for "browser" which should trigger network requests
+		repo := cfg.Repos[0] // Use first repo
+		if repo.Type == "topic" {
+			github.SearchTopic(repo.URL, "browser")
+		}
+		duration := time.Since(start)
+		fmt.Fprintf(w, "Search (Cold)\t%v\tFirst repo only\n", duration.Round(time.Millisecond))
+
+		// 2. Search (Hot) - Should be cached
+		start = time.Now()
+		if repo.Type == "topic" {
+			github.SearchTopic(repo.URL, "browser")
+		}
+		duration = time.Since(start)
+		fmt.Fprintf(w, "Search (Hot)\t%v\tCached\n", duration.Round(time.Millisecond))
+
+		// 3. List - Local operation
+		start = time.Now()
+		// Simulate list parsing
+		config.LoadConfig()
+		duration = time.Since(start)
+		fmt.Fprintf(w, "List\t%v\tConfig load\n", duration.Round(time.Millisecond))
+
+		w.Flush()
+		fmt.Println()
+		fmt.Println("Done.")
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(benchmarkCmd)
+}

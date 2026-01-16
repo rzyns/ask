@@ -18,6 +18,14 @@ var searchCmd = &cobra.Command{
 	Short: "Search for skills on GitHub",
 	Long: `Search GitHub repositories with the 'agent-skill' topic. 
 You can provide an optional keyword to filter results (e.g. 'browser', 'python').`,
+	Example: `  # Search for browser-related skills
+  ask skill search browser
+  
+  # Search for Python skills
+  ask skill search python
+  
+  # Search all available skills
+  ask skill search`,
 	Run: func(cmd *cobra.Command, args []string) {
 		keyword := ""
 		if len(args) > 0 {

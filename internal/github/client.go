@@ -19,6 +19,14 @@ const (
 // Global cache instance
 var searchCache *cache.Cache
 
+// OfflineMode controls whether to skip network requests
+var OfflineMode = false
+
+// SetOffline sets the offline mode
+func SetOffline(offline bool) {
+	OfflineMode = offline
+}
+
 func init() {
 	// Initialize cache with default settings
 	var err error
@@ -53,11 +61,16 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 	cacheKey := fmt.Sprintf("topic:%s:%s", topic, keyword)
 
 	// Try cache first
+	// In offline mode, we MUST find it in cache or return error
 	if searchCache != nil {
 		var cached []Repository
 		if searchCache.Get(cacheKey, &cached) {
 			return cached, nil
 		}
+	}
+
+	if OfflineMode {
+		return nil, fmt.Errorf("offline mode: data not found in cache")
 	}
 
 	// Construct query: topic:<topic> <keyword>
@@ -117,6 +130,10 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 		if searchCache.Get(cacheKey, &cached) {
 			return cached, nil
 		}
+	}
+
+	if OfflineMode {
+		return nil, fmt.Errorf("offline mode: data not found in cache")
 	}
 
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)

@@ -3,7 +3,9 @@ package skill
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -36,6 +38,21 @@ Explain how to use this skill here.
 ## Resources
 - [Reference](references/ref.md)
 `
+
+// getGitAuthor attempts to get the author name from git config
+// Falls back to "User" if git config is unavailable
+func getGitAuthor() string {
+	cmd := exec.Command("git", "config", "user.name")
+	output, err := cmd.Output()
+	if err != nil {
+		return "User"
+	}
+	author := strings.TrimSpace(string(output))
+	if author == "" {
+		return "User"
+	}
+	return author
+}
 
 // CreateSkillTemplate creates a new skill directory with template files
 func CreateSkillTemplate(name, destDir string) error {
@@ -70,7 +87,7 @@ func CreateSkillTemplate(name, destDir string) error {
 	data := SkillTemplateData{
 		Name:        name,
 		Description: "A new skill for AI Agents",
-		Author:      "User", // TODO: Get from git config or flag
+		Author:      getGitAuthor(),
 	}
 
 	if err := tmpl.Execute(f, data); err != nil {
