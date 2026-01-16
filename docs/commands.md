@@ -21,6 +21,18 @@ ask init
 
 ## Skill Management Commands
 
+```mermaid
+stateDiagram-v2
+    [*] --> Search
+    Search --> Install: Found Skill
+    Install --> List: Verify
+    Install --> Info: Check Details
+    List --> Update: New Version?
+    List --> Uninstall: Not Needed
+    Update --> [*]
+    Uninstall --> [*]
+```
+
 All skill commands are under `ask skill`:
 
 ### ask skill search

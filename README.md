@@ -33,6 +33,18 @@
 
 **ASK** (Agent Skills Kit) is the package manager for AI Agent Skills. Just like `brew` manages macOS packages or `npm` manages Node.js dependencies, `ask` helps you discover, install, and manage capabilities for your AI agents.
 
+```mermaid
+graph LR
+    User[User/Agent] -->|ask skill search| Sources[GitHub/MCP/Community]
+    Sources -->|Discover| Skills{Skills}
+    User -->|ask skill install| Skills
+    Skills -->|Download & Lock| Agent[.agent/skills/]
+    
+    style User fill:#4a9eff,color:white
+    style Sources fill:#ff6b6b,color:white
+    style Agent fill:#90ee90,color:black
+```
+
 ## ✨ Key Features
 
 
