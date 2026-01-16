@@ -52,6 +52,12 @@ Pin specific versions with `skill@v1.0` syntax. Track exact commits in `ask.lock
 ### 📊 Progress Tracking
 Real-time progress bars during installation and updates. Clear feedback on what's happening.
 
+### 🔌 Offline Mode
+Use `--offline` flag to work without network. Search uses cached results; perfect for air-gapped environments.
+
+### ⏱️ Performance Benchmarking
+Run `ask benchmark` to measure CLI performance (cold/hot search, config loading).
+
 ---
 
 ## 🚀 Quick Start
@@ -105,6 +111,9 @@ ask skill list                # View installed skills
 | `ask repo remove <name>` | Remove a source |
 | **Shell Completion** | |
 | `ask completion <shell>` | Generate completion script |
+| **Utilities** | |
+| `ask benchmark` | Run performance benchmarks |
+| `--offline` | Global flag: run without network |
 
 ---
 
