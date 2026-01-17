@@ -50,7 +50,13 @@ v0.5.0 已实现:
   - 支持的 Agent: Claude, Cursor, Codex, OpenCode
   - 示例: `ask skill install <skill> --agent claude --agent cursor`
 
-v0.6.0 建议功能:
+### v0.6.0 已实现:
+- [x] 仓库详情查看 (`ask repo list [name]`)
+- [x] 完整的测试覆盖和 CI/CD 流程
+- [x] `GH_PAT` 支持发布到 Homebrew Tap
+- [x] 自动提取 Git 作者信息
+
+v0.7.0 建议功能:
 - [ ] 插件系统
 
 ---
@@ -246,7 +252,7 @@ ask/
 - [x] `ask update` 命令
 - [x] 版本锁定 (`skill@v1.0`)
 - [x] Shell 补全支持
-- [ ] Homebrew tap 仓库验证
+- [x] Homebrew tap 仓库验证
 
 ### 中优先级 (P2)
 - [x] Git sparse checkout 优化
@@ -266,6 +272,8 @@ ask/
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-01-16 | 0.6.1 | 修复发布工作流权限问题 |
+| 2026-01-16 | 0.6.0 | 新增仓库详情查看 (`ask repo list [name]`)，完善测试和 CI/CD |
 | 2026-01-16 | 0.5.0 | 新增多 Agent 支持 (`--agent`), 全局安装 (`--global`), 以及智能目录检测 |
 | 2026-01-16 | 0.4.0 | 新增离线模式 (`--offline`) 和性能基准测试 (`ask benchmark`) |
 | 2026-01-15 | 0.2.0 | CLI 重构：技能命令移至 `ask skill` 子命令；技能安装路径改为 `.agent/skills/`；新增 OpenAI 等默认仓库 |
