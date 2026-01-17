@@ -15,16 +15,22 @@ var updateCmd = &cobra.Command{
 	Use:   "update [skill-name]",
 	Short: "Update installed skills to latest version",
 	Long: `Update one or all installed skills to their latest versions.
-If no skill name is provided, updates all installed skills.`,
+If no skill name is provided, updates all installed skills.
+Use --global to update global skills.`,
 	Example: `  # Update all installed skills
   ask skill update
   
   # Update a specific skill
-  ask skill update browser-use`,
+  ask skill update browser-use
+  
+  # Update global skills
+  ask skill update --global`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.LoadConfig()
+		global, _ := cmd.Flags().GetBool("global")
+
+		cfg, err := config.LoadConfigByScope(global)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if os.IsNotExist(err) && !global {
 				fmt.Println("No ask.yaml found. Run 'ask init' first.")
 				return
 			}
@@ -33,7 +39,11 @@ If no skill name is provided, updates all installed skills.`,
 		}
 
 		if len(cfg.Skills) == 0 {
-			fmt.Println("No skills installed.")
+			scopeLabel := "project"
+			if global {
+				scopeLabel = "global"
+			}
+			fmt.Printf("No %s skills installed.\n", scopeLabel)
 			return
 		}
 
@@ -59,8 +69,9 @@ If no skill name is provided, updates all installed skills.`,
 			skillsToUpdate = cfg.Skills
 		}
 
+		skillsDir := config.GetSkillsDirByScope(global)
 		for _, skillName := range skillsToUpdate {
-			skillPath := filepath.Join(config.DefaultSkillsDir, skillName)
+			skillPath := filepath.Join(skillsDir, skillName)
 
 			// Check if it's a git repository
 			gitDir := filepath.Join(skillPath, ".git")

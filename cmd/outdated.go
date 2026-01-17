@@ -17,11 +17,14 @@ import (
 var outdatedCmd = &cobra.Command{
 	Use:   "outdated",
 	Short: "Check for outdated skills",
-	Long:  `Check which installed skills have updates available.`,
+	Long: `Check which installed skills have updates available.
+Use --global to check global skills.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.LoadConfig()
+		global, _ := cmd.Flags().GetBool("global")
+
+		cfg, err := config.LoadConfigByScope(global)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if os.IsNotExist(err) && !global {
 				fmt.Println("No ask.yaml found. Run 'ask init' first.")
 				return
 			}
@@ -30,27 +33,36 @@ var outdatedCmd = &cobra.Command{
 		}
 
 		if len(cfg.Skills) == 0 {
-			fmt.Println("No skills installed.")
+			scopeLabel := "project"
+			if global {
+				scopeLabel = "global"
+			}
+			fmt.Printf("No %s skills installed.\n", scopeLabel)
 			return
 		}
 
-		lockFile, _ := config.LoadLockFile()
+		lockFile, _ := config.LoadLockFileByScope(global)
 
-		fmt.Println("Checking for updates...")
+		scopeLabel := "project"
+		if global {
+			scopeLabel = "global"
+		}
+		fmt.Printf("Checking for updates (%s)...\n", scopeLabel)
 		fmt.Println()
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "SKILL\tCURRENT\tLATEST\tSTATUS")
+		_, _ = fmt.Fprintln(w, "SKILL\tCURRENT\tLATEST\tSTATUS")
 
 		outdatedCount := 0
+		skillsDir := config.GetSkillsDirByScope(global)
 
 		for _, skillName := range cfg.Skills {
-			skillPath := filepath.Join(config.DefaultSkillsDir, skillName)
+			skillPath := filepath.Join(skillsDir, skillName)
 
 			// Check if it's a git repository
 			gitDir := filepath.Join(skillPath, ".git")
 			if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-				fmt.Fprintf(w, "%s\t-\t-\tNot a git repo\n", skillName)
+				_, _ = fmt.Fprintf(w, "%s\t-\t-\tNot a git repo\n", skillName)
 				continue
 			}
 
@@ -64,7 +76,7 @@ var outdatedCmd = &cobra.Command{
 			if !github.OfflineMode {
 				fetchCmd := exec.Command("git", "fetch", "--quiet")
 				fetchCmd.Dir = skillPath
-				fetchCmd.Run()
+				_ = fetchCmd.Run()
 
 				// Get remote HEAD commit
 				remoteCommit = getRemoteHeadCommit(skillPath)
@@ -95,14 +107,18 @@ var outdatedCmd = &cobra.Command{
 				currentDisplay = lockedVersion + " (" + currentCommit + ")"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", skillName, currentDisplay, remoteCommit, status)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", skillName, currentDisplay, remoteCommit, status)
 		}
 
-		w.Flush()
+		_ = w.Flush()
 
 		fmt.Println()
 		if outdatedCount > 0 {
-			fmt.Printf("%d skill(s) can be updated. Run 'ask update' to update all.\n", outdatedCount)
+			updateCmd := "ask skill update"
+			if global {
+				updateCmd = "ask skill update --global"
+			}
+			fmt.Printf("%d skill(s) can be updated. Run '%s' to update all.\n", outdatedCount, updateCmd)
 		} else {
 			fmt.Println("All skills are up to date.")
 		}

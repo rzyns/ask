@@ -94,7 +94,7 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
@@ -107,7 +107,7 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 
 	// Cache the result
 	if searchCache != nil {
-		searchCache.Set(cacheKey, result.Items)
+		_ = searchCache.Set(cacheKey, result.Items)
 	}
 
 	return result.Items, nil
@@ -150,7 +150,7 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
@@ -184,7 +184,7 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 
 	// Cache the result
 	if searchCache != nil {
-		searchCache.Set(cacheKey, skills)
+		_ = searchCache.Set(cacheKey, skills)
 	}
 
 	return skills, nil
@@ -204,7 +204,7 @@ func fetchRepoDetails(owner, repo string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)

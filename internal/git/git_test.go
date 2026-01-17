@@ -23,11 +23,11 @@ func TestGetLatestTag(t *testing.T) {
 	// Configure git user for commits
 	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
 	configCmd.Dir = tmpDir
-	configCmd.Run()
+	_ = configCmd.Run()
 
 	configCmd = exec.Command("git", "config", "user.name", "Test User")
 	configCmd.Dir = tmpDir
-	configCmd.Run()
+	_ = configCmd.Run()
 
 	// Create a test file and commit
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -79,11 +79,11 @@ func TestGetCurrentCommit(t *testing.T) {
 	// Configure git user
 	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
 	configCmd.Dir = tmpDir
-	configCmd.Run()
+	_ = configCmd.Run()
 
 	configCmd = exec.Command("git", "config", "user.name", "Test User")
 	configCmd.Dir = tmpDir
-	configCmd.Run()
+	_ = configCmd.Run()
 
 	// Create and commit a file
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -129,11 +129,11 @@ func TestCheckout(t *testing.T) {
 	// Configure git user
 	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
 	configCmd.Dir = tmpDir
-	configCmd.Run()
+	_ = configCmd.Run()
 
 	configCmd = exec.Command("git", "config", "user.name", "Test User")
 	configCmd.Dir = tmpDir
-	configCmd.Run()
+	_ = configCmd.Run()
 
 	// Create initial commit on main
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -143,11 +143,11 @@ func TestCheckout(t *testing.T) {
 
 	addCmd := exec.Command("git", "add", "test.txt")
 	addCmd.Dir = tmpDir
-	addCmd.Run()
+	_ = addCmd.Run()
 
 	commitCmd := exec.Command("git", "commit", "-m", "Main commit")
 	commitCmd.Dir = tmpDir
-	commitCmd.Run()
+	_ = commitCmd.Run()
 
 	// Create a branch
 	branchCmd := exec.Command("git", "branch", "test-branch")

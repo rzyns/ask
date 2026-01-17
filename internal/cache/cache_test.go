@@ -61,8 +61,8 @@ func TestCacheClear(t *testing.T) {
 	}
 
 	// Set multiple values
-	cache.Set("key1", "value1")
-	cache.Set("key2", "value2")
+	_ = cache.Set("key1", "value1")
+	_ = cache.Set("key2", "value2")
 
 	// Clear cache
 	if err := cache.Clear(); err != nil {

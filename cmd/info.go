@@ -15,19 +15,30 @@ var infoCmd = &cobra.Command{
 	Use:   "info [skill-name]",
 	Short: "Show detailed information about a skill",
 	Long: `Display detailed metadata about an installed skill.
-Reads from the SKILL.md file if available.`,
+Reads from the SKILL.md file if available.
+Use --global to check global skills.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		global, _ := cmd.Flags().GetBool("global")
 		skillName := args[0]
-		skillPath := filepath.Join(config.DefaultSkillsDir, skillName)
+		skillsDir := config.GetSkillsDirByScope(global)
+		skillPath := filepath.Join(skillsDir, skillName)
 
 		// Check if skill exists
 		if _, err := os.Stat(skillPath); os.IsNotExist(err) {
-			fmt.Printf("Skill '%s' is not installed.\n", skillName)
+			scopeLabel := "project"
+			if global {
+				scopeLabel = "global"
+			}
+			fmt.Printf("Skill '%s' is not installed (%s).\n", skillName, scopeLabel)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Skill: %s\n", skillName)
+		scopeLabel := "Project"
+		if global {
+			scopeLabel = "Global"
+		}
+		fmt.Printf("Skill: %s (%s)\n", skillName, scopeLabel)
 		fmt.Printf("Path:  %s\n", skillPath)
 		fmt.Println()
 

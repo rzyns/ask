@@ -80,10 +80,8 @@ repos:
     url: awesome-agent-skill
 ```
 
-Or use the CLI:
-
 ```bash
-ask repo add my-team dir my-org/agent-skills/skills
+ask repo add my-org/agent-skills/skills
 ```
 
 ---
@@ -94,6 +92,12 @@ List all configured sources:
 
 ```bash
 ask repo list
+```
+
+List skills available in a source:
+
+```bash
+ask repo list <source-name>
 ```
 
 ---

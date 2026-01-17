@@ -85,3 +85,52 @@ func (l *LockFile) GetEntry(name string) *LockEntry {
 	}
 	return nil
 }
+
+// LoadGlobalLockFile loads the global lock file (~/.ask/ask.lock)
+func LoadGlobalLockFile() (*LockFile, error) {
+	lockPath := GetGlobalLockPath()
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Return empty lock file if doesn't exist
+			return &LockFile{Version: 1, Skills: []LockEntry{}}, nil
+		}
+		return nil, err
+	}
+
+	var lock LockFile
+	if err := yaml.Unmarshal(data, &lock); err != nil {
+		return nil, err
+	}
+
+	return &lock, nil
+}
+
+// SaveGlobal saves the lock file to the global location (~/.ask/ask.lock)
+func (l *LockFile) SaveGlobal() error {
+	if err := EnsureGlobalDirExists(); err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(l)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(GetGlobalLockPath(), data, 0644)
+}
+
+// LoadLockFileByScope loads lock file based on global flag
+func LoadLockFileByScope(global bool) (*LockFile, error) {
+	if global {
+		return LoadGlobalLockFile()
+	}
+	return LoadLockFile()
+}
+
+// SaveByScope saves lock file based on global flag
+func (l *LockFile) SaveByScope(global bool) error {
+	if global {
+		return l.SaveGlobal()
+	}
+	return l.Save()
+}

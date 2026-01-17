@@ -40,7 +40,17 @@ v0.4.0 已实现:
 - [x] 性能基准测试 (`ask benchmark`)
 - [x] 离线模式 (`--offline`)
 
-v0.5.0 建议功能:
+v0.5.0 已实现:
+- [x] 全局安装支持 (`--global` / `-g`)
+  - 全局技能目录: `~/.ask/skills/`
+  - 全局配置文件: `~/.ask/config.yaml`
+  - 全局锁定文件: `~/.ask/ask.lock`
+- [x] 多 Agent 支持 (`--agent` / `-a`)
+  - 支持将技能安装到特定 Agent 目录
+  - 支持的 Agent: Claude, Cursor, Codex, OpenCode
+  - 示例: `ask skill install <skill> --agent claude --agent cursor`
+
+v0.6.0 建议功能:
 - [ ] 插件系统
 
 ---
@@ -256,6 +266,7 @@ ask/
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-01-16 | 0.5.0 | 新增多 Agent 支持 (`--agent`), 全局安装 (`--global`), 以及智能目录检测 |
 | 2026-01-16 | 0.4.0 | 新增离线模式 (`--offline`) 和性能基准测试 (`ask benchmark`) |
 | 2026-01-15 | 0.2.0 | CLI 重构：技能命令移至 `ask skill` 子命令；技能安装路径改为 `.agent/skills/`；新增 OpenAI 等默认仓库 |
 | 2026-01-15 | 0.1.0 | 初始版本，基本功能实现 |

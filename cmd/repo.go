@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // repoCmd represents the repo command
@@ -116,8 +119,14 @@ Examples:
 
 // repoListCmd represents the repo list command
 var repoListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all configured skill repositories",
+	Use:   "list [repo-name]",
+	Short: "List configured repositories or skills in a repository",
+	Long: `List all configured skill repositories.
+If a repository name is provided, list all skills available in that repository.
+
+Examples:
+  ask repo list                # List all configured repositories
+  ask repo list anthropics     # List skills in 'anthropics' repository`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.LoadConfig()
 		if err != nil {
@@ -130,54 +139,93 @@ var repoListCmd = &cobra.Command{
 			}
 		}
 
-		if len(cfg.Repos) == 0 {
-			fmt.Println("No repos configured.")
+		// Case 1: List all repos (no args)
+		if len(args) == 0 {
+			if len(cfg.Repos) == 0 {
+				fmt.Println("No repos configured.")
+				return
+			}
+
+			fmt.Println("Configured Repos:")
+			for _, r := range cfg.Repos {
+				fmt.Printf("  %s (%s): %s\n", r.Name, r.Type, r.URL)
+			}
 			return
 		}
 
-		fmt.Println("Configured Repos:")
+		// Case 2: List skills from specific repo
+		repoName := args[0]
+		var targetRepo *config.Repo
 		for _, r := range cfg.Repos {
-			fmt.Printf("  %s (%s): %s\n", r.Name, r.Type, r.URL)
-		}
-	},
-}
-
-// repoRemoveCmd represents the repo remove command
-var repoRemoveCmd = &cobra.Command{
-	Use:   "remove [name]",
-	Short: "Remove a skill repository",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		name := args[0]
-
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			fmt.Printf("Error loading config: %v\n", err)
-			os.Exit(1)
-		}
-
-		found := false
-		newRepos := []config.Repo{}
-		for _, r := range cfg.Repos {
-			if r.Name == name {
-				found = true
-				continue
+			if r.Name == repoName {
+				targetRepo = &r
+				break
 			}
-			newRepos = append(newRepos, r)
 		}
 
-		if !found {
-			fmt.Printf("Repo '%s' not found.\n", name)
+		if targetRepo == nil {
+			fmt.Printf("Repo '%s' not found. Use 'ask repo list' to see configured repos.\n", repoName)
 			os.Exit(1)
 		}
 
-		cfg.Repos = newRepos
-		if err := cfg.Save(); err != nil {
-			fmt.Printf("Error saving config: %v\n", err)
-			os.Exit(1)
+		fmt.Printf("Fetching skills from '%s'...\n", repoName)
+
+		// Create progress bar
+		bar := ui.NewProgressBar(1, "Fetching")
+
+		// Fetch skills
+		var repos []github.Repository
+		var fetchErr error
+
+		switch targetRepo.Type {
+		case "topic":
+			repos, fetchErr = github.SearchTopic(targetRepo.URL, "")
+		case "dir":
+			parts := strings.Split(targetRepo.URL, "/")
+			if len(parts) >= 2 {
+				owner := parts[0]
+				name := parts[1]
+				path := ""
+				if len(parts) >= 3 {
+					path = strings.Join(parts[2:], "/")
+				}
+				repos, fetchErr = github.SearchDir(owner, name, path)
+			}
 		}
 
-		fmt.Printf("Removed repo '%s'\n", name)
+		_ = bar.Add(1)
+		fmt.Println()
+
+		if fetchErr != nil {
+			fmt.Printf("Error fetching skills: %v\n", fetchErr)
+			return
+		}
+
+		if len(repos) == 0 {
+			fmt.Printf("No skills found in '%s'.\n", repoName)
+			return
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		_, _ = fmt.Fprintln(w, "NAME\tSTARS\tDESCRIPTION")
+		for _, repo := range repos {
+			// Truncate description if too long
+			desc := repo.Description
+			if len(desc) > 50 {
+				desc = desc[:47] + "..."
+			}
+
+			// Format stars
+			stars := fmt.Sprintf("%d", repo.StargazersCount)
+			if repo.StargazersCount == 0 {
+				stars = "-"
+			}
+
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", repo.Name, stars, desc)
+		}
+		_ = w.Flush()
+
+		fmt.Printf("\nFound %d skills in '%s'.\n", len(repos), repoName)
 	},
 }
 
@@ -189,7 +237,7 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 	if err != nil || resp.StatusCode != 200 {
 		return false, "", ""
 	}
-	resp.Body.Close()
+	func() { _ = resp.Body.Close() }()
 
 	// Check for common skills directory patterns
 	pathsToCheck := []string{}
@@ -209,7 +257,7 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 		if err != nil || resp.StatusCode != 200 {
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var contents []struct {
 			Name string `json:"name"`
@@ -242,6 +290,45 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 	// If no skills found in subdirs, check if repo itself has topic
 	// For topic-based repos like those tagged with agent-skill
 	return true, "dir", ""
+}
+
+// repoRemoveCmd represents the repo remove command
+var repoRemoveCmd = &cobra.Command{
+	Use:   "remove <name>",
+	Short: "Remove a skill repository",
+	Long:  `Remove a configured skill repository source.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			fmt.Printf("Error loading config: %v\n", err)
+			os.Exit(1)
+		}
+
+		found := false
+		var newRepos []config.Repo
+		for _, r := range cfg.Repos {
+			if r.Name == name {
+				found = true
+				continue
+			}
+			newRepos = append(newRepos, r)
+		}
+
+		if !found {
+			fmt.Printf("Repo '%s' not found.\n", name)
+			os.Exit(1)
+		}
+
+		cfg.Repos = newRepos
+		if err := cfg.Save(); err != nil {
+			fmt.Printf("Error saving config: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Removed repo '%s'.\n", name)
+	},
 }
 
 func init() {

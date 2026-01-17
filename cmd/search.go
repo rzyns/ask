@@ -68,9 +68,10 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 				var repos []github.Repository
 				var err error
 
-				if r.Type == "topic" {
+				switch r.Type {
+				case "topic":
 					repos, err = github.SearchTopic(r.URL, keyword)
-				} else if r.Type == "dir" {
+				case "dir":
 					parts := strings.Split(r.URL, "/")
 					if len(parts) >= 3 {
 						owner := parts[0]
@@ -104,7 +105,7 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 		var errors []string
 		for i := 0; i < len(cfg.Repos); i++ {
 			result := <-results
-			bar.Add(1)
+			_ = bar.Add(1)
 			if result.err != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", result.source, result.err))
 				continue
@@ -122,7 +123,7 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
+		_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
 		for _, repo := range allRepos {
 			// Truncate description if too long
 			desc := repo.Description
@@ -142,9 +143,9 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 				stars = "-"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)
 		}
-		w.Flush()
+		_ = w.Flush()
 
 		fmt.Printf("\nFound %d skills.\n", len(allRepos))
 	},

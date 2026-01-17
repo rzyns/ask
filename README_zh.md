@@ -55,8 +55,8 @@
 ### 🔌 离线模式
 使用 `--offline` 标志无需网络即可工作。搜索使用缓存结果，适用于无网络环境。
 
-### ⏱️ 性能基准测试
-运行 `ask benchmark` 测量 CLI 性能（冷/热搜索、配置加载）。
+### 🌍 全局安装
+使用 `--global` 标志全局安装技能，可在所有项目间共享。项目级安装优先于全局安装。
 
 ---
 
@@ -84,7 +84,8 @@ ask init    # 在当前目录创建 ask.yaml
 
 ```bash
 ask skill search browser      # 从所有来源搜索
-ask skill install browser-use # 安装技能
+ask skill install browser-use           # 安装技能
+ask skill install skill1 skill2 skill3  # 批量安装多个技能
 ask skill list                # 查看已安装技能
 ```
 
@@ -97,7 +98,7 @@ ask skill list                # 查看已安装技能
 | `ask init` | 初始化项目，创建 `ask.yaml` |
 | **技能管理** | |
 | `ask skill search <关键词>` | 从所有来源搜索技能 |
-| `ask skill install <技能>` | 安装技能到 `./skills/` |
+| `ask skill install <技能...>` | 安装技能到 `./skills/` |
 | `ask skill install skill@v1.0` | 安装指定版本 |
 | `ask skill uninstall <技能>` | 移除技能 |
 | `ask skill list` | 列出已安装技能 |
@@ -113,6 +114,7 @@ ask skill list                # 查看已安装技能
 | `ask benchmark` | 运行性能基准测试 |
 | `ask completion <shell>` | 生成 shell 补全脚本 |
 | `--offline` | 全局标志：无网络模式 |
+| `--global, -g` | 全局标志：使用全局安装 (~/.ask/skills) |
 
 ---
 
@@ -151,9 +153,30 @@ my-agent/
 ├── ask.lock          # 版本锁定文件
 ├── main.py           # 您的智能体代码
 └── .agent/
-    └── skills/       # 托管技能目录
+    └── skills/       # 项目级技能目录
         ├── browser-use/
         └── web-surfer/
+
+# 全局技能（跨项目共享）
+~/.ask/
+├── config.yaml       # 全局配置
+├── ask.lock          # 全局版本锁定
+└── skills/           # 全局技能
+    └── shared-skill/
+```
+
+### 安装范围
+
+```bash
+# 项目级（默认）- 存储在 .agent/skills/
+ask skill install browser-use
+
+# 全局 - 存储在 ~/.ask/skills/，所有项目可用
+ask skill install --global shared-skill
+ask skill install -g shared-skill
+
+# 列出全部
+ask skill list --all
 ```
 
 ---

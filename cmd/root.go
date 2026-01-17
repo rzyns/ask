@@ -23,7 +23,7 @@ the Agent ecosystem.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "0.4.0",
+	Version: "0.6.0",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -44,6 +44,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./ask.yaml)")
 	rootCmd.PersistentFlags().Bool("offline", false, "run in offline mode (no network requests)")
+	rootCmd.PersistentFlags().BoolP("global", "g", false, "use global installation (~/.ask/skills)")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,13 +17,27 @@ import (
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
-	Use:   "install [url]",
-	Short: "Install a skill from a git repository",
-	Long: `Download and install a skill into the .agent/skills directory. 
-You can provide a full git URL or a GitHub shorthand (owner/repo).
-You can also specify a version: owner/repo@v1.0.0`,
+	Use:   "install [url...]",
+	Short: "Install one or more skills from git repositories",
+	Long: `Download and install skills into agent-specific directories. 
+You can provide full git URLs or GitHub shorthands (owner/repo).
+You can also specify versions: owner/repo@v1.0.0
+
+Use --agent (-a) to specify target agents (claude, cursor, codex, opencode).
+Multiple agents can be specified by repeating the flag.
+If no agent is specified, skills are installed to .agent/skills/ by default.`,
 	Example: `  # Install from GitHub shorthand
   ask skill install browser-use/browser-use
+  
+  # Install to specific agents
+  ask skill install mcp-builder --agent claude --agent cursor
+  ask skill install mcp-builder -a claude -a cursor
+  
+  # Install globally for an agent
+  ask skill install mcp-builder --agent claude --global
+  
+  # Install multiple skills at once
+  ask skill install browser-use web-surfer mcp-server
   
   # Install specific version
   ask skill install anthropics/skills@v1.2.0
@@ -30,9 +45,12 @@ You can also specify a version: owner/repo@v1.0.0`,
   # Install from subdirectory
   ask skill install anthropics/skills/skills/browser-use
   
+  # Install from GitHub browser URL
+  ask skill install https://github.com/anthropics/skills/tree/main/skills/mcp-builder
+  
   # Install from full URL
   ask skill install https://github.com/browser-use/browser-use.git`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check for offline mode
 		if offline, _ := cmd.Flags().GetBool("offline"); offline || github.OfflineMode {
@@ -40,19 +58,113 @@ You can also specify a version: owner/repo@v1.0.0`,
 			os.Exit(1)
 		}
 
-		input := args[0]
+		// Check for global flag
+		global, _ := cmd.Flags().GetBool("global")
 
-		// Parse version if specified (skill@version)
-		var version string
-		if idx := strings.LastIndex(input, "@"); idx != -1 && !strings.HasPrefix(input, "git@") {
-			version = input[idx+1:]
-			input = input[:idx]
+		// Get agent targets
+		agents, _ := cmd.Flags().GetStringSlice("agent")
+
+		// Validate agent names
+		for _, agent := range agents {
+			if !config.IsValidAgent(agent) {
+				fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
+					agent, strings.Join(config.GetSupportedAgentNames(), ", "))
+				os.Exit(1)
+			}
 		}
 
+		// Track installation results
+		var succeeded, failed []string
+
+		// Install each skill
+		for _, input := range args {
+			err := installSingleSkill(input, global, agents)
+			if err != nil {
+				failed = append(failed, input)
+				fmt.Printf("Failed to install %s: %v\n", input, err)
+			} else {
+				succeeded = append(succeeded, input)
+			}
+		}
+
+		// Print summary if multiple skills were requested
+		if len(args) > 1 {
+			fmt.Println()
+			fmt.Println("Installation Summary:")
+			if len(succeeded) > 0 {
+				fmt.Printf("  ✓ Succeeded: %d (%s)\n", len(succeeded), strings.Join(succeeded, ", "))
+			}
+			if len(failed) > 0 {
+				fmt.Printf("  ✗ Failed: %d (%s)\n", len(failed), strings.Join(failed, ", "))
+			}
+		}
+
+		// Exit with error if any installation failed
+		if len(failed) > 0 {
+			os.Exit(1)
+		}
+	},
+}
+
+// parseGitHubBrowserURL parses a GitHub browser URL and extracts components
+// Input: https://github.com/owner/repo/tree/branch/path/to/skill
+// Returns: repoURL, branch, subDir, skillName, ok
+func parseGitHubBrowserURL(url string) (repoURL, branch, subDir, skillName string, ok bool) {
+	// Remove trailing slashes
+	url = strings.TrimSuffix(url, "/")
+
+	// Check if it contains /tree/ (GitHub browser URL format)
+	if !strings.Contains(url, "/tree/") {
+		return "", "", "", "", false
+	}
+
+	// Pattern: https://github.com/owner/repo/tree/branch/path
+	parts := strings.SplitN(url, "/tree/", 2)
+	if len(parts) != 2 {
+		return "", "", "", "", false
+	}
+
+	repoURL = parts[0] + ".git"
+
+	// Split branch and path
+	branchAndPath := parts[1]
+	pathParts := strings.SplitN(branchAndPath, "/", 2)
+	branch = pathParts[0]
+
+	if len(pathParts) > 1 {
+		subDir = pathParts[1]
+		// Skill name is the last component of the path
+		skillName = filepath.Base(subDir)
+	} else {
+		// No subdir, use repo name from URL
+		urlParts := strings.Split(parts[0], "/")
+		skillName = urlParts[len(urlParts)-1]
+	}
+
+	return repoURL, branch, subDir, skillName, true
+}
+
+// installSingleSkill installs a single skill and returns an error if it fails
+func installSingleSkill(input string, global bool, agents []string) error {
+	// Parse version if specified (skill@version)
+	var version string
+	originalInput := input
+	if idx := strings.LastIndex(input, "@"); idx != -1 && !strings.HasPrefix(input, "git@") {
+		version = input[idx+1:]
+		input = input[:idx]
+	}
+
+	var repoURL, subDir, skillName, branch string
+
+	// First, check if it's a GitHub browser URL with /tree/
+	if parsedURL, parsedBranch, parsedSubDir, parsedName, ok := parseGitHubBrowserURL(input); ok {
+		repoURL = parsedURL
+		branch = parsedBranch
+		subDir = parsedSubDir
+		skillName = parsedName
+	} else {
 		// Check if it's a direct URL or shorthand
 		isURL := strings.HasPrefix(input, "http") || strings.HasPrefix(input, "git@")
-
-		var repoURL, subDir, skillName string
 
 		if !isURL {
 			parts := strings.Split(input, "/")
@@ -66,104 +178,248 @@ You can also specify a version: owner/repo@v1.0.0`,
 			} else {
 				// Standard install: owner/repo
 				repoURL = "https://github.com/" + input
-				parts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
-				skillName = parts[len(parts)-1]
+				urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
+				skillName = urlParts[len(urlParts)-1]
 			}
 		} else {
-			// It's a URL
+			// It's a URL (e.g., https://github.com/xxx.git)
 			repoURL = input
-			parts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
-			skillName = parts[len(parts)-1]
+			urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
+			skillName = urlParts[len(urlParts)-1]
 		}
+	}
 
-		// Get skills directory (use default, will be replaced with config value after loading)
-		destPath := filepath.Join(config.DefaultSkillsDir, skillName)
+	// Use branch from version if not set from URL parsing
+	if branch == "" && version != "" {
+		branch = version
+	}
 
-		fmt.Printf("Installing %s...\n", skillName)
+	// Determine target directories based on agents
+	var targetDirs []string
+	var scopeLabel string
 
-		if _, err := os.Stat(destPath); !os.IsNotExist(err) {
-			fmt.Printf("Skill %s is already installed in %s\n", skillName, destPath)
-			return
-		}
-
-		var err error
-		if subDir != "" {
-			err = git.InstallSubdir(repoURL, subDir, destPath)
-		} else {
-			err = git.Clone(repoURL, destPath)
-		}
-
-		if err != nil {
-			fmt.Printf("Failed to install skill: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Checkout specific version if specified
-		if version != "" && subDir == "" {
-			fmt.Printf("Checking out version %s...\n", version)
-			if err := git.Checkout(destPath, version); err != nil {
-				fmt.Printf("Warning: Failed to checkout version %s: %v\n", version, err)
-			}
-		}
-
-		// Get current commit for lock file
-		var commitHash string
-		if subDir == "" {
-			commitHash, _ = git.GetCurrentCommit(destPath)
-		}
-
-		// Update config
-		cfg, err := config.LoadConfig()
-		if err == nil {
-			// Create skill info with metadata - prioritize SKILL.md description
-			skillInfo := config.SkillInfo{
-				Name: skillName,
-				URL:  repoURL,
-			}
-			if subDir != "" {
-				skillInfo.URL = fmt.Sprintf("https://github.com/%s", input)
-			}
-
-			// Try to parse SKILL.md for description (prioritized)
-			if skill.FindSkillMD(destPath) {
-				meta, err := skill.ParseSkillMD(destPath)
-				if err == nil && meta != nil && meta.Description != "" {
-					skillInfo.Description = meta.Description
-				}
-			}
-			// Fallback description if SKILL.md doesn't provide one
-			if skillInfo.Description == "" {
-				skillInfo.Description = "Skill installed from " + input
-			}
-
-			cfg.AddSkillInfo(skillInfo)
-			err = cfg.Save()
+	if len(agents) > 0 {
+		// Install to specific agent directories
+		for _, agentName := range agents {
+			agentType, _ := config.ResolveAgentType(agentName)
+			dir, err := config.GetAgentSkillsDir(agentType, global)
 			if err != nil {
-				fmt.Printf("Warning: Failed to update ask.yaml: %v\n", err)
+				return fmt.Errorf("failed to get skills dir for agent %s: %w", agentName, err)
 			}
-
-			// Update lock file
-			lockFile, _ := config.LoadLockFile()
-			lockEntry := config.LockEntry{
-				Name:        skillName,
-				URL:         skillInfo.URL,
-				Commit:      commitHash,
-				Version:     version,
-				InstalledAt: time.Now(),
-			}
-			lockFile.AddEntry(lockEntry)
-			if err := lockFile.Save(); err != nil {
-				fmt.Printf("Warning: Failed to update ask.lock: %v\n", err)
-			}
+			targetDirs = append(targetDirs, dir)
+		}
+		scopeLabel = strings.Join(agents, ", ")
+		if global {
+			scopeLabel += " (global)"
+		}
+	} else {
+		if global {
+			targetDirs = []string{config.GetSkillsDirByScope(true)}
+			scopeLabel = "global"
 		} else {
-			// If config doesn't exist, we might be in a non-init project
-			fmt.Println("Warning: ask.yaml not found. Run 'ask init' to track dependencies.")
+			// Try to load config to get active/detected directories
+			cfg, err := config.LoadConfig()
+			if err == nil {
+				wd, _ := os.Getwd()
+				targetDirs = cfg.GetActiveSkillsDirs(wd)
+				scopeLabel = "detected targets"
+			} else {
+				// Fallback to default if config load fails
+				targetDirs = []string{config.GetSkillsDirByScope(false)}
+				scopeLabel = "project"
+			}
+		}
+	}
+
+	fmt.Printf("Installing %s to %s...\n", skillName, scopeLabel)
+
+	// Check if already installed in all targets
+	allExist := true
+	for _, dir := range targetDirs {
+		destPath := filepath.Join(dir, skillName)
+		if _, err := os.Stat(destPath); os.IsNotExist(err) {
+			allExist = false
+		}
+	}
+	if allExist {
+		fmt.Printf("Skill %s is already installed in all target directories\n", skillName)
+		return nil
+	}
+
+	// Clone to a temporary directory first, then copy to each target
+	tempDir, err := os.MkdirTemp("", "ask-install-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	tempSkillPath := filepath.Join(tempDir, skillName)
+
+	if subDir != "" {
+		err = git.InstallSubdir(repoURL, branch, subDir, tempSkillPath)
+	} else {
+		err = git.Clone(repoURL, tempSkillPath)
+	}
+
+	if err != nil {
+		return fmt.Errorf("git operation failed: %w", err)
+	}
+
+	// Checkout specific version if specified
+	if version != "" && subDir == "" {
+		fmt.Printf("Checking out version %s...\n", version)
+		if err := git.Checkout(tempSkillPath, version); err != nil {
+			fmt.Printf("Warning: Failed to checkout version %s: %v\n", version, err)
+		}
+	}
+
+	// Get current commit for lock file
+	var commitHash string
+	if subDir == "" {
+		commitHash, _ = git.GetCurrentCommit(tempSkillPath)
+	}
+
+	// Get skill metadata from SKILL.md
+	var skillDescription string
+	if skill.FindSkillMD(tempSkillPath) {
+		meta, err := skill.ParseSkillMD(tempSkillPath)
+		if err == nil && meta != nil && meta.Description != "" {
+			skillDescription = meta.Description
+		}
+	}
+	if skillDescription == "" {
+		skillDescription = "Skill installed from " + originalInput
+	}
+
+	// Copy to each target directory
+	for _, dir := range targetDirs {
+		destPath := filepath.Join(dir, skillName)
+
+		// Skip if already exists
+		if _, err := os.Stat(destPath); !os.IsNotExist(err) {
+			fmt.Printf("  → Already installed in %s\n", destPath)
+			continue
 		}
 
-		fmt.Printf("Successfully installed %s!\n", skillName)
-	},
+		// Ensure target directory exists
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create skills directory %s: %w", dir, err)
+		}
+
+		// Copy from temp to destination
+		if err := copyDir(tempSkillPath, destPath); err != nil {
+			return fmt.Errorf("failed to copy skill to %s: %w", destPath, err)
+		}
+
+		fmt.Printf("  → Installed to %s\n", destPath)
+	}
+
+	// Update config
+	cfg, err := config.LoadConfigByScope(global)
+	if err == nil {
+		skillInfo := config.SkillInfo{
+			Name:        skillName,
+			Description: skillDescription,
+			URL:         repoURL,
+		}
+		if subDir != "" {
+			skillInfo.URL = fmt.Sprintf("https://github.com/%s", input)
+		}
+
+		cfg.AddSkillInfo(skillInfo)
+		err = cfg.SaveByScope(global)
+		if err != nil {
+			configFile := "ask.yaml"
+			if global {
+				configFile = "~/.ask/config.yaml"
+			}
+			fmt.Printf("Warning: Failed to update %s: %v\n", configFile, err)
+		}
+
+		// Update lock file
+		lockFile, _ := config.LoadLockFileByScope(global)
+		lockEntry := config.LockEntry{
+			Name:        skillName,
+			URL:         skillInfo.URL,
+			Commit:      commitHash,
+			Version:     version,
+			InstalledAt: time.Now(),
+		}
+		lockFile.AddEntry(lockEntry)
+		if err := lockFile.SaveByScope(global); err != nil {
+			lockFileName := "ask.lock"
+			if global {
+				lockFileName = "~/.ask/ask.lock"
+			}
+			fmt.Printf("Warning: Failed to update %s: %v\n", lockFileName, err)
+		}
+	} else if !global {
+		// If config doesn't exist for project-level, we might be in a non-init project
+		fmt.Println("Warning: ask.yaml not found. Run 'ask init' to track dependencies.")
+	}
+
+	fmt.Printf("Successfully installed %s!\n", skillName)
+	return nil
+}
+
+// copyDir recursively copies a directory from src to dst
+func copyDir(src, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// copyFile copies a single file from src to dst
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = srcFile.Close() }()
+
+	srcInfo, err := srcFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = dstFile.Close() }()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
 }
 
 func init() {
 	skillCmd.AddCommand(installCmd)
+	installCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) for installation (claude, cursor, codex, opencode)")
+	installCmd.Flags().BoolP("global", "g", false, "install globally (user-level)")
 }

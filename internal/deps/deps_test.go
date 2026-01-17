@@ -211,7 +211,7 @@ func TestGetDependenciesNoSkillMD(t *testing.T) {
 	}
 
 	// Should return nil/empty when no SKILL.md exists
-	if deps != nil && len(deps) > 0 {
+	if len(deps) > 0 {
 		t.Errorf("Expected no dependencies, got %v", deps)
 	}
 }

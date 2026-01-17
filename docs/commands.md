@@ -171,10 +171,11 @@ All repository commands are under `ask repo`:
 
 ### ask repo list
 
-List all configured skill sources.
+List all configured skill sources, or list skills available in a specific repository.
 
 ```bash
-ask repo list
+ask repo list              # List all configured repositories
+ask repo list <repo-name>  # List skills in a specific repository
 ```
 
 ---

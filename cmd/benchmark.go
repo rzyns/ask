@@ -22,12 +22,12 @@ var benchmarkCmd = &cobra.Command{
 		fmt.Println()
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "OPERATION\tTIME\tNOTES")
+		_, _ = fmt.Fprintln(w, "OPERATION\tTIME\tNOTES")
 
 		// 1. Search (Cold) - Clear cache first
 		c, err := cache.New("", cache.DefaultTTL)
 		if err == nil {
-			c.Clear()
+			_ = c.Clear()
 		}
 
 		start := time.Now()
@@ -46,27 +46,27 @@ var benchmarkCmd = &cobra.Command{
 		// We'll search for "browser" which should trigger network requests
 		repo := cfg.Repos[0] // Use first repo
 		if repo.Type == "topic" {
-			github.SearchTopic(repo.URL, "browser")
+			_, _ = github.SearchTopic(repo.URL, "browser")
 		}
 		duration := time.Since(start)
-		fmt.Fprintf(w, "Search (Cold)\t%v\tFirst repo only\n", duration.Round(time.Millisecond))
+		_, _ = fmt.Fprintf(w, "Search (Cold)\t%v\tFirst repo only\n", duration.Round(time.Millisecond))
 
 		// 2. Search (Hot) - Should be cached
 		start = time.Now()
 		if repo.Type == "topic" {
-			github.SearchTopic(repo.URL, "browser")
+			_, _ = github.SearchTopic(repo.URL, "browser")
 		}
 		duration = time.Since(start)
-		fmt.Fprintf(w, "Search (Hot)\t%v\tCached\n", duration.Round(time.Millisecond))
+		_, _ = fmt.Fprintf(w, "Search (Hot)\t%v\tCached\n", duration.Round(time.Millisecond))
 
 		// 3. List - Local operation
 		start = time.Now()
 		// Simulate list parsing
-		config.LoadConfig()
+		_, _ = config.LoadConfig()
 		duration = time.Since(start)
-		fmt.Fprintf(w, "List\t%v\tConfig load\n", duration.Round(time.Millisecond))
+		_, _ = fmt.Fprintf(w, "List\t%v\tConfig load\n", duration.Round(time.Millisecond))
 
-		w.Flush()
+		_ = w.Flush()
 		fmt.Println()
 		fmt.Println("Done.")
 	},

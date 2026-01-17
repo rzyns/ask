@@ -82,7 +82,7 @@ func CreateSkillTemplate(name, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create SKILL.md: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data := SkillTemplateData{
 		Name:        name,

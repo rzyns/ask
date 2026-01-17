@@ -71,7 +71,7 @@ func (c *Cache) Get(key string, v interface{}) bool {
 
 	// Check expiration
 	if time.Since(entry.CreatedAt) > c.ttl {
-		os.Remove(filename) // Clean up expired entry
+		_ = os.Remove(filename) // Clean up expired entry
 		return false
 	}
 
@@ -112,7 +112,7 @@ func (c *Cache) Clear() error {
 
 	for _, entry := range entries {
 		if filepath.Ext(entry.Name()) == ".json" {
-			os.Remove(filepath.Join(c.dir, entry.Name()))
+			_ = os.Remove(filepath.Join(c.dir, entry.Name()))
 		}
 	}
 

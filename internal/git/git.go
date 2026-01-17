@@ -18,19 +18,25 @@ func Clone(url, dest string) error {
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	err := cmd.Run()
-	bar.Finish()
+	_ = bar.Finish()
 	return err
 }
 
 // SparseClone clones only a specific subdirectory using sparse checkout
 // This is much faster than full clone for large repos when only a subdir is needed
-func SparseClone(repoURL, subDir, dest string) error {
+func SparseClone(repoURL, branch, subDir, dest string) error {
 	bar := ui.NewSpinner(fmt.Sprintf("Sparse cloning %s from %s...", subDir, repoURL))
-	defer bar.Finish()
+	defer func() { _ = bar.Finish() }()
 
 	// Step 1: Clone with filter and no checkout
 	ui.UpdateDescription(bar, "Initializing sparse clone...")
-	cmd := exec.Command("git", "clone", "--filter=blob:none", "--no-checkout", "--depth", "1", "--progress", repoURL, dest)
+	args := []string{"clone", "--filter=blob:none", "--no-checkout", "--depth", "1", "--progress"}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	args = append(args, repoURL, dest)
+
+	cmd := exec.Command("git", args...)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	if err := cmd.Run(); err != nil {
@@ -72,21 +78,21 @@ func SparseClone(repoURL, subDir, dest string) error {
 
 // InstallSubdir installs a subdirectory from a repository
 // Uses sparse checkout for efficiency, falls back to full clone if sparse fails
-func InstallSubdir(repoURL, subDir, dest string) error {
+func InstallSubdir(repoURL, branch, subDir, dest string) error {
 	// Create temp dir for sparse clone
 	tempDir, err := os.MkdirTemp("", "ask-install-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tempDir) // Clean up
+	defer func() { _ = os.RemoveAll(tempDir) }() // Clean up
 
 	fmt.Printf("Installing %s (sparse checkout)...\n", subDir)
 
 	// Try sparse checkout first
-	if err := SparseClone(repoURL, subDir, tempDir); err != nil {
+	if err := SparseClone(repoURL, branch, subDir, tempDir); err != nil {
 		// Fallback to full clone
 		fmt.Printf("Sparse checkout failed, falling back to full clone...\n")
-		os.RemoveAll(tempDir) // Clean up failed sparse clone
+		_ = os.RemoveAll(tempDir) // Clean up failed sparse clone
 		tempDir, err = os.MkdirTemp("", "ask-install-*")
 		if err != nil {
 			return fmt.Errorf("failed to create temp dir: %w", err)
@@ -94,6 +100,13 @@ func InstallSubdir(repoURL, subDir, dest string) error {
 
 		if err := Clone(repoURL, tempDir); err != nil {
 			return fmt.Errorf("failed to clone repo: %w", err)
+		}
+
+		// If branch is specified, checkout that branch in full clone fallback
+		if branch != "" {
+			if err := Checkout(tempDir, branch); err != nil {
+				return fmt.Errorf("failed to checkout branch %s: %w", branch, err)
+			}
 		}
 	}
 
@@ -134,13 +147,13 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	_, err = io.Copy(out, in)
 	if err != nil {

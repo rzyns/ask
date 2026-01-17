@@ -15,7 +15,7 @@ func TestNewSpinner(t *testing.T) {
 
 	// Verify spinner was created (can't easily test actual rendering)
 	// Just verify it doesn't panic
-	spinner.Finish()
+	_ = spinner.Finish()
 }
 
 func TestNewProgressBar(t *testing.T) {
@@ -29,10 +29,10 @@ func TestNewProgressBar(t *testing.T) {
 
 	// Test updating progress
 	for i := 0; i < 10; i++ {
-		bar.Add(1)
+		_ = bar.Add(1)
 	}
 
-	bar.Finish()
+	_ = bar.Finish()
 }
 
 func TestUpdateDescription(t *testing.T) {
@@ -42,8 +42,8 @@ func TestUpdateDescription(t *testing.T) {
 	UpdateDescription(bar, newDescription)
 
 	// Verify it doesn't panic when updating description
-	bar.Add(1)
-	bar.Finish()
+	_ = bar.Add(1)
+	_ = bar.Finish()
 }
 
 func TestProgressBarWithZeroTotal(t *testing.T) {
@@ -54,7 +54,7 @@ func TestProgressBarWithZeroTotal(t *testing.T) {
 		t.Fatal("NewProgressBar returned nil for zero total")
 	}
 
-	bar.Finish()
+	_ = bar.Finish()
 }
 
 func TestSpinnerWithEmptyDescription(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSpinnerWithEmptyDescription(t *testing.T) {
 		t.Fatal("NewSpinner returned nil for empty description")
 	}
 
-	spinner.Finish()
+	_ = spinner.Finish()
 }
 
 func TestProgressBarSequence(t *testing.T) {
@@ -76,10 +76,10 @@ func TestProgressBarSequence(t *testing.T) {
 	// Simulate processing
 	for i := 0; i < total; i++ {
 		UpdateDescription(bar, strings.Repeat("Processing item ", i+1))
-		bar.Add(1)
+		_ = bar.Add(1)
 	}
 
-	bar.Finish()
+	_ = bar.Finish()
 }
 
 func TestMultipleProgressBars(t *testing.T) {
@@ -92,22 +92,22 @@ func TestMultipleProgressBars(t *testing.T) {
 	}
 
 	// Update both
-	bar1.Add(5)
-	bar2.Add(10)
+	_ = bar1.Add(5)
+	_ = bar2.Add(10)
 
-	bar1.Finish()
-	bar2.Finish()
+	_ = bar1.Finish()
+	_ = bar2.Finish()
 }
 
 func TestSpinnerAndProgressBar(t *testing.T) {
 	// Test using both spinner and progress bar
 	spinner := NewSpinner("Initializing...")
-	spinner.Add(1)
-	spinner.Finish()
+	_ = spinner.Add(1)
+	_ = spinner.Finish()
 
 	bar := NewProgressBar(3, "Processing")
 	for i := 0; i < 3; i++ {
-		bar.Add(1)
+		_ = bar.Add(1)
 	}
-	bar.Finish()
+	_ = bar.Finish()
 }

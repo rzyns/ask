@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -21,7 +22,7 @@ func TestDefaultConfig(t *testing.T) {
 func TestSaveAndLoadConfig(t *testing.T) {
 	// Setup temporary file
 	tmpFile := "test_ask.yaml"
-	defer os.Remove(tmpFile)
+	defer func() { _ = os.Remove(tmpFile) }()
 
 	// Test Save
 	config := DefaultConfig()
@@ -35,8 +36,8 @@ func TestSaveAndLoadConfig(t *testing.T) {
 
 	dir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(originalDir)
+	_ = os.Chdir(dir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	err := config.Save()
 	if err != nil {
@@ -104,5 +105,46 @@ func TestRemoveSkillInfo(t *testing.T) {
 	config.RemoveSkillInfo("non-existent")
 	if len(config.SkillsInfo) != 1 {
 		t.Errorf("Removing non-existent skill info should not change list size")
+	}
+}
+
+func TestDefaultToolTargets(t *testing.T) {
+	targets := DefaultToolTargets()
+	if len(targets) == 0 {
+		t.Error("Expected default tool targets, got empty list")
+	}
+	// Verify "agent" target exists
+	foundAgent := false
+	for _, target := range targets {
+		if target.Name == "agent" {
+			foundAgent = true
+			break
+		}
+	}
+	if !foundAgent {
+		t.Error("Expected 'agent' tool target")
+	}
+}
+
+func TestDetectExistingToolDirs(t *testing.T) {
+	// Setup temp dir
+	dir := t.TempDir()
+
+	// Create .claude directory (mocking existing project)
+	err := os.Mkdir(filepath.Join(dir, ".claude"), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create .claude dir: %v", err)
+	}
+
+	detected := DetectExistingToolDirs(dir)
+	foundClaude := false
+	for _, target := range detected {
+		if target.Name == "claude" {
+			foundClaude = true
+			break
+		}
+	}
+	if !foundClaude {
+		t.Error("Expected 'claude' to be detected in " + dir)
 	}
 }

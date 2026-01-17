@@ -67,8 +67,12 @@ Real-time progress bars during installation and updates. Clear feedback on what'
 ### 🔌 Offline Mode
 Use `--offline` flag to work without network. Search uses cached results; perfect for air-gapped environments.
 
-### ⏱️ Performance Benchmarking
-Run `ask benchmark` to measure CLI performance (cold/hot search, config loading).
+### 🤖 Multi-Tool Support
+Automatically detects and supports skills directories for **Claude Code** (`.claude/skills`), **Cursor** (`.cursor/skills`), **OpenAI Codex** (`.codex/skills`), and **OpenCode** (`.opencode/skills`).
+Simply run `ask skill install` and it will install to all detected tool directories.
+
+### 🌍 Global Installation
+Install skills globally with `--global` flag to share across all projects. Local project installations take precedence over global ones.
 
 ---
 
@@ -96,7 +100,8 @@ ask init    # Creates ask.yaml in current directory
 
 ```bash
 ask skill search browser      # Search across all sources
-ask skill install browser-use # Install a skill
+ask skill install browser-use           # Install a skill
+ask skill install skill1 skill2 skill3  # Install multiple skills
 ask skill list                # View installed skills
 ```
 
@@ -109,7 +114,7 @@ ask skill list                # View installed skills
 | `ask init` | Initialize project, create `ask.yaml` |
 | **Skill Management** | |
 | `ask skill search <keyword>` | Search skills across all sources |
-| `ask skill install <skill>` | Install a skill to `./skills/` |
+| `ask skill install <skill...>` | Install skill(s) to `./skills/` |
 | `ask skill install skill@v1.0` | Install specific version |
 | `ask skill uninstall <skill>` | Remove a skill |
 | `ask skill list` | List installed skills |
@@ -118,7 +123,7 @@ ask skill list                # View installed skills
 | `ask skill outdated` | Check for updates |
 | `ask skill create <name>` | Create new skill template |
 | **Repository Management** | |
-| `ask repo list` | List skill sources |
+| `ask repo list [name]` | List repos or skills in repo |
 | `ask repo add <url>` | Add custom source |
 | `ask repo remove <name>` | Remove a source |
 | **Shell Completion** | |
@@ -126,6 +131,7 @@ ask skill list                # View installed skills
 | **Utilities** | |
 | `ask benchmark` | Run performance benchmarks |
 | `--offline` | Global flag: run without network |
+| `--global, -g` | Global flag: use global installation (~/.ask/skills) |
 
 ---
 
@@ -164,10 +170,40 @@ my-agent/
 ├── ask.lock          # Version lock file
 ├── main.py           # Your agent code
 └── .agent/
-    └── skills/       # Managed skills
+    └── skills/       # Project-level skills
         ├── browser-use/
         └── web-surfer/
+
+# Global skills (shared across projects)
+~/.ask/
+├── config.yaml       # Global config
+├── ask.lock          # Global version lock
+└── skills/           # Global skills
+    └── shared-skill/
 ```
+
+### Installation Scopes
+
+```bash
+# Project-level (default) - stored in .agent/skills/
+ask skill install browser-use
+
+# Multi-Agent Installation
+ask skill install browser-use --agent claude --agent cursor
+
+# Global - stored in ~/.ask/skills/, available to all projects
+ask skill install --global shared-skill
+ask skill install -g shared-skill
+
+# Global for specific agent
+ask skill install browser-use --agent claude --global
+# Installs to ~/.claude/skills/
+
+# List both
+ask skill list --all
+
+# List for specific agent
+ask skill list --agent claude
 
 ---
 
