@@ -23,7 +23,7 @@ the Agent ecosystem.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "0.6.0",
+	Version: "0.6.1",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
