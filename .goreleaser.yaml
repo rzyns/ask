@@ -42,6 +42,7 @@ brews:
     repository:
       owner: yeasy
       name: homebrew-tap
+    directory: Formula
     homepage: "https://github.com/yeasy/ask"
     description: "Agent Skills Kit - The Package Manager for Agent Skills"
     license: "MIT"
