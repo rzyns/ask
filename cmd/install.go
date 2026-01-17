@@ -73,6 +73,13 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 			}
 		}
 
+		// Ensure project is initialized for non-global, non-agent-specific operations
+		if !global && len(agents) == 0 {
+			if !ensureInitialized() {
+				return
+			}
+		}
+
 		// Track installation results
 		var succeeded, failed []string
 

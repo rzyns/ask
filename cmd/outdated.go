@@ -22,12 +22,15 @@ Use --global to check global skills.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		global, _ := cmd.Flags().GetBool("global")
 
-		cfg, err := config.LoadConfigByScope(global)
-		if err != nil {
-			if os.IsNotExist(err) && !global {
-				fmt.Println("No ask.yaml found. Run 'ask init' first.")
+		// Ensure project is initialized for non-global operations
+		if !global {
+			if !ensureInitialized() {
 				return
 			}
+		}
+
+		cfg, err := config.LoadConfigByScope(global)
+		if err != nil {
 			fmt.Printf("Error loading config: %v\n", err)
 			os.Exit(1)
 		}

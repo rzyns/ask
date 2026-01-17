@@ -28,6 +28,13 @@ If no agent is specified, uninstalls from .agent/skills/ by default.`,
 		global, _ := cmd.Flags().GetBool("global")
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 
+		// Ensure project is initialized for non-global operations
+		if !global && len(agents) == 0 {
+			if !ensureInitialized() {
+				return
+			}
+		}
+
 		// Validate agent names
 		for _, agent := range agents {
 			if !config.IsValidAgent(agent) {

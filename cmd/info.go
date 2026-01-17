@@ -21,6 +21,14 @@ Use --global to check global skills.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		global, _ := cmd.Flags().GetBool("global")
 		skillName := args[0]
+
+		// Ensure project is initialized for non-global operations
+		if !global {
+			if !ensureInitialized() {
+				return
+			}
+		}
+
 		skillsDir := config.GetSkillsDirByScope(global)
 		skillPath := filepath.Join(skillsDir, skillName)
 

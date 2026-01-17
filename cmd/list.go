@@ -23,6 +23,13 @@ Use --agent (-a) to list skills for specific agents (checks agent directories).`
 		all, _ := cmd.Flags().GetBool("all")
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 
+		// Ensure project is initialized for non-global operations
+		if !global && !all && len(agents) == 0 {
+			if !ensureInitialized() {
+				return
+			}
+		}
+
 		// Validate agent names
 		for _, agent := range agents {
 			if !config.IsValidAgent(agent) {
