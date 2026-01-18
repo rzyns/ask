@@ -6,8 +6,9 @@ import (
 
 // skillCmd represents the skill parent command
 var skillCmd = &cobra.Command{
-	Use:   "skill",
-	Short: "Manage agent skills",
+	Use:     "skill",
+	Aliases: []string{"skills"},
+	Short:   "Manage agent skills",
 	Long: `Manage agent skills - search, install, update, and remove skills.
 
 Examples:

@@ -40,7 +40,7 @@ repos:
     url: https://github.com/modelcontextprotocol/servers/tree/main/src
   - name: scientific
     type: dir
-    url: https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/skills
+    url: https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills
   - name: superpowers
     type: dir
     url: https://github.com/obra/superpowers/tree/main/skills
@@ -124,7 +124,7 @@ ASK automatically includes these sources, even if not in your `ask.yaml`:
 | `community` | topic | `agent-skill` |
 | `anthropics` | dir | `https://github.com/anthropics/skills/tree/main/skills` |
 | `mcp-servers` | dir | `https://github.com/modelcontextprotocol/servers/tree/main/src` |
-| `scientific` | dir | `https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/skills` |
+| `scientific` | dir | `https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills` |
 | `superpowers` | dir | `https://github.com/obra/superpowers/tree/main/skills` |
 | `openai` | dir | `https://github.com/openai/skills/tree/main/skills` |
 

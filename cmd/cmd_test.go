@@ -37,6 +37,54 @@ func TestRootCommand(t *testing.T) {
 	}
 }
 
+func TestRootHelpShowsSubcommandDetails(t *testing.T) {
+	rootCmd.SetArgs([]string{"--help"})
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Errorf("root command failed: %v", err)
+	}
+
+	output := buf.String()
+
+	// Verify subcommand details section is present
+	subcommandDetails := []string{
+		"Skill Commands (ask skill <command>):",
+		"Repository Commands (ask repo <command>):",
+		"Supported Agents:",
+		"search",
+		"install",
+		"uninstall",
+		"Claude Code",
+		"Cursor",
+		"OpenAI Codex",
+	}
+
+	for _, detail := range subcommandDetails {
+		if !bytes.Contains([]byte(output), []byte(detail)) {
+			t.Errorf("expected help to contain subcommand detail '%s'", detail)
+		}
+	}
+
+	// Verify subcommand details appear AFTER Flags section
+	flagsIndex := bytes.Index([]byte(output), []byte("Flags:"))
+	skillCmdsIndex := bytes.Index([]byte(output), []byte("Skill Commands"))
+
+	if flagsIndex == -1 {
+		t.Error("expected help to contain 'Flags:' section")
+	}
+	if skillCmdsIndex == -1 {
+		t.Error("expected help to contain 'Skill Commands' section")
+	}
+	if flagsIndex > skillCmdsIndex {
+		t.Error("expected 'Skill Commands' to appear AFTER 'Flags:' section")
+	}
+}
+
 func TestSkillCommandHelp(t *testing.T) {
 	// Create a new root command for testing to avoid state pollution
 	cmd := rootCmd

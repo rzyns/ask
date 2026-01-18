@@ -85,7 +85,7 @@ repos:
     url: https://github.com/modelcontextprotocol/servers/tree/main/src
   - name: scientific
     type: dir
-    url: https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/skills
+    url: https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills
   - name: superpowers
     type: dir
     url: https://github.com/obra/superpowers/tree/main/skills

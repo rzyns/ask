@@ -146,10 +146,38 @@ Examples:
 				return
 			}
 
-			fmt.Println("Configured Repos:")
+			fmt.Println("Configured Repositories:")
+			fmt.Println()
+			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+			_, _ = fmt.Fprintln(w, "NAME\tTYPE\tSTARS\tURL")
+			_, _ = fmt.Fprintln(w, "----\t----\t-----\t---")
 			for _, r := range cfg.Repos {
-				fmt.Printf("  %s (%s): %s\n", r.Name, r.Type, r.URL)
+				// Build full GitHub URL
+				var fullURL string
+				var stars string
+				if r.Type == "topic" {
+					fullURL = fmt.Sprintf("https://github.com/topics/%s", r.URL)
+					stars = "-" // Topics don't have star counts
+				} else {
+					fullURL = fmt.Sprintf("https://github.com/%s", r.URL)
+					// Fetch star count for repo
+					parts := strings.Split(r.URL, "/")
+					if len(parts) >= 2 {
+						repoInfo, err := github.FetchRepoDetails(parts[0], parts[1])
+						if err == nil && repoInfo != nil {
+							stars = fmt.Sprintf("%d", repoInfo.StargazersCount)
+						} else {
+							stars = "-"
+						}
+					} else {
+						stars = "-"
+					}
+				}
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r.Name, r.Type, stars, fullURL)
 			}
+			_ = w.Flush()
+			fmt.Printf("\nTotal: %d repositories\n", len(cfg.Repos))
+			fmt.Println("\nUse 'ask repo list <name>' to view skills in a repository.")
 			return
 		}
 

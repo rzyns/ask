@@ -144,7 +144,7 @@ func DefaultConfig() Config {
 			{
 				Name: "scientific",
 				Type: "dir",
-				URL:  "K-Dense-AI/claude-scientific-skills/skills",
+				URL:  "K-Dense-AI/claude-scientific-skills/scientific-skills",
 			},
 			{
 				Name: "superpowers",

@@ -19,6 +19,37 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultReposConfiguration(t *testing.T) {
+	config := DefaultConfig()
+
+	// Expected repos with their correct URLs
+	expectedRepos := map[string]struct {
+		repoType string
+		url      string
+	}{
+		"community":   {repoType: "topic", url: "agent-skill"},
+		"anthropics":  {repoType: "dir", url: "anthropics/skills/skills"},
+		"mcp-servers": {repoType: "dir", url: "modelcontextprotocol/servers/src"},
+		"scientific":  {repoType: "dir", url: "K-Dense-AI/claude-scientific-skills/scientific-skills"},
+		"superpowers": {repoType: "dir", url: "obra/superpowers/skills"},
+		"openai":      {repoType: "dir", url: "openai/skills/skills"},
+	}
+
+	for _, repo := range config.Repos {
+		expected, exists := expectedRepos[repo.Name]
+		if !exists {
+			t.Errorf("Unexpected repo in defaults: %s", repo.Name)
+			continue
+		}
+		if repo.Type != expected.repoType {
+			t.Errorf("Repo %s: expected type '%s', got '%s'", repo.Name, expected.repoType, repo.Type)
+		}
+		if repo.URL != expected.url {
+			t.Errorf("Repo %s: expected URL '%s', got '%s'", repo.Name, expected.url, repo.URL)
+		}
+	}
+}
+
 func TestSaveAndLoadConfig(t *testing.T) {
 	// Setup temporary file
 	tmpFile := "test_ask.yaml"

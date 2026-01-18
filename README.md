@@ -67,6 +67,16 @@ Real-time progress bars during installation and updates. Clear feedback on what'
 ### 🔌 Offline Mode
 Use `--offline` flag to work without network. Search uses cached results; perfect for air-gapped environments.
 
+### Rate Limiting
+
+The CLI uses the GitHub API to search for skills. Unauthenticated requests are limited to 60 per hour. To increase this limit (and avoid 429 errors), you can set a GitHub Personal Access Token:
+
+```bash
+export GITHUB_TOKEN=your_token_here
+# OR
+export GH_TOKEN=your_token_here
+```
+
 ### 🤖 Multi-Tool Support
 Automatically detects and supports skills directories for **Claude Code** (`.claude/skills`), **Cursor** (`.cursor/skills`), **OpenAI Codex** (`.codex/skills`), and **OpenCode** (`.opencode/skills`).
 Simply run `ask skill install` and it will install to all detected tool directories.
