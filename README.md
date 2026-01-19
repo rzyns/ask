@@ -138,7 +138,7 @@ ask skill list                # View installed skills
 | `ask init` | Initialize project, create `ask.yaml` |
 | **Skill Management** | |
 | `ask skill search <keyword>` | Search skills across all sources |
-| `ask skill install <skill...>` | Install skill(s) to `./skills/` |
+| `ask skill install <skill...>` | Install skill(s) to `.agent/skills/` |
 | `ask skill install skill@v1.0` | Install specific version |
 | `ask skill uninstall <skill>` | Remove a skill |
 | `ask skill list` | List installed skills |

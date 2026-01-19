@@ -112,7 +112,7 @@ ask skill list                # 查看已安装技能
 | `ask init` | 初始化项目，创建 `ask.yaml` |
 | **技能管理** | |
 | `ask skill search <关键词>` | 从所有来源搜索技能 |
-| `ask skill install <技能...>` | 安装技能到 `./skills/` |
+| `ask skill install <技能...>` | 安装技能到 `.agent/skills/` |
 | `ask skill install skill@v1.0` | 安装指定版本 |
 | `ask skill uninstall <技能>` | 移除技能 |
 | `ask skill list` | 列出已安装技能 |
