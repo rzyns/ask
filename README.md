@@ -45,6 +45,20 @@ graph LR
     style Agent fill:#90ee90,color:black
 ```
 
+## 🏆 Why ASK?
+
+| Feature | ASK | Manual | Other Tools |
+|---------|-----|--------|-------------|
+| **Multi-Source Search** | ✅ Unified search across GitHub, Anthropic, MCP, OpenAI | ❌ Search each platform separately | ⚠️ Usually limited to specific sources |
+| **Multi-Tool Support** | ✅ Claude/Cursor/Codex/OpenCode | ❌ | ⚠️ Usually single-tool only |
+| **Version Locking** | ✅ `ask.lock` with exact commits | ❌ | ⚠️ Partial support |
+| **Offline Mode** | ✅ `--offline` flag | ❌ | ⚠️ |
+| **Installation Speed** | ⚡ Parallel + sparse checkout | 🐢 | 🐢 |
+| **Global/Project Scope** | ✅ Both supported | ⚠️ | ⚠️ |
+| **Zero Dependencies** | ✅ Single static binary | N/A | ⚠️ Often requires runtime |
+
+---
+
 ## ✨ Key Features
 
 
@@ -83,20 +97,6 @@ Simply run `ask skill install` and it will install to all detected tool director
 
 ### 🌍 Global Installation
 Install skills globally with `--global` flag to share across all projects. Local project installations take precedence over global ones.
-
----
-
-## 🏆 Why ASK?
-
-| Feature | ASK | Manual | Other Tools |
-|---------|-----|--------|-------------|
-| **Multi-Source Search** | ✅ Unified search across GitHub, Anthropic, MCP, OpenAI | ❌ Search each platform separately | ⚠️ Usually limited to specific sources |
-| **Multi-Tool Support** | ✅ Claude/Cursor/Codex/OpenCode | ❌ | ⚠️ Usually single-tool only |
-| **Version Locking** | ✅ `ask.lock` with exact commits | ❌ | ⚠️ Partial support |
-| **Offline Mode** | ✅ `--offline` flag | ❌ | ⚠️ |
-| **Installation Speed** | ⚡ Parallel + sparse checkout | 🐢 | 🐢 |
-| **Global/Project Scope** | ✅ Both supported | ⚠️ | ⚠️ |
-| **Zero Dependencies** | ✅ Single static binary | N/A | ⚠️ Often requires runtime |
 
 ---
 
