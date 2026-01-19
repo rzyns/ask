@@ -228,6 +228,7 @@ ask skill list --all
 
 # List for specific agent
 ask skill list --agent claude
+```
 
 ---
 
