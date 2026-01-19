@@ -145,6 +145,10 @@ ASK 默认搜索以下来源：
 | **OpenAI** | dir | [openai/skills](https://github.com/openai/skills) Codex 技能 |
 | **MATLAB** | dir | 官方 [matlab/skills](https://github.com/matlab/skills) |
 
+### 🔍 发现更多技能
+
+想要寻找更多技能？请访问 [SkillsMP](https://skillsmp.com)，这是最大的开源 AI Agent 技能市场。您可以搜索数以千计的社区技能，并通过 `ask repo add` 添加它们，或直接从其仓库安装。
+
 ### 添加自定义来源
 
 ```yaml

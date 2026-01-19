@@ -172,6 +172,14 @@ ASK searches these sources by default:
 | **OpenAI** | dir | Codex skills from [openai/skills](https://github.com/openai/skills) |
 | **MATLAB** | dir | Official [matlab/skills](https://github.com/matlab/skills) |
 
+### 🔍 Skill Discovery
+
+Looking for more skills? Check out [SkillsMP](https://skillsmp.com), the open-source marketplace for AI Agent Skills. You can search thousands of community skills and add them using `ask repo add` or by installing directly from their repositories.
+
+### 🔍 Skill Discovery
+
+Looking for more skills? Check out [SkillsMP](https://skillsmp.com), the open-source marketplace for AI Agent Skills. You can search thousands of community skills and add them using `ask repo add` or by installing directly from their repositories.
+
 ### Add Custom Sources
 
 ```yaml
