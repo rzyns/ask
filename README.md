@@ -167,7 +167,6 @@ ASK searches these sources by default:
 |--------|------|-------------|
 | **Community** | topic | GitHub repos with `agent-skill` topic |
 | **Anthropics** | dir | Official [anthropics/skills](https://github.com/anthropics/skills) |
-| **MCP-Servers** | dir | [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) |
 | **Scientific** | dir | Research skills from [K-Dense-AI](https://github.com/K-Dense-AI/claude-scientific-skills) |
 | **Superpowers** | dir | Core skills from [obra/superpowers](https://github.com/obra/superpowers) |
 | **OpenAI** | dir | Codex skills from [openai/skills](https://github.com/openai/skills) |

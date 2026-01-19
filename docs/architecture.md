@@ -312,10 +312,9 @@ graph TB
     Topic --> T1[community:<br/>agent-skill topic]
     
     Dir --> D1[anthropics:<br/>skills/]
-    Dir --> D2[mcp-servers:<br/>src/]
-    Dir --> D3[scientific:<br/>claude-scientific-skills]
-    Dir --> D4[superpowers:<br/>superpowers/skills]
-    Dir --> D5[openai:<br/>skills/]
+    Dir --> D2[scientific:<br/>claude-scientific-skills]
+    Dir --> D3[superpowers:<br/>superpowers/skills]
+    Dir --> D4[openai:<br/>skills/]
     
     style Topic fill:#ffd93d
     style Dir fill:#90ee90

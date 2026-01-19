@@ -80,9 +80,6 @@ repos:
   - name: anthropics
     type: dir
     url: https://github.com/anthropics/skills/tree/main/skills
-  - name: mcp-servers
-    type: dir
-    url: https://github.com/modelcontextprotocol/servers/tree/main/src
   - name: scientific
     type: dir
     url: https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills

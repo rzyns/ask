@@ -6,13 +6,12 @@ ASK can search and install skills from multiple sources. This document explains 
 
 ## Default Sources
 
-ASK comes with six pre-configured sources:
+ASK comes with five pre-configured sources:
 
 | Name | Type | URL | Description |
 |------|------|-----|-------------|
 | `community` | topic | `agent-skill` | GitHub repos with the `agent-skill` topic |
 | `anthropics` | dir | `https://github.com/anthropics/skills/tree/main/skills` | Official Anthropic skills |
-| `mcp-servers` | dir | `https://github.com/modelcontextprotocol/servers/tree/main/src` | MCP server implementations |
 | `scientific` | dir | `https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills` | Scientific research skills |
 | `superpowers` | dir | `https://github.com/obra/superpowers/tree/main/skills` | Core skills library |
 | `openai` | dir | `https://github.com/openai/skills/tree/main/skills` | Codex skills catalog |

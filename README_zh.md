@@ -140,7 +140,6 @@ ASK 默认搜索以下来源：
 |------|------|------|
 | **Community** | topic | 带有 `agent-skill` 主题的 GitHub 仓库 |
 | **Anthropics** | dir | 官方 [anthropics/skills](https://github.com/anthropics/skills) |
-| **MCP-Servers** | dir | [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) |
 | **Scientific** | dir | [K-Dense-AI](https://github.com/K-Dense-AI/claude-scientific-skills) 科研技能 |
 | **Superpowers** | dir | [obra/superpowers](https://github.com/obra/superpowers) 核心技能 |
 | **OpenAI** | dir | [openai/skills](https://github.com/openai/skills) Codex 技能 |

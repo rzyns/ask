@@ -14,22 +14,20 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	if len(config.Repos) != 6 {
-		t.Errorf("Expected 6 default repos, got %d", len(config.Repos))
+	if len(config.Repos) != 5 {
+		t.Errorf("Expected 5 default repos, got %d", len(config.Repos))
 	}
 }
 
 func TestDefaultReposConfiguration(t *testing.T) {
 	config := DefaultConfig()
 
-	// Expected repos with their correct URLs
 	expectedRepos := map[string]struct {
 		repoType string
 		url      string
 	}{
 		"community":   {repoType: "topic", url: "agent-skill"},
 		"anthropics":  {repoType: "dir", url: "anthropics/skills/skills"},
-		"mcp-servers": {repoType: "dir", url: "modelcontextprotocol/servers/src"},
 		"scientific":  {repoType: "dir", url: "K-Dense-AI/claude-scientific-skills/scientific-skills"},
 		"superpowers": {repoType: "dir", url: "obra/superpowers/skills"},
 		"openai":      {repoType: "dir", url: "openai/skills/skills"},

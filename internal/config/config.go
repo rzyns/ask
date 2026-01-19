@@ -137,11 +137,6 @@ func DefaultConfig() Config {
 				URL:  "anthropics/skills/skills",
 			},
 			{
-				Name: "mcp-servers",
-				Type: "dir",
-				URL:  "modelcontextprotocol/servers/src",
-			},
-			{
 				Name: "scientific",
 				Type: "dir",
 				URL:  "K-Dense-AI/claude-scientific-skills/scientific-skills",
