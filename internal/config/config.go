@@ -151,6 +151,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "openai/skills/skills",
 			},
+			{
+				Name: "matlab",
+				Type: "dir",
+				URL:  "matlab/skills/skills",
+			},
 		},
 	}
 }

@@ -6,7 +6,7 @@ ASK can search and install skills from multiple sources. This document explains 
 
 ## Default Sources
 
-ASK comes with five pre-configured sources:
+ASK comes with six pre-configured sources:
 
 | Name | Type | URL | Description |
 |------|------|-----|-------------|
@@ -15,6 +15,7 @@ ASK comes with five pre-configured sources:
 | `scientific` | dir | `https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills` | Scientific research skills |
 | `superpowers` | dir | `https://github.com/obra/superpowers/tree/main/skills` | Core skills library |
 | `openai` | dir | `https://github.com/openai/skills/tree/main/skills` | Codex skills catalog |
+| `matlab` | dir | `https://github.com/matlab/skills/tree/main/skills` | Official MATLAB skills |
 
 ---
 

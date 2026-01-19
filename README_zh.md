@@ -143,6 +143,7 @@ ASK 默认搜索以下来源：
 | **Scientific** | dir | [K-Dense-AI](https://github.com/K-Dense-AI/claude-scientific-skills) 科研技能 |
 | **Superpowers** | dir | [obra/superpowers](https://github.com/obra/superpowers) 核心技能 |
 | **OpenAI** | dir | [openai/skills](https://github.com/openai/skills) Codex 技能 |
+| **MATLAB** | dir | 官方 [matlab/skills](https://github.com/matlab/skills) |
 
 ### 添加自定义来源
 

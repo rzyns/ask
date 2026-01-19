@@ -315,6 +315,7 @@ graph TB
     Dir --> D2[scientific:<br/>claude-scientific-skills]
     Dir --> D3[superpowers:<br/>superpowers/skills]
     Dir --> D4[openai:<br/>skills/]
+    Dir --> D5[matlab:<br/>skills/]
     
     style Topic fill:#ffd93d
     style Dir fill:#90ee90

@@ -44,6 +44,9 @@ repos:
   - name: openai
     type: dir
     url: https://github.com/openai/skills/tree/main/skills
+  - name: matlab
+    type: dir
+    url: https://github.com/matlab/skills/tree/main/skills
 ```
 
 ### Fields
@@ -123,6 +126,7 @@ ASK automatically includes these sources, even if not in your `ask.yaml`:
 | `scientific` | dir | `https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills` |
 | `superpowers` | dir | `https://github.com/obra/superpowers/tree/main/skills` |
 | `openai` | dir | `https://github.com/openai/skills/tree/main/skills` |
+| `matlab` | dir | `https://github.com/matlab/skills/tree/main/skills` |
 
 To add custom sources, see [Skill Sources](skill-sources.md).
 

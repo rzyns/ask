@@ -170,6 +170,7 @@ ASK searches these sources by default:
 | **Scientific** | dir | Research skills from [K-Dense-AI](https://github.com/K-Dense-AI/claude-scientific-skills) |
 | **Superpowers** | dir | Core skills from [obra/superpowers](https://github.com/obra/superpowers) |
 | **OpenAI** | dir | Codex skills from [openai/skills](https://github.com/openai/skills) |
+| **MATLAB** | dir | Official [matlab/skills](https://github.com/matlab/skills) |
 
 ### Add Custom Sources
 

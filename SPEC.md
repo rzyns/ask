@@ -89,6 +89,9 @@ repos:
   - name: openai
     type: dir
     url: https://github.com/openai/skills/tree/main/skills
+  - name: matlab
+    type: dir
+    url: https://github.com/matlab/skills/tree/main/skills
 ```
 
 ### 可添加的来源（待验证）

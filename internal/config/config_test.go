@@ -14,8 +14,8 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	if len(config.Repos) != 5 {
-		t.Errorf("Expected 5 default repos, got %d", len(config.Repos))
+	if len(config.Repos) != 6 {
+		t.Errorf("Expected 6 default repos, got %d", len(config.Repos))
 	}
 }
 
@@ -31,6 +31,7 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		"scientific":  {repoType: "dir", url: "K-Dense-AI/claude-scientific-skills/scientific-skills"},
 		"superpowers": {repoType: "dir", url: "obra/superpowers/skills"},
 		"openai":      {repoType: "dir", url: "openai/skills/skills"},
+		"matlab":      {repoType: "dir", url: "matlab/skills/skills"},
 	}
 
 	for _, repo := range config.Repos {
