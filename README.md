@@ -39,7 +39,7 @@
 
 ```mermaid
 graph LR
-    User[User/Agent] -->|ask skill search| Sources[GitHub/SkillsMP/Community]
+    User[User/Agent] -->|ask skill search| Sources[GitHub/Community]
     Sources -->|Discover| Skills{Skills}
     User -->|ask skill install| Skills
     Skills -->|Download & Lock| Agent[.agent/skills/]
@@ -49,12 +49,16 @@ graph LR
     style Agent fill:#90ee90,color:black
 ```
 
+<p align="center">
+  <img src="assets/demo.webp" alt="ASK CLI Demo" width="700"/>
+</p>
+
 ## ✨ Key Features
 
 | Feature | Description |
 | :--- | :--- |
 | **📦 Smart Management** | Install, update, and remove skills with ease. Includes `ask.lock` for reproducible builds. |
-| **🔍 Multi-Source** | Unified search across GitHub, [SkillsMP](https://skillsmp.com), and official repos (Anthropic, OpenAI, MATLAB). |
+| **🔍 Multi-Source** | Unified search across GitHub and official repos (Anthropic, OpenAI, MATLAB). |
 | **🤖 Multi-Agent** | Auto-detects and installs for **Claude** (`.claude/`), **Cursor** (`.cursor/`), **Codex** (`.codex/`), and more. |
 | **⚡ Blazing Fast** | Written in Go. Parallel downloads, sparse checkouts, and zero runtime dependencies. |
 | **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
@@ -128,8 +132,6 @@ ASK comes pre-configured with trusted sources:
 | **MATLAB** | Official [matlab/skills](https://github.com/matlab/skills) |
 | **Superpowers** | [obra/superpowers](https://github.com/obra/superpowers) core library |
 | **Composio** | [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) collection |
-
-> **Tip**: Looking for more? Visit [SkillsMP.com](https://skillsmp.com) to discover thousands of community skills.
 
 ## 📂 Installation Layout
 

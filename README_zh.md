@@ -38,7 +38,7 @@
 
 ```mermaid
 graph LR
-    User[用户/Agent] -->|ask skill search| Sources[GitHub/SkillsMP/社区]
+    User[用户/Agent] -->|ask skill search| Sources[GitHub/社区]
     Sources -->|发现| Skills{技能库}
     User -->|ask skill install| Skills
     Skills -->|下载 & 锁定| Agent[.agent/skills/]
@@ -48,12 +48,16 @@ graph LR
     style Agent fill:#90ee90,color:black
 ```
 
+<p align="center">
+  <img src="assets/demo.webp" alt="ASK CLI Demo" width="700"/>
+</p>
+
 ## ✨ 核心特性
 
 | 特性 | 说明 |
 | :--- | :--- |
 | **📦 智能管理** | 轻松安装、升级、卸载技能。支持 `ask.lock` 版本锁定，确保环境一致性。 |
-| **🔍 多源聚合** | 统一搜索 GitHub、[SkillsMP](https://skillsmp.com) 及官方仓库 (Anthropic, OpenAI, MATLAB)。 |
+| **🔍 多源聚合** | 统一搜索 GitHub 及官方仓库 (Anthropic, OpenAI, MATLAB)。 |
 | **🤖 多 Agent 支持** | 自动检测并适配 **Claude** (`.claude/`)、**Cursor** (`.cursor/`)、**Codex** (`.codex/`) 等。 |
 | **⚡ 极速体验** | Go 语言编写，平行下载，稀疏检出（Sparse Checkout），无运行时依赖。 |
 | **🔌 离线模式** | 支持 `--offline` 离线运行，使用本地缓存，适合安全受限环境。 |
@@ -131,8 +135,6 @@ ASK 默认内置了以下受信源：
 | **MATLAB** | 官方库 [matlab/skills](https://github.com/matlab/skills) |
 | **Superpowers** | 核心库 [obra/superpowers](https://github.com/obra/superpowers) |
 | **Composio** | 精选集 [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) |
-
-> **提示**: 想找更多技能？访问 [SkillsMP.com](https://skillsmp.com) 探索数千个社区技能。
 
 ## 📂 目录结构
 
