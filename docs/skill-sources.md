@@ -14,8 +14,9 @@ ASK comes with six pre-configured sources:
 | `anthropics` | dir | `https://github.com/anthropics/skills/tree/main/skills` | Official Anthropic skills |
 | `scientific` | dir | `https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills` | Scientific research skills |
 | `superpowers` | dir | `https://github.com/obra/superpowers/tree/main/skills` | Core skills library |
-| `openai` | dir | `https://github.com/openai/skills/tree/main/skills` | Codex skills catalog |
-| `matlab` | dir | `https://github.com/matlab/skills/tree/main/skills` | Official MATLAB skills |
+| **OpenAI** | Official | `openai` | OpenAI Official Skills |
+| **MATLAB** | Official | `matlab` | MATLAB Official Skills |
+| **Composio** | Community | `composio` | Awesome Claude Skills |
 
 ---
 

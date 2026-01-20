@@ -156,6 +156,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "matlab/skills/skills",
 			},
+			{
+				Name: "composio",
+				Type: "dir",
+				URL:  "ComposioHQ/awesome-claude-skills",
+			},
 		},
 	}
 }

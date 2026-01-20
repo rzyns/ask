@@ -144,6 +144,7 @@ ASK 默认搜索以下来源：
 | **Superpowers** | dir | [obra/superpowers](https://github.com/obra/superpowers) 核心技能 |
 | **OpenAI** | dir | [openai/skills](https://github.com/openai/skills) Codex 技能 |
 | **MATLAB** | dir | 官方 [matlab/skills](https://github.com/matlab/skills) |
+| **Composio** | dir | [Composio/awesome-claude-skills](https://github.com/Composio/awesome-claude-skills) Awesome Claude Skills |
 
 ### 🔍 发现更多技能
 
