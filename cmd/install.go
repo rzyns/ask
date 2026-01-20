@@ -119,11 +119,27 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 
 			if targetRepo != nil {
 				fmt.Printf("Fetching skills from repo '%s'...\n", input)
-				repos, err := repository.FetchSkills(*targetRepo)
-				if err != nil {
-					fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
-					failed = append(failed, input)
-					continue
+
+				var repos []github.Repository
+				var err error
+
+				// Try git-based discovery first for 'dir' type repos (avoids API rate limits)
+				if targetRepo.Type == "dir" {
+					repos, err = repository.FetchSkillsViaGit(*targetRepo)
+				}
+
+				// If git discovery failed or wasn't applicable, fall back to API
+				if err != nil || targetRepo.Type != "dir" {
+					if err != nil && targetRepo.Type == "dir" {
+						// Optional: log or print why git failed if verbose
+						// fmt.Printf("Git discovery failed: %v. Falling back to API...\n", err)
+					}
+					repos, err = repository.FetchSkills(*targetRepo)
+					if err != nil {
+						fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
+						failed = append(failed, input)
+						continue
+					}
 				}
 
 				if len(repos) == 0 {
