@@ -1,0 +1,6 @@
+version: 1
+skills:
+    - name: superpowers
+      url: https://github.com/obra/superpowers
+      commit: a01a135fe185559ff9dc84dd70d6e9bb57d92bdf
+      installed_at: 2026-01-19T16:08:40.564724-08:00
