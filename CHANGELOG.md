@@ -16,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Bulk Skill Installation**: `ask skill install <repo>` now installs all skills from the repository (e.g. `ask skill install superpowers`)
 - **MATLAB Skills**: Added official `matlab` repository to default skill sources
-- **SkillsMP Discovery**: Added documentation for discovering skills via [SkillsMP](https://skillsmp.com)
 - **Documentation**: Added detailed install path documentation for different agents (`.claude`, `.cursor`, etc.) in `README.md` and `README_zh.md`
 
 ### Fixed

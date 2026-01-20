@@ -20,21 +20,6 @@ ASK comes with six pre-configured sources:
 
 ---
 
-## Skill Discovery
-
-Looking for more skills? Check out [SkillsMP](https://skillsmp.com), the open-source marketplace for AI Agent Skills.
-
-SkillsMP indexes thousands of skills from GitHub. When you find a skill you like:
-1. Copy its GitHub repository URL.
-2. Add it to your project:
-   ```bash
-   ask repo add <owner>/<repo>/<path/to/skills>
-   ```
-3. Or install it directly if it's in a standard repository:
-   ```bash
-   ask skill install <skill-name>
-   ```
-
 ## Source Types
 
 ### Topic Sources (`topic`)
