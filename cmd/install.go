@@ -98,21 +98,20 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 		for _, input := range args {
 			// Check if input matches a configured repository name
 			var targetRepo *config.Repo
-			for _, r := range cfg.Repos {
+			for i := range cfg.Repos {
+				r := &cfg.Repos[i]
+				// Debug print to diagnose matching issues (will remove later)
+				// fmt.Printf("DEBUG: Checking input '%s' against repo '%s' (URL: %s)\n", input, r.Name, r.URL)
+
 				// Match by name
 				if r.Name == input {
-					targetRepo = &r
+					targetRepo = r
 					break
 				}
 				// Match by owner/repo shorthand from URL
-				// Configured URLs are typically "owner/repo/path" or "owner/repo"
-				// e.g. "obra/superpowers/skills" should match input "obra/superpowers"
 				if strings.Contains(r.URL, input) {
-					// Verify it's not a partial match of a different owner/repo
-					// e.g. input "foo/bar" should not match "myfoo/bar/baz"
-					// We check if it starts with input (handled normally) or follows a separator
 					if strings.HasPrefix(r.URL, input) || strings.Contains(r.URL, "/"+input) {
-						targetRepo = &r
+						targetRepo = r
 						break
 					}
 				}
