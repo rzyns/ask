@@ -17,6 +17,7 @@ ASK comes with six pre-configured sources:
 | **OpenAI** | Official | `openai` | OpenAI Official Skills |
 | **MATLAB** | Official | `matlab` | MATLAB Official Skills |
 | **Composio** | Community | `composio` | Awesome Claude Skills |
+| **SkillHub** | Service | `skills` | SkillHub.club Search Service |
 
 ---
 

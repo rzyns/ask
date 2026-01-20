@@ -166,6 +166,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "vercel-labs/agent-skills",
 			},
+			{
+				Name: "skillhub",
+				Type: "skillhub",
+				URL:  "skills",
+			},
 		},
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/yeasy/ask/internal/git"
 	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/skill"
+	"github.com/yeasy/ask/internal/skillhub"
 )
 
 // FetchSkills returns a list of skills available in the given repository
@@ -29,9 +30,10 @@ func FetchSkills(repo config.Repo) ([]github.Repository, error) {
 			return github.SearchDir(owner, name, path)
 		}
 		return nil, fmt.Errorf("invalid repository URL format: %s", repo.URL)
+	case "skillhub":
+		return FetchSkillsFromSkillHub("", "")
 	default:
 		return nil, fmt.Errorf("unknown repository type: %s", repo.Type)
-	}
 	}
 }
 
@@ -112,4 +114,30 @@ func FetchSkillsViaGit(repo config.Repo) ([]github.Repository, error) {
 	}
 
 	return skills, nil
+}
+
+// FetchSkillsFromSkillHub searches SkillHub and converts results to internal format
+func FetchSkillsFromSkillHub(query string, category string) ([]github.Repository, error) {
+	client := skillhub.NewClient()
+	skills, err := client.Search(query)
+	if err != nil {
+		return nil, err
+	}
+
+	var repos []github.Repository
+	for _, s := range skills {
+		desc := s.Description
+		// Use slug as the install argument for now.
+		// Install command needs to detect if it's a slug and resolve it.
+		repo := github.Repository{
+			Name:            s.Name,
+			FullName:        s.Slug, // Storing slug in FullName for easier access
+			Description:     desc,
+			HTMLURL:         s.Slug, // Using Slug as the "URL" that install command receives
+			StargazersCount: s.Stars,
+			Source:          "skillhub",
+		}
+		repos = append(repos, repo)
+	}
+	return repos, nil
 }

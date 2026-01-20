@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/ui"
 )
 
@@ -90,6 +91,8 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 							repos = filtered
 						}
 					}
+				case "skillhub":
+					repos, err = repository.FetchSkillsFromSkillHub(keyword, "")
 				}
 
 				// Set source name for each repo

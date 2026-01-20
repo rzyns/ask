@@ -132,6 +132,7 @@ ASK comes pre-configured with trusted sources:
 | **MATLAB** | Official [matlab/skills](https://github.com/matlab/skills) |
 | **OpenAI** | Official [openai/skills](https://github.com/openai/skills) |
 | **Superpowers** | [obra/superpowers](https://github.com/obra/superpowers) core library |
+| **SkillHub** | [SkillHub.club](https://www.skillhub.club) |
 | **Vercel** | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) AI SDK skills |
 
 ## 📂 Installation Layout

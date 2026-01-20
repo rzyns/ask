@@ -14,6 +14,7 @@ import (
 	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/skill"
+	"github.com/yeasy/ask/internal/skillhub"
 )
 
 // installCmd represents the install command
@@ -268,9 +269,64 @@ func installSingleSkill(input string, global bool, agents []string) error {
 		} else {
 			// It's a URL (e.g., https://github.com/xxx.git)
 			repoURL = input
+			if !strings.HasSuffix(repoURL, ".git") && !strings.HasPrefix(input, "http") {
+				// It might be a SkillHub slug (no standard user/repo format easily distinguishable from just a name,
+				// but usually slugs are kebab-case).
+				// We can try to resolve it via SkillHub if it doesn't look like a URL.
+				// However, `input` here in this block is usually "http..." because of `isURL` check?
+				// Wait, `isURL` is true for http/git prefix.
+			}
 			urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
 			skillName = urlParts[len(urlParts)-1]
 		}
+	}
+
+	// SkillHub Slug Resolution
+	// If it wasn't a valid GitHub URL and resolved to just a "name" or if we want to support direct slug install:
+	// "ask skill install madappgang-claude-code-python"
+	// This falls into the "else" of "check if input matches configured repository name" in the caller `Run` loop?
+	// The `Run` loop checks configured repos. If not found, it passes `input` directly to `installSingleSkill`.
+	// So `installSingleSkill` receives "madappgang-claude-code-python".
+	// It goes to `else { Check if it's a direct URL or shorthand }`.
+	// `isURL` = false.
+	// `parts := strings.Split(input, "/")` -> len=1.
+	// So it falls to `else { Standard install: owner/repo }` ? NO.
+	// The code assumes input is "owner/repo" if it splits to 2?
+	// Wait, let's look at `installSingleSkill` logic again.
+
+	/*
+		if !isURL {
+			parts := strings.Split(input, "/")
+			if len(parts) > 2 {
+				// subdir
+			} else {
+				// owner/repo
+				repoURL = "https://github.com/" + input
+			}
+		}
+	*/
+
+	// If input is "slug", `parts` has len 1.
+	// The code `else { owner/repo }` logic (lines 262-267) assumes `len(parts) <= 2` handles owner/repo.
+	// But if `len(parts) == 1`, `repoURL` becomes `https://github.com/slug`.
+	// This is valid for GitHub user profile or org, but not a repo.
+
+	// We need to inject logic: if it looks like a slug (and not owner/repo), try SkillHub resolve.
+	// Or try SkillHub resolve if GitHub check fails?
+	// Doing it optimistically: if `strings.Contains(input, "/")` is false, it might be a slug.
+
+	if !strings.Contains(input, "/") && !strings.HasPrefix(input, "http") && !strings.HasPrefix(input, "git") {
+		// Try resolving as SkillHub slug
+		client := skillhub.NewClient()
+		if resolved, err := client.Resolve(input); err == nil {
+			fmt.Printf("Resolved SkillHub slug '%s' to '%s'\n", input, resolved)
+			// Recursive call or set variables?
+			// URL found (e.g. https://github.com/owner/repo#...)
+			// Recursing is easiest to handle the new URL format (which might be a tree URL).
+			return installSingleSkill(resolved, global, agents)
+		}
+		// If resolve fails, we proceed (it might be a local directory or something, though `ask` doesn't strictly support local paths yet in this function).
+		// Or it falls through to be treated as `github.com/input` which will fail.
 	}
 
 	// Use branch from version if not set from URL parsing
