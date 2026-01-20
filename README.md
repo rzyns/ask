@@ -50,7 +50,7 @@ graph LR
 ```
 
 <p align="center">
-  <img src="assets/demo.webp" alt="ASK CLI Demo" width="700"/>
+  <img src="assets/demo.png" alt="ASK CLI Demo" width="700"/>
 </p>
 
 ## ✨ Key Features
