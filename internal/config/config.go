@@ -161,6 +161,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "ComposioHQ/awesome-claude-skills",
 			},
+			{
+				Name: "vercel",
+				Type: "dir",
+				URL:  "vercel-labs/agent-skills",
+			},
 		},
 	}
 }

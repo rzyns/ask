@@ -132,6 +132,7 @@ ASK comes pre-configured with trusted sources:
 | **MATLAB** | Official [matlab/skills](https://github.com/matlab/skills) |
 | **Superpowers** | [obra/superpowers](https://github.com/obra/superpowers) core library |
 | **Composio** | [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) collection |
+| **Vercel** | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) AI SDK skills |
 
 ## 📂 Installation Layout
 

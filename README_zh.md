@@ -135,6 +135,7 @@ ASK 默认内置了以下受信源：
 | **MATLAB** | 官方库 [matlab/skills](https://github.com/matlab/skills) |
 | **Superpowers** | 核心库 [obra/superpowers](https://github.com/obra/superpowers) |
 | **Composio** | 精选集 [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) |
+| **Vercel** | AI SDK [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) |
 
 ## 📂 目录结构
 

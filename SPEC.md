@@ -100,7 +100,6 @@ repos:
 |------|-----|------|
 | OpenAI Skills | `openai/skills/skills` | OpenAI Codex 官方技能 |
 | GitHub Copilot | `github/awesome-copilot/skills` | GitHub Copilot 技能 |
-| SkillsMP | skillsmp.com | 技能市场（需API） |
 
 ---
 
