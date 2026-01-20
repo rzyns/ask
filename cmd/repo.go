@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/ui"
 )
 
@@ -202,24 +203,7 @@ Examples:
 		bar := ui.NewProgressBar(1, "Fetching")
 
 		// Fetch skills
-		var repos []github.Repository
-		var fetchErr error
-
-		switch targetRepo.Type {
-		case "topic":
-			repos, fetchErr = github.SearchTopic(targetRepo.URL, "")
-		case "dir":
-			parts := strings.Split(targetRepo.URL, "/")
-			if len(parts) >= 2 {
-				owner := parts[0]
-				name := parts[1]
-				path := ""
-				if len(parts) >= 3 {
-					path = strings.Join(parts[2:], "/")
-				}
-				repos, fetchErr = github.SearchDir(owner, name, path)
-			}
-		}
+		repos, fetchErr := repository.FetchSkills(*targetRepo)
 
 		_ = bar.Add(1)
 		fmt.Println()

@@ -202,7 +202,20 @@ my-agent/
 ├── ask.lock          # Version lock file
 ├── main.py           # Your agent code
 └── .agent/
-    └── skills/       # Project-level skills
+    └── skills/       # Project-level skills (Default)
+
+### Install Paths
+
+Skills are installed specifically for each agent:
+
+| Agent | Flag | Path |
+|-------|------|------|
+| **Generic/Default** | (none) | `.agent/skills/` |
+| **Claude** | `--agent claude` | `.claude/skills/` |
+| **Cursor** | `--agent cursor` | `.cursor/skills/` |
+| **Codex** | `--agent codex` | `.codex/skills/` |
+| **OpenCode** | `--agent opencode` | `.opencode/skills/` |
+| **Global** | `--global` | `~/.ask/skills/` |
         ├── browser-use/
         └── web-surfer/
 

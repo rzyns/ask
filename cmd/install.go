@@ -12,6 +12,7 @@ import (
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/git"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/skill"
 )
 
@@ -84,7 +85,55 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 		var succeeded, failed []string
 
 		// Install each skill
+		// Check for repo aliases and expand them
+		// Load config to check for repos
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			// Ignore error, might not be initialized
+			def := config.DefaultConfig()
+			cfg = &def
+		}
+
+		var expandedArgs []string
 		for _, input := range args {
+			// Check if input matches a configured repository name
+			var targetRepo *config.Repo
+			for _, r := range cfg.Repos {
+				if r.Name == input {
+					targetRepo = &r
+					break
+				}
+			}
+
+			if targetRepo != nil {
+				fmt.Printf("Fetching skills from repo '%s'...\n", input)
+				repos, err := repository.FetchSkills(*targetRepo)
+				if err != nil {
+					fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
+					failed = append(failed, input)
+					continue
+				}
+
+				if len(repos) == 0 {
+					fmt.Printf("No skills found in repo '%s'\n", input)
+					continue
+				}
+
+				fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
+				for _, r := range repos {
+					// Construct install URL for each skill
+					// Ideally we should use the skill's specific path if possible
+					// But for now, we can use the HTML URL or clone URL + path
+					// The simplest way given current installSingleSkill logic might be passing the full browser URL
+					expandedArgs = append(expandedArgs, r.HTMLURL)
+				}
+			} else {
+				expandedArgs = append(expandedArgs, input)
+			}
+		}
+
+		// Install each expanded skill
+		for _, input := range expandedArgs {
 			err := installSingleSkill(input, global, agents)
 			if err != nil {
 				failed = append(failed, input)
@@ -427,6 +476,6 @@ func copyFile(src, dst string) error {
 
 func init() {
 	skillCmd.AddCommand(installCmd)
-	installCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) for installation (claude, cursor, codex, opencode)")
+	installCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) (claude->.claude/skills, cursor->.cursor/skills, etc.)")
 	installCmd.Flags().BoolP("global", "g", false, "install globally (user-level)")
 }

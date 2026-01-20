@@ -171,7 +171,20 @@ my-agent/
 ├── ask.lock          # 版本锁定文件
 ├── main.py           # 您的智能体代码
 └── .agent/
-    └── skills/       # 项目级技能目录
+    └── skills/       # 项目级技能（默认）
+
+### 安装路径
+
+技能会根据不同的 Agent 安装到特定目录：
+
+| Agent | Flag 参数 | 路径 |
+|-------|------|------|
+| **通用/默认** | (无) | `.agent/skills/` |
+| **Claude** | `--agent claude` | `.claude/skills/` |
+| **Cursor** | `--agent cursor` | `.cursor/skills/` |
+| **Codex** | `--agent codex` | `.codex/skills/` |
+| **OpenCode** | `--agent opencode` | `.opencode/skills/` |
+| **全局** | `--global` | `~/.ask/skills/` |目录
         ├── browser-use/
         └── web-surfer/
 
