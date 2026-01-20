@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-01-19
+
+### Added
+- **Bulk Skill Installation**: `ask skill install <repo>` now installs all skills from the repository (e.g. `ask skill install superpowers`)
+- **MATLAB Skills**: Added official `matlab` repository to default skill sources
+- **SkillsMP Discovery**: Added documentation for discovering skills via [SkillsMP](https://skillsmp.com)
+- **Documentation**: Added detailed install path documentation for different agents (`.claude`, `.cursor`, etc.) in `README.md` and `README_zh.md`
+
+### Fixed
+- Fixed specific config URL handling in `ask skill install` matching logic
+
 ## [0.7.2] - 2026-01-17
 
 ### Added
