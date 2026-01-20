@@ -105,12 +105,13 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 					break
 				}
 				// Match by owner/repo shorthand from URL
-				if strings.HasSuffix(r.URL, input) || strings.HasSuffix(r.URL, "/"+input) {
-					// Check if input looks like owner/repo
-					// This is heuristic, but helpful.
-					// e.g. input "obra/superpowers" matches url "obra/superpowers/skills" ? No.
-					// url "obra/superpowers/skills" contains "obra/superpowers"
-					if strings.Contains(r.URL, input) {
+				// Configured URLs are typically "owner/repo/path" or "owner/repo"
+				// e.g. "obra/superpowers/skills" should match input "obra/superpowers"
+				if strings.Contains(r.URL, input) {
+					// Verify it's not a partial match of a different owner/repo
+					// e.g. input "foo/bar" should not match "myfoo/bar/baz"
+					// We check if it starts with input (handled normally) or follows a separator
+					if strings.HasPrefix(r.URL, input) || strings.Contains(r.URL, "/"+input) {
 						targetRepo = &r
 						break
 					}
