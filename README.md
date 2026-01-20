@@ -126,12 +126,12 @@ ASK comes pre-configured with trusted sources:
 
 | Source | Description |
 | :--- | :--- |
-| **Community** | Top-rated community skills (GitHub `agent-skill` topic) |
 | **Anthropic** | Official [anthropics/skills](https://github.com/anthropics/skills) |
-| **OpenAI** | Official [openai/skills](https://github.com/openai/skills) |
-| **MATLAB** | Official [matlab/skills](https://github.com/matlab/skills) |
-| **Superpowers** | [obra/superpowers](https://github.com/obra/superpowers) core library |
+| **Community** | Top-rated community skills (GitHub `agent-skill` topic) |
 | **Composio** | [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) collection |
+| **MATLAB** | Official [matlab/skills](https://github.com/matlab/skills) |
+| **OpenAI** | Official [openai/skills](https://github.com/openai/skills) |
+| **Superpowers** | [obra/superpowers](https://github.com/obra/superpowers) core library |
 | **Vercel** | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) AI SDK skills |
 
 ## 📂 Installation Layout

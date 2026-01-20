@@ -129,12 +129,12 @@ ASK 默认内置了以下受信源：
 
 | 来源 | 说明 |
 | :--- | :--- |
-| **Community** | GitHub 社区高分技能 (`agent-skill` topic) |
 | **Anthropic** | 官方库 [anthropics/skills](https://github.com/anthropics/skills) |
-| **OpenAI** | 官方库 [openai/skills](https://github.com/openai/skills) |
-| **MATLAB** | 官方库 [matlab/skills](https://github.com/matlab/skills) |
-| **Superpowers** | 核心库 [obra/superpowers](https://github.com/obra/superpowers) |
+| **Community** | GitHub 社区高分技能 (`agent-skill` topic) |
 | **Composio** | 精选集 [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) |
+| **MATLAB** | 官方库 [matlab/skills](https://github.com/matlab/skills) |
+| **OpenAI** | 官方库 [openai/skills](https://github.com/openai/skills) |
+| **Superpowers** | 核心库 [obra/superpowers](https://github.com/obra/superpowers) |
 | **Vercel** | AI SDK [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) |
 
 ## 📂 目录结构
