@@ -131,10 +131,6 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 
 				// If git discovery failed or wasn't applicable, fall back to API
 				if err != nil || targetRepo.Type != "dir" {
-					if err != nil && targetRepo.Type == "dir" {
-						// Optional: log or print why git failed if verbose
-						// fmt.Printf("Git discovery failed: %v. Falling back to API...\n", err)
-					}
 					repos, err = repository.FetchSkills(*targetRepo)
 					if err != nil {
 						fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
@@ -269,13 +265,6 @@ func installSingleSkill(input string, global bool, agents []string) error {
 		} else {
 			// It's a URL (e.g., https://github.com/xxx.git)
 			repoURL = input
-			if !strings.HasSuffix(repoURL, ".git") && !strings.HasPrefix(input, "http") {
-				// It might be a SkillHub slug (no standard user/repo format easily distinguishable from just a name,
-				// but usually slugs are kebab-case).
-				// We can try to resolve it via SkillHub if it doesn't look like a URL.
-				// However, `input` here in this block is usually "http..." because of `isURL` check?
-				// Wait, `isURL` is true for http/git prefix.
-			}
 			urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
 			skillName = urlParts[len(urlParts)-1]
 		}

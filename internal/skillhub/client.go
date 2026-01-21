@@ -3,7 +3,7 @@ package skillhub
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -67,7 +67,7 @@ func (c *Client) Search(query string) ([]Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("SkillHub API returned status: %d", resp.StatusCode)
@@ -88,13 +88,13 @@ func (c *Client) Resolve(slug string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to fetch skill page: %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -113,6 +113,30 @@ func (c *Client) Resolve(slug string) (string, error) {
 			rawURL = rawURL[:idx]
 		}
 		return rawURL, nil
+	}
+
+	// Fallback: try to find repoUrl in Next.js hydration data or JSON
+	// Matches: "repoUrl":"https://github.com/..."
+	reJson := regexp.MustCompile(`"repoUrl":"(https://github\.com/[^"]+)"`)
+	matchesJson := reJson.FindStringSubmatch(string(body))
+	if len(matchesJson) > 1 {
+		rawURL := matchesJson[1]
+		// unescape backward slashes if any (though usually forward slashes are fine in JSON)
+		// But in the hydration data we saw, it was like \"repoUrl\":\"https...\"
+		// The string(body) should have the raw bytes.
+		// If it's inside a JS string, it might be escaped.
+		// The curl output showed: \"repoUrl\":\"https://github.com/MadAppGang/claude-code\"
+		// So the regex needs to handle the escaped quotes?
+		// Actually, if we use a broader regex, we can capture it.
+		// Let's rely on finding https://github.com inside the quote.
+		return rawURL, nil
+	}
+
+	// Try one more pattern for escaped JSON
+	reEscaped := regexp.MustCompile(`\\?"repoUrl\\?":\\?"(https://github\.com/[^"\\]+)\\?"`)
+	matchesEscaped := reEscaped.FindStringSubmatch(string(body))
+	if len(matchesEscaped) > 1 {
+		return matchesEscaped[1], nil
 	}
 
 	return "", fmt.Errorf("GitHub URL not found for skill: %s", slug)
