@@ -89,17 +89,17 @@ This creates an `ask.yaml` configuration file.
 ### 3. Use
 ```bash
 # Search for skills
-ask skill search browser
+ask skill search mcp
 
 # Install a skill (by name or repo)
-ask skill install browser-use
+ask skill install mcp-builder
 ask skill install superpowers
 
 # Install specific version
-ask skill install browser-use@v1.0.0
+ask skill install mcp-builder@v1.0.0
 
 # Install for specific agent
-ask skill install browser-use --agent claude
+ask skill install mcp-builder --agent claude
 ```
 
 ## 📋 Commands
@@ -144,8 +144,8 @@ my-project/
 ├── ask.lock          # Lockfile (commit hashes)
 └── .agent/           
     └── skills/       # Default install location
-        ├── browser-use/
-        └── web-surfer/
+        ├── mcp-builder/
+        └── writing-plans/
 ```
 
 **Agent-Specific Paths:**

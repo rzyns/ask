@@ -90,19 +90,19 @@ ask init
 ### 3. 使用
 ```bash
 # 搜索技能
-ask skill search browser
+ask skill search mcp
 
 # 安装技能（按名称或仓库）
-ask skill install browser-use
+ask skill install mcp-builder
 
 # 批量安装仓库中的所有技能
 ask skill install superpowers
 
 # 指定版本安装
-ask skill install browser-use@v1.0.0
+ask skill install mcp-builder@v1.0.0
 
 # 为特定 Agent 安装
-ask skill install browser-use --agent claude
+ask skill install mcp-builder --agent claude
 ```
 
 ## 📋 常用命令
@@ -146,8 +146,8 @@ my-project/
 ├── ask.lock          # 版本锁定文件
 └── .agent/           
     └── skills/       # 默认技能目录
-        ├── browser-use/
-        └── web-surfer/
+        ├── mcp-builder/
+        └── writing-plans/
 ```
 
 **不同 Agent 的安装路径:**
