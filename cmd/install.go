@@ -452,7 +452,12 @@ func installSingleSkill(input string, global bool, agents []string) error {
 			URL:         repoURL,
 		}
 		if subDir != "" {
-			skillInfo.URL = fmt.Sprintf("https://github.com/%s", input)
+			// Avoid duplicating https://github.com/ prefix
+			if strings.HasPrefix(input, "https://") || strings.HasPrefix(input, "http://") {
+				skillInfo.URL = input
+			} else {
+				skillInfo.URL = fmt.Sprintf("https://github.com/%s", input)
+			}
 		}
 
 		cfg.AddSkillInfo(skillInfo)
