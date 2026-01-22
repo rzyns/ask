@@ -1,4 +1,4 @@
-# ASK: Agent Skills Kit
+# ASK: The Ultimate Agent Skills Kit
 
 <p align="center">
   <img src="assets/logo.png" alt="ASK Logo" width="150"/>
@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Just ask, and your agent shall receive.
+  Just ask, the agents are ready!
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 ---
 
-**ASK** (Agent Skills Kit) is the package manager for AI Agent capabilities. Just like `brew` manages macOS packages or `npm` manages Node.js dependencies, `ask` helps you discover, install, and lock skills for your AI agents (Claude, Cursor, Codex, etc.).
+**ASK** (Agent Skills Kit) is the package manager for AI Agent capabilities. Just like `brew` manages macOS packages, `pip` manages Python packages, or `npm` manages Node.js dependencies, `ask` helps you discover, install, and lock skills for your AI agents (Claude, Cursor, Codex, etc.).
 
 ```mermaid
 graph LR

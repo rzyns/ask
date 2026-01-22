@@ -9,10 +9,23 @@ import (
 type AgentType string
 
 const (
-	AgentClaude   AgentType = "claude"
-	AgentCursor   AgentType = "cursor"
-	AgentCodex    AgentType = "codex"
-	AgentOpenCode AgentType = "opencode"
+	AgentClaude      AgentType = "claude"
+	AgentCursor      AgentType = "cursor"
+	AgentCodex       AgentType = "codex"
+	AgentOpenCode    AgentType = "opencode"
+	AgentAntigravity AgentType = "antigravity"
+	AgentGemini      AgentType = "gemini"
+	AgentCopilot     AgentType = "copilot"
+	AgentWindsurf    AgentType = "windsurf"
+	AgentAmp         AgentType = "amp"
+	AgentGoose       AgentType = "goose"
+	AgentKilo        AgentType = "kilo"
+	AgentKiro        AgentType = "kiro"
+	AgentRoo         AgentType = "roo"
+	AgentTrae        AgentType = "trae"
+	AgentDroid       AgentType = "droid"
+	AgentClawdBot    AgentType = "clawdbot"
+	AgentNeovate     AgentType = "neovate"
 )
 
 // AgentConfig holds directory paths for an agent
@@ -46,7 +59,85 @@ var SupportedAgents = map[AgentType]AgentConfig{
 	AgentOpenCode: {
 		Name:       "OpenCode",
 		ProjectDir: ".opencode/skills",
-		GlobalDir:  ".opencode/skills",
+		GlobalDir:  ".config/opencode/skills",
+		Aliases:    []string{},
+	},
+	AgentAntigravity: {
+		Name:       "Antigravity",
+		ProjectDir: ".agent/skills",
+		GlobalDir:  ".gemini/antigravity/skills",
+		Aliases:    []string{"gemini-antigravity"},
+	},
+	AgentGemini: {
+		Name:       "Gemini CLI",
+		ProjectDir: ".gemini/skills",
+		GlobalDir:  ".gemini/skills",
+		Aliases:    []string{"gemini-cli"},
+	},
+	AgentCopilot: {
+		Name:       "GitHub Copilot",
+		ProjectDir: ".github/skills",
+		GlobalDir:  ".copilot/skills",
+		Aliases:    []string{"github-copilot"},
+	},
+	AgentWindsurf: {
+		Name:       "Windsurf",
+		ProjectDir: ".windsurf/skills",
+		GlobalDir:  ".codeium/windsurf/skills",
+		Aliases:    []string{},
+	},
+	AgentAmp: {
+		Name:       "Amp",
+		ProjectDir: ".agents/skills",
+		GlobalDir:  ".config/agents/skills",
+		Aliases:    []string{},
+	},
+	AgentGoose: {
+		Name:       "Goose",
+		ProjectDir: ".goose/skills",
+		GlobalDir:  ".config/goose/skills",
+		Aliases:    []string{},
+	},
+	AgentKilo: {
+		Name:       "Kilo",
+		ProjectDir: ".kilocode/skills",
+		GlobalDir:  ".kilocode/skills",
+		Aliases:    []string{"kilocode"},
+	},
+	AgentKiro: {
+		Name:       "Kiro",
+		ProjectDir: ".kiro/skills",
+		GlobalDir:  ".kiro/skills",
+		Aliases:    []string{"kiro-cli"},
+	},
+	AgentRoo: {
+		Name:       "Roo",
+		ProjectDir: ".roo/skills",
+		GlobalDir:  ".roo/skills",
+		Aliases:    []string{},
+	},
+	AgentTrae: {
+		Name:       "Trae",
+		ProjectDir: ".trae/skills",
+		GlobalDir:  ".trae/skills",
+		Aliases:    []string{},
+	},
+	AgentDroid: {
+		Name:       "Droid",
+		ProjectDir: ".factory/skills",
+		GlobalDir:  ".factory/skills",
+		Aliases:    []string{},
+	},
+	AgentClawdBot: {
+		Name:       "ClawdBot",
+		ProjectDir: "skills",
+		GlobalDir:  ".clawdbot/skills",
+		Aliases:    []string{},
+	},
+	AgentNeovate: {
+		Name:       "Neovate",
+		ProjectDir: ".neovate/skills",
+		GlobalDir:  ".neovate/skills",
 		Aliases:    []string{},
 	},
 }

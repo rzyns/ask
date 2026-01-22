@@ -1,34 +1,23 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/yeasy/ask/internal/config"
 )
 
-// ensureInitialized checks if ask.yaml exists. If not, prompts user to init.
-// Returns true if initialized (or user chose to init), false if user declined.
+// ensureInitialized checks if ask.yaml exists. If not, auto-initializes.
+// Returns true after initialization.
 func ensureInitialized() bool {
 	if _, err := os.Stat("ask.yaml"); err == nil {
 		return true // Already initialized
 	}
 
-	fmt.Print("Project not initialized. Run 'ask init' now? [Y/n]: ")
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(strings.ToLower(input))
-
-	// Default to yes
-	if input == "" || input == "y" || input == "yes" {
-		runInit()
-		return true
-	}
-
-	fmt.Println("Aborted. Run 'ask init' to initialize the project.")
-	return false
+	// Auto-initialize without prompting
+	fmt.Println("Project not initialized. Initializing...")
+	runInit()
+	return true
 }
 
 // runInit executes the initialization logic

@@ -30,7 +30,7 @@ Repository Commands (ask repo <command>):
   add         Add a custom skill repository
   remove      Remove a repository
 
-Supported Agents: Claude Code, Cursor, OpenAI Codex, OpenCode
+Supported Agents: Claude, Cursor, Codex, OpenCode, Antigravity, Gemini CLI, GitHub Copilot, Windsurf, Amp, Goose, Kilo, Kiro, Roo, Trae, Droid, ClawdBot, Neovate
 `
 
 // rootCmd represents the base command when called without any subcommands
@@ -45,7 +45,7 @@ the Agent ecosystem.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "0.9.0",
+	Version: "0.9.1",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

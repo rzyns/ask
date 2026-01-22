@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  <strong>打造 AI 智能体的各种能力 - 缺少的那个包管理器</strong>
+  <strong>AI 智能体必备的技能管理器</strong>
 </p>
 
 <p align="center">
-  只需请求，您的智能体即可获得所需技能。
+  只需 ask，智能体即可掌握新技能！
 </p>
 
 <p align="center">
@@ -34,7 +34,7 @@
 
 ---
 
-**ASK** (Agent Skills Kit) 是专为 AI Agent 设计的技能包管理器。就像 `brew` 管理 macOS 软件、`npm` 管理 Node.js 依赖一样，`ask` 帮助您发现、安装和管理 AI 智能体的各种能力（支持 Claude, Cursor, Codex 等）。
+**ASK** (Agent Skills Kit) 是专为 AI Agent 设计的技能包管理器。就像 `brew` 管理 macOS 软件、`pip` 管理 Python 包、`npm` 管理 Node.js 依赖一样，`ask` 帮助您发现、安装和管理 AI 智能体的各种能力（支持 Claude, Cursor, Codex 等）。
 
 ```mermaid
 graph LR

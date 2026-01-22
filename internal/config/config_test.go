@@ -35,7 +35,7 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		"matlab":      {repoType: "dir", url: "matlab/skills/skills"},
 		"composio":    {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
 		"vercel":      {repoType: "dir", url: "vercel-labs/agent-skills"},
-		"skillhub":   {repoType: "skillhub", url: "skills"},
+		"skillhub":    {repoType: "skillhub", url: "skills"},
 	}
 
 	for _, repo := range config.Repos {

@@ -59,9 +59,9 @@ func TestRootHelpShowsSubcommandDetails(t *testing.T) {
 		"search",
 		"install",
 		"uninstall",
-		"Claude Code",
+		"Claude",
 		"Cursor",
-		"OpenAI Codex",
+		"Antigravity",
 	}
 
 	for _, detail := range subcommandDetails {
