@@ -119,6 +119,7 @@ ask skill install mcp-builder --agent claude
 | :--- | :--- |
 | `ask repo list` | Show configured repositories |
 | `ask repo add <url>` | Add a custom skill source |
+| `ask repo sync` | Clone/update repos to local cache |
 
 ## 🌐 Skill Sources
 

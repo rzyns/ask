@@ -122,6 +122,7 @@ ask skill install mcp-builder --agent claude
 | :--- | :--- |
 | `ask repo list` | 查看配置的仓库源 |
 | `ask repo add <url>` | 添加自定义源 |
+| `ask repo sync` | 同步仓库到本地缓存 |
 
 ## 🌐 技能来源
 

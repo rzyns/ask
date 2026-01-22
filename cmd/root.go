@@ -29,6 +29,7 @@ Repository Commands (ask repo <command>):
   list        List configured repositories or skills in a repo
   add         Add a custom skill repository
   remove      Remove a repository
+  sync        Clone/update repos to local cache (~/.ask/repos/)
 
 Supported Agents: Claude, Cursor, Codex, OpenCode, Antigravity, Gemini CLI, GitHub Copilot, Windsurf, Amp, Goose, Kilo, Kiro, Roo, Trae, Droid, ClawdBot, Neovate
 `
