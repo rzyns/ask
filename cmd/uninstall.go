@@ -18,15 +18,19 @@ var uninstallCmd = &cobra.Command{
 Use --global to uninstall from global installation (~/.ask/skills).
 
 Use --agent (-a) to specify target agents (claude, cursor, codex, opencode).
-If no agent is specified, uninstalls from .agent/skills/ by default.`,
+If no agent is specified, uninstalls from agent directories only (keeps source).
+
+Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 	Example: `  ask skill uninstall browser-use
   ask skill uninstall --global browser-use
-  ask skill uninstall browser-use --agent claude --agent cursor`,
+  ask skill uninstall browser-use --agent claude --agent cursor
+  ask skill uninstall browser-use --all  # Removes source and all symlinks`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		skillName := args[0]
 		global, _ := cmd.Flags().GetBool("global")
 		agents, _ := cmd.Flags().GetStringSlice("agent")
+		removeAll, _ := cmd.Flags().GetBool("all")
 
 		// Ensure project is initialized for non-global operations
 		if !global && len(agents) == 0 {
@@ -44,18 +48,7 @@ If no agent is specified, uninstalls from .agent/skills/ by default.`,
 			}
 		}
 
-		// 1. Remove from configuration (always update project/global config regardless of agents)
-		// This keeps track of what was installed, even if we remove it from agent dirs
-		cfg, err := config.LoadConfigByScope(global)
-		if err != nil {
-			fmt.Printf("Error loading config: %v\n", err)
-			os.Exit(1)
-		}
-
 		targetName := filepath.Base(skillName)
-
-		cfg.RemoveSkill(targetName)
-		cfg.RemoveSkillInfo(targetName)
 
 		// Determine target directories
 		var targetDirs []string
@@ -82,48 +75,86 @@ If no agent is specified, uninstalls from .agent/skills/ by default.`,
 				scopeLabel = "global"
 			} else {
 				// Use active/detected directories
-				wd, _ := os.Getwd()
-				targetDirs = cfg.GetActiveSkillsDirs(wd)
+				cfg, _ := config.LoadConfig()
+				if cfg != nil {
+					wd, _ := os.Getwd()
+					targetDirs = cfg.GetActiveSkillsDirs(wd)
+				}
 				scopeLabel = "detected targets"
 			}
 		}
 
-		// 2. Remove directories
+		// Central storage location
+		centralDir := config.DefaultSkillsDir
+		if global {
+			centralDir = config.GetSkillsDirByScope(true)
+		}
+		centralPath := filepath.Join(centralDir, targetName)
+
+		removedCount := 0
+
+		// Remove from agent directories (symlinks or copies)
 		for _, dir := range targetDirs {
 			skillPath := filepath.Join(dir, targetName)
+
+			// Skip central storage unless --all is specified
+			if skillPath == centralPath && !removeAll {
+				continue
+			}
+
 			if _, err := os.Stat(skillPath); !os.IsNotExist(err) {
-				fmt.Printf("Removing %s...\n", skillPath)
-				err := os.RemoveAll(skillPath)
-				if err != nil {
-					fmt.Printf("Failed to remove skill directory %s: %v\n", skillPath, err)
+				if isSymlink(skillPath) {
+					fmt.Printf("Removing symlink %s...\n", skillPath)
+					if err := os.Remove(skillPath); err != nil {
+						fmt.Printf("Failed to remove symlink %s: %v\n", skillPath, err)
+					} else {
+						removedCount++
+					}
+				} else {
+					fmt.Printf("Removing %s...\n", skillPath)
+					if err := os.RemoveAll(skillPath); err != nil {
+						fmt.Printf("Failed to remove skill directory %s: %v\n", skillPath, err)
+					} else {
+						removedCount++
+					}
 				}
+			}
+		}
+
+		// Remove source from central storage if --all is specified
+		if removeAll {
+			if _, err := os.Stat(centralPath); !os.IsNotExist(err) {
+				fmt.Printf("Removing source %s...\n", centralPath)
+				if err := os.RemoveAll(centralPath); err != nil {
+					fmt.Printf("Failed to remove source: %v\n", err)
+				} else {
+					removedCount++
+				}
+			}
+
+			// Also update configuration when removing source
+			cfg, err := config.LoadConfigByScope(global)
+			if err == nil {
+				cfg.RemoveSkill(targetName)
+				cfg.RemoveSkillInfo(targetName)
+				_ = cfg.SaveByScope(global)
+			}
+
+			// Update lock file
+			lockFile, _ := config.LoadLockFileByScope(global)
+			lockFile.RemoveEntry(targetName)
+			_ = lockFile.SaveByScope(global)
+		}
+
+		if removedCount > 0 {
+			if removeAll {
+				fmt.Printf("Successfully uninstalled %s (source + %d links)\n", targetName, removedCount-1)
 			} else {
-				fmt.Printf("Warning: Skill directory %s not found.\n", skillPath)
+				fmt.Printf("Successfully uninstalled %s from %s (%d removed)\n", targetName, scopeLabel, removedCount)
 			}
+		} else {
+			fmt.Printf("Skill %s not found in any target directories\n", targetName)
 		}
-
-		err = cfg.SaveByScope(global)
-		if err != nil {
-			configFile := "ask.yaml"
-			if global {
-				configFile = "~/.ask/config.yaml"
-			}
-			fmt.Printf("Failed to update %s: %v\n", configFile, err)
-			os.Exit(1)
-		}
-
-		// 3. Remove from lock file
-		lockFile, _ := config.LoadLockFileByScope(global)
-		lockFile.RemoveEntry(targetName)
-		if err := lockFile.SaveByScope(global); err != nil {
-			lockFileName := "ask.lock"
-			if global {
-				lockFileName = "~/.ask/ask.lock"
-			}
-			fmt.Printf("Warning: Failed to update %s: %v\n", lockFileName, err)
-		}
-
-		fmt.Printf("Successfully uninstalled %s (%s)\n", targetName, scopeLabel)
 	},
 }
 
@@ -131,4 +162,5 @@ func init() {
 	skillCmd.AddCommand(uninstallCmd)
 	uninstallCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) for uninstallation")
 	uninstallCmd.Flags().BoolP("global", "g", false, "uninstall globally")
+	uninstallCmd.Flags().Bool("all", false, "remove source and all symlinks (complete removal)")
 }

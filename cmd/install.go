@@ -420,13 +420,46 @@ func installSingleSkill(input string, global bool, agents []string) error {
 		skillDescription = "Skill installed from " + originalInput
 	}
 
-	// Copy to each target directory
+	// Central storage location: always store source in .agent/skills/
+	centralDir := config.DefaultSkillsDir
+	if global {
+		centralDir = config.GetSkillsDirByScope(true)
+	}
+	centralPath := filepath.Join(centralDir, skillName)
+
+	// Check if source already exists in central storage
+	sourceExists := false
+	if _, err := os.Stat(centralPath); !os.IsNotExist(err) {
+		sourceExists = true
+	}
+
+	// Copy source to central storage if not exists
+	if !sourceExists {
+		if err := os.MkdirAll(centralDir, 0755); err != nil {
+			return fmt.Errorf("failed to create central skills directory %s: %w", centralDir, err)
+		}
+		if err := copyDir(tempSkillPath, centralPath); err != nil {
+			return fmt.Errorf("failed to copy skill to central storage %s: %w", centralPath, err)
+		}
+		fmt.Printf("  → Stored source in %s\n", centralPath)
+	}
+
+	// Create symlinks (or copy as fallback) to each target directory
 	for _, dir := range targetDirs {
 		destPath := filepath.Join(dir, skillName)
 
+		// Skip central storage itself (no self-link needed)
+		if destPath == centralPath {
+			continue
+		}
+
 		// Skip if already exists
 		if _, err := os.Stat(destPath); !os.IsNotExist(err) {
-			fmt.Printf("  → Already installed in %s\n", destPath)
+			if isSymlink(destPath) {
+				fmt.Printf("  → Already linked in %s\n", destPath)
+			} else {
+				fmt.Printf("  → Already installed in %s\n", destPath)
+			}
 			continue
 		}
 
@@ -435,12 +468,16 @@ func installSingleSkill(input string, global bool, agents []string) error {
 			return fmt.Errorf("failed to create skills directory %s: %w", dir, err)
 		}
 
-		// Copy from temp to destination
-		if err := copyDir(tempSkillPath, destPath); err != nil {
-			return fmt.Errorf("failed to copy skill to %s: %w", destPath, err)
+		// Create symlink to central storage (with copy fallback for Windows)
+		if err := createSymlinkOrCopy(centralPath, destPath); err != nil {
+			return fmt.Errorf("failed to link skill to %s: %w", destPath, err)
 		}
 
-		fmt.Printf("  → Installed to %s\n", destPath)
+		if isSymlink(destPath) {
+			fmt.Printf("  → Linked to %s\n", destPath)
+		} else {
+			fmt.Printf("  → Copied to %s (symlink not supported)\n", destPath)
+		}
 	}
 
 	// Update config
@@ -550,6 +587,34 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
+}
+
+// createSymlinkOrCopy creates a symlink from target to source, or falls back to copy on failure.
+// Uses relative paths for portability. Works on Linux, macOS, and Windows (with fallback).
+func createSymlinkOrCopy(source, target string) error {
+	// Calculate relative path from target's directory to source
+	targetDir := filepath.Dir(target)
+	relPath, err := filepath.Rel(targetDir, source)
+	if err != nil {
+		// If relative path fails, fall back to copy
+		return copyDir(source, target)
+	}
+
+	// Try creating symlink
+	if err := os.Symlink(relPath, target); err != nil {
+		// Fallback to copy on Windows or permission errors
+		return copyDir(source, target)
+	}
+	return nil
+}
+
+// isSymlink checks if the given path is a symbolic link
+func isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeSymlink != 0
 }
 
 func init() {
