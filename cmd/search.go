@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/repository"
@@ -17,28 +18,31 @@ import (
 var searchCmd = &cobra.Command{
 	Use:   "search [keyword]",
 	Short: "Search for skills on GitHub",
-	Long: `Search GitHub repositories with the 'agent-skill' topic. 
-You can provide an optional keyword to filter results (e.g. 'browser', 'python').`,
-	Example: `  # Search for browser-related skills
-  ask skill search browser
+	Long: `Search for skills matching the keyword. 
+
+By default, uses local cache if available (fastest), otherwise fetches from remote.
+Use --local to force local-only search.
+Use --remote to force remote API search.`,
+	Example: `  # Search (local-first, then remote)
+  ask skill search mcp
   
-  # Search for Python skills
-  ask skill search python
+  # Force local cache only (offline, fastest)
+  ask skill search mcp --local
   
-  # Search all available skills
-  ask skill search`,
+  # Force remote API (latest data)
+  ask skill search mcp --remote`,
 	Run: func(cmd *cobra.Command, args []string) {
 		keyword := ""
 		if len(args) > 0 {
 			keyword = strings.Join(args, " ")
 		}
 
-		fmt.Printf("Searching for skills matching '%s'...\n", keyword)
+		forceLocal, _ := cmd.Flags().GetBool("local")
+		forceRemote, _ := cmd.Flags().GetBool("remote")
 
 		// Load config or use default
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			// It's okay if config doesn't exist, use default
 			def := config.DefaultConfig()
 			cfg = &def
 		}
@@ -51,6 +55,45 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 		for _, s := range cfg.SkillsInfo {
 			installedSkills[s.Name] = true
 		}
+
+		var allRepos []github.Repository
+		var errors []string
+		var searchSource string
+
+		// Check local cache first (unless --remote is specified)
+		if !forceRemote {
+			reposCache, err := cache.NewReposCache()
+			if err == nil {
+				cachedRepos := reposCache.GetCachedRepos()
+				if len(cachedRepos) > 0 || forceLocal {
+					fmt.Printf("Searching local cache for '%s'...\n", keyword)
+					skills, _ := reposCache.SearchSkills(keyword)
+
+					for _, skill := range skills {
+						allRepos = append(allRepos, github.Repository{
+							Name:        skill.Name,
+							Description: skill.Description,
+							Source:      "local:" + skill.RepoName,
+						})
+					}
+					searchSource = "local"
+
+					if len(allRepos) > 0 || forceLocal {
+						// Display results from local cache
+						displaySearchResults(allRepos, installedSkills, searchSource)
+						if forceLocal && len(allRepos) == 0 {
+							fmt.Println("\nTip: Run 'ask repo sync' to populate local cache.")
+						}
+						return
+					}
+					// No local results and not forced local, fall through to remote
+				}
+			}
+		}
+
+		// Remote search
+		fmt.Printf("Searching for skills matching '%s'...\n", keyword)
+		searchSource = "remote"
 
 		// Create progress bar for scanning sources
 		bar := ui.NewProgressBar(len(cfg.Repos), "Scanning sources")
@@ -104,8 +147,6 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 			}(repo)
 		}
 
-		var allRepos []github.Repository
-		var errors []string
 		for i := 0; i < len(cfg.Repos); i++ {
 			result := <-results
 			_ = bar.Add(1)
@@ -119,41 +160,50 @@ You can provide an optional keyword to filter results (e.g. 'browser', 'python')
 		fmt.Println()
 		if len(errors) > 0 {
 			fmt.Println("Warning: Some sources failed to load:")
-			for _, err := range errors {
-				fmt.Printf("  - %s\n", err)
+			for _, errMsg := range errors {
+				fmt.Printf("  - %s\n", errMsg)
 			}
 			fmt.Println()
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
-		for _, repo := range allRepos {
-			// Truncate description if too long
-			desc := repo.Description
-			if len(desc) > 40 {
-				desc = desc[:37] + "..."
-			}
-
-			// Check if installed
-			installed := ""
-			if installedSkills[repo.Name] {
-				installed = "✓"
-			}
-
-			// Format stars (use "-" for dir-based where stars are parent repo)
-			stars := fmt.Sprintf("%d", repo.StargazersCount)
-			if repo.StargazersCount == 0 {
-				stars = "-"
-			}
-
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)
-		}
-		_ = w.Flush()
-
-		fmt.Printf("\nFound %d skills.\n", len(allRepos))
+		displaySearchResults(allRepos, installedSkills, searchSource)
 	},
+}
+
+func displaySearchResults(repos []github.Repository, installedSkills map[string]bool, source string) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
+	for _, repo := range repos {
+		// Truncate description if too long
+		desc := repo.Description
+		if len(desc) > 40 {
+			desc = desc[:37] + "..."
+		}
+
+		// Check if installed
+		installed := ""
+		if installedSkills[repo.Name] {
+			installed = "✓"
+		}
+
+		// Format stars (use "-" for local or dir-based)
+		stars := fmt.Sprintf("%d", repo.StargazersCount)
+		if repo.StargazersCount == 0 {
+			stars = "-"
+		}
+
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)
+	}
+	_ = w.Flush()
+
+	fmt.Printf("\nFound %d skills.\n", len(repos))
+	if source == "local" {
+		fmt.Println("(from local cache - run 'ask repo sync' to update)")
+	}
 }
 
 func init() {
 	skillCmd.AddCommand(searchCmd)
+	searchCmd.Flags().Bool("local", false, "search only local cache (offline)")
+	searchCmd.Flags().Bool("remote", false, "force remote API search")
 }
