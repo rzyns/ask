@@ -170,11 +170,6 @@ Use --remote to force remote API search.`,
 			fmt.Println()
 		}
 
-		// Filter by min-stars if specified
-		if minStars > 0 {
-			// Filtering is handled in displaySearchResults to ensure consistent counting
-		}
-
 		displaySearchResults(allRepos, installedSkills, searchSource, minStars)
 	},
 }
