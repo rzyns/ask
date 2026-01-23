@@ -24,5 +24,8 @@ fmt:
 vet:
 	go vet ./...
 
+lint:
+	golangci-lint run
+
 install:
 	go install
