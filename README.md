@@ -128,13 +128,26 @@ ASK comes pre-configured with trusted sources:
 | Source | Description |
 | :--- | :--- |
 | **Anthropic** | Official [anthropics/skills](https://github.com/anthropics/skills) |
-| **Community** | Top-rated community skills (GitHub `agent-skill` topic) |
+| **Community** | Top-rated community skills (GitHub `agent-skill` and `agent-skills` topics) |
 | **Composio** | [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) collection |
-| **MATLAB** | Official [matlab/skills](https://github.com/matlab/skills) |
 | **OpenAI** | Official [openai/skills](https://github.com/openai/skills) |
-| **Superpowers** | [obra/superpowers](https://github.com/obra/superpowers) core library |
-| **SkillHub** | [SkillHub.club](https://www.skillhub.club) |
 | **Vercel** | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) AI SDK skills |
+
+### Optional Repositories
+
+For specific needs, you can add these additional sources:
+
+| Repository | Command to Add | Description |
+| :--- | :--- | :--- |
+| **SkillHub** | `ask repo add skillhub/skills` | [SkillHub.club](https://www.skillhub.club) index |
+| **Scientific** | `ask repo add K-Dense-AI/claude-scientific-skills` | Data science & research skills |
+| **MATLAB** | `ask repo add matlab/skills` | Official MATLAB integration |
+| **Superpowers** | `ask repo add obra/superpowers` | Full dev workflow with sub-agents |
+| **Planning** | `ask repo add OthmanAdi/planning-with-files` | File-based persistent planning |
+| **UI/UX Pro** | `ask repo add nextlevelbuilder/ui-ux-pro-max-skill` | 57 UI styles, 95 color schemes |
+| **NotebookLM** | `ask repo add PleasePrompto/notebooklm-skill` | Auto-upload to NotebookLM |
+| **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | Flowchart & diagram generation |
+| **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | Dynamic PPT generation |
 
 ## 📂 Installation Layout
 

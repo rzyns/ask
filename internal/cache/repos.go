@@ -21,6 +21,7 @@ type RepoInfo struct {
 	URL       string    `json:"url"`
 	LocalPath string    `json:"local_path"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Stars     int       `json:"stars"`
 }
 
 // SkillEntry represents a skill found in local cache
@@ -205,19 +206,45 @@ func extractDescription(skillMDPath string) string {
 	return ""
 }
 
-// SaveIndex saves the current repo index to disk
+// SaveIndex saves the current repo index to disk (without stars)
 func (c *ReposCache) SaveIndex() error {
+	return c.SaveIndexWithStars(nil)
+}
+
+// SaveIndexWithStars saves the current repo index to disk with star counts
+func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int) error {
 	indexPath := filepath.Join(c.baseDir, "index.json")
 	repos := c.GetCachedRepos()
+
+	// Load existing index to preserve stars for repos not synced in this run
+	existingStars := make(map[string]int)
+	existingInfos, _ := c.LoadIndex()
+	for _, info := range existingInfos {
+		existingStars[info.Name] = info.Stars
+	}
 
 	var repoInfos []RepoInfo
 	for _, repo := range repos {
 		repoPath := filepath.Join(c.baseDir, repo)
 		info, _ := os.Stat(repoPath)
+
+		// Use new star count if provided, otherwise use existing
+		stars := 0
+		if starCounts != nil {
+			if count, ok := starCounts[repo]; ok {
+				stars = count
+			} else if existingCount, ok := existingStars[repo]; ok {
+				stars = existingCount
+			}
+		} else if existingCount, ok := existingStars[repo]; ok {
+			stars = existingCount
+		}
+
 		repoInfos = append(repoInfos, RepoInfo{
 			Name:      repo,
 			LocalPath: repoPath,
 			UpdatedAt: info.ModTime(),
+			Stars:     stars,
 		})
 	}
 
@@ -226,4 +253,18 @@ func (c *ReposCache) SaveIndex() error {
 		return err
 	}
 	return os.WriteFile(indexPath, data, 0644)
+}
+
+// LoadIndex loads the repo index from disk
+func (c *ReposCache) LoadIndex() ([]RepoInfo, error) {
+	indexPath := filepath.Join(c.baseDir, "index.json")
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		return nil, err
+	}
+	var repoInfos []RepoInfo
+	if err := json.Unmarshal(data, &repoInfos); err != nil {
+		return nil, err
+	}
+	return repoInfos, nil
 }

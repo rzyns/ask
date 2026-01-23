@@ -14,9 +14,9 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	// We now have 9 default repos: community, anthropics, scientific, superpowers, openai, matlab, composio, vercel, skillhub
-	if len(config.Repos) != 9 {
-		t.Errorf("Expected 9 default repos, got %d", len(config.Repos))
+	// We now have 5 default repos: community, anthropics, openai, ComposioHQ, vercel
+	if len(config.Repos) != 5 {
+		t.Errorf("Expected 5 default repos, got %d", len(config.Repos))
 	}
 }
 
@@ -27,15 +27,11 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		repoType string
 		url      string
 	}{
-		"community":   {repoType: "topic", url: "agent-skill"},
-		"anthropics":  {repoType: "dir", url: "anthropics/skills/skills"},
-		"scientific":  {repoType: "dir", url: "K-Dense-AI/claude-scientific-skills/scientific-skills"},
-		"superpowers": {repoType: "dir", url: "obra/superpowers/skills"},
-		"openai":      {repoType: "dir", url: "openai/skills/skills"},
-		"matlab":      {repoType: "dir", url: "matlab/skills/skills"},
-		"composio":    {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
-		"vercel":      {repoType: "dir", url: "vercel-labs/agent-skills"},
-		"skillhub":    {repoType: "skillhub", url: "skills"},
+		"community":  {repoType: "topic", url: "agent-skill OR topic:agent-skills"},
+		"anthropics": {repoType: "dir", url: "anthropics/skills/skills"},
+		"openai":     {repoType: "dir", url: "openai/skills/skills"},
+		"composio":   {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
+		"vercel":     {repoType: "dir", url: "vercel-labs/agent-skills"},
 	}
 
 	for _, repo := range config.Repos {

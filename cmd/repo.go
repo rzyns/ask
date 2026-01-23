@@ -9,8 +9,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
-	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/ui"
 )
@@ -147,6 +147,18 @@ Examples:
 				return
 			}
 
+			// Load cached star counts
+			starCache := make(map[string]int)
+			reposCache, err := cache.NewReposCache()
+			if err == nil {
+				repoInfos, err := reposCache.LoadIndex()
+				if err == nil {
+					for _, info := range repoInfos {
+						starCache[info.Name] = info.Stars
+					}
+				}
+			}
+
 			fmt.Println("Configured Repositories:")
 			fmt.Println()
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -161,15 +173,10 @@ Examples:
 					stars = "-" // Topics don't have star counts
 				} else {
 					fullURL = fmt.Sprintf("https://github.com/%s", r.URL)
-					// Fetch star count for repo
-					parts := strings.Split(r.URL, "/")
-					if len(parts) >= 2 {
-						repoInfo, err := github.FetchRepoDetails(parts[0], parts[1])
-						if err == nil && repoInfo != nil {
-							stars = fmt.Sprintf("%d", repoInfo.StargazersCount)
-						} else {
-							stars = "-"
-						}
+					// Use cached star count
+					repoName := buildRepoName(r.URL)
+					if cachedStars, ok := starCache[repoName]; ok && cachedStars > 0 {
+						stars = fmt.Sprintf("%d", cachedStars)
 					} else {
 						stars = "-"
 					}
@@ -179,6 +186,7 @@ Examples:
 			_ = w.Flush()
 			fmt.Printf("\nTotal: %d repositories\n", len(cfg.Repos))
 			fmt.Println("\nUse 'ask repo list <name>' to view skills in a repository.")
+			fmt.Println("Run 'ask repo sync' to update star counts.")
 			return
 		}
 

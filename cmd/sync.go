@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/github"
 )
 
 // syncCmd represents the sync command
@@ -71,6 +72,7 @@ If no repo name is specified, syncs all configured repositories.`,
 		fmt.Printf("Syncing %d repositories to ~/.ask/repos/...\n\n", len(targetRepos))
 
 		successCount := 0
+		starCounts := make(map[string]int)
 		for _, repo := range targetRepos {
 			repoURL := buildRepoURL(repo.URL)
 			repoName := buildRepoName(repo.URL)
@@ -81,13 +83,22 @@ If no repo name is specified, syncs all configured repositories.`,
 			} else {
 				fmt.Printf("  ✓ Synced %s\n", repo.Name)
 				successCount++
+
+				// Fetch star count from GitHub API
+				parts := strings.Split(repo.URL, "/")
+				if len(parts) >= 2 {
+					repoDetails, err := github.FetchRepoDetails(parts[0], parts[1])
+					if err == nil {
+						starCounts[repoName] = repoDetails.StargazersCount
+					}
+				}
 			}
 		}
 
 		fmt.Printf("\nSynced %d/%d repositories.\n", successCount, len(targetRepos))
 
-		// Save index
-		if err := reposCache.SaveIndex(); err != nil {
+		// Save index with star counts
+		if err := reposCache.SaveIndexWithStars(starCounts); err != nil {
 			fmt.Printf("Warning: Failed to save index: %v\n", err)
 		}
 

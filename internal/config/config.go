@@ -129,7 +129,7 @@ func DefaultConfig() Config {
 			{
 				Name: "community",
 				Type: "topic",
-				URL:  "agent-skill",
+				URL:  "agent-skill OR topic:agent-skills",
 			},
 			{
 				Name: "anthropics",
@@ -137,24 +137,9 @@ func DefaultConfig() Config {
 				URL:  "anthropics/skills/skills",
 			},
 			{
-				Name: "scientific",
-				Type: "dir",
-				URL:  "K-Dense-AI/claude-scientific-skills/scientific-skills",
-			},
-			{
-				Name: "superpowers",
-				Type: "dir",
-				URL:  "obra/superpowers/skills",
-			},
-			{
 				Name: "openai",
 				Type: "dir",
 				URL:  "openai/skills/skills",
-			},
-			{
-				Name: "matlab",
-				Type: "dir",
-				URL:  "matlab/skills/skills",
 			},
 			{
 				Name: "composio",
@@ -165,11 +150,6 @@ func DefaultConfig() Config {
 				Name: "vercel",
 				Type: "dir",
 				URL:  "vercel-labs/agent-skills",
-			},
-			{
-				Name: "skillhub",
-				Type: "skillhub",
-				URL:  "skills",
 			},
 		},
 	}

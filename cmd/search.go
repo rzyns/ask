@@ -39,6 +39,7 @@ Use --remote to force remote API search.`,
 
 		forceLocal, _ := cmd.Flags().GetBool("local")
 		forceRemote, _ := cmd.Flags().GetBool("remote")
+		minStars, _ := cmd.Flags().GetInt("min-stars")
 
 		// Load config or use default
 		cfg, err := config.LoadConfig()
@@ -80,7 +81,7 @@ Use --remote to force remote API search.`,
 
 					if len(allRepos) > 0 || forceLocal {
 						// Display results from local cache
-						displaySearchResults(allRepos, installedSkills, searchSource)
+						displaySearchResults(allRepos, installedSkills, searchSource, minStars)
 						if forceLocal && len(allRepos) == 0 {
 							fmt.Println("\nTip: Run 'ask repo sync' to populate local cache.")
 						}
@@ -117,10 +118,13 @@ Use --remote to force remote API search.`,
 					repos, err = github.SearchTopic(r.URL, keyword)
 				case "dir":
 					parts := strings.Split(r.URL, "/")
-					if len(parts) >= 3 {
+					if len(parts) >= 2 {
 						owner := parts[0]
 						repoName := parts[1]
-						path := strings.Join(parts[2:], "/")
+						path := ""
+						if len(parts) > 2 {
+							path = strings.Join(parts[2:], "/")
+						}
 						repos, err = github.SearchDir(owner, repoName, path)
 
 						// Filter client-side by keyword
@@ -166,14 +170,31 @@ Use --remote to force remote API search.`,
 			fmt.Println()
 		}
 
-		displaySearchResults(allRepos, installedSkills, searchSource)
+		// Filter by min-stars if specified
+		if minStars > 0 {
+			// Filtering is handled in displaySearchResults to ensure consistent counting
+		}
+
+		displaySearchResults(allRepos, installedSkills, searchSource, minStars)
 	},
 }
 
-func displaySearchResults(repos []github.Repository, installedSkills map[string]bool, source string) {
+func displaySearchResults(repos []github.Repository, installedSkills map[string]bool, source string, minStars int) {
+	// Filter repos if minStars > 0
+	var displayRepos []github.Repository
+	if minStars > 0 {
+		for _, repo := range repos {
+			if repo.StargazersCount >= minStars {
+				displayRepos = append(displayRepos, repo)
+			}
+		}
+	} else {
+		displayRepos = repos
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
-	for _, repo := range repos {
+	for _, repo := range displayRepos {
 		// Truncate description if too long
 		desc := repo.Description
 		if len(desc) > 40 {
@@ -186,7 +207,7 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 			installed = "✓"
 		}
 
-		// Format stars (use "-" for local or dir-based)
+		// Format stars (use "-" for local or dir-based if actually 0, but dir-based now have stars)
 		stars := fmt.Sprintf("%d", repo.StargazersCount)
 		if repo.StargazersCount == 0 {
 			stars = "-"
@@ -196,7 +217,12 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 	}
 	_ = w.Flush()
 
-	fmt.Printf("\nFound %d skills.\n", len(repos))
+	fmt.Printf("\nFound %d skills", len(displayRepos))
+	if minStars > 0 {
+		fmt.Printf(" (filtered from %d results by stars >= %d)", len(repos), minStars)
+	}
+	fmt.Println(".")
+
 	if source == "local" {
 		fmt.Println("(from local cache - run 'ask repo sync' to update)")
 	}
@@ -206,4 +232,5 @@ func init() {
 	skillCmd.AddCommand(searchCmd)
 	searchCmd.Flags().Bool("local", false, "search only local cache (offline)")
 	searchCmd.Flags().Bool("remote", false, "force remote API search")
+	searchCmd.Flags().Int("min-stars", 0, "filter skills by minimum integer number of GitHub stars")
 }

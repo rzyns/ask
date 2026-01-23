@@ -12,7 +12,8 @@ import (
 var cfgFile string
 
 // Custom help template with subcommand details at the end
-const rootHelpTemplate = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+const rootHelpTemplate = `{{with .Version}}ASK v{{.}}
+{{end}}{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
 
 {{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}
 Skill Commands (ask skill <command>):
@@ -37,16 +38,15 @@ Supported Agents: Claude, Cursor, Codex, OpenCode, Antigravity, Gemini CLI, GitH
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "ask",
-	Short: "Agent Skills Kit - The Package Manager for Agent Skills",
-	Long: `ASK (Agent Skills Kit) is a CLI tool designed to help you discover, 
-install, and manage skills for your AI Agents. 
+	Short: "The package manager for AI Agent skills",
+	Long: `The package manager for AI Agent skills.
 
-It works similarly to package managers like Homebrew or npm, but specified for 
-the Agent ecosystem.`,
+Discover, install, and manage capabilities for your AI Agents (Claude, Cursor, 
+Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "0.9.3",
+	Version: "0.9.5",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

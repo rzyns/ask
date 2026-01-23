@@ -131,12 +131,26 @@ ASK 默认内置了以下受信源：
 | 来源 | 说明 |
 | :--- | :--- |
 | **Anthropic** | 官方库 [anthropics/skills](https://github.com/anthropics/skills) |
-| **Community** | GitHub 社区高分技能 (`agent-skill` topic) |
+| **Community** | GitHub 社区高分技能 (`agent-skill` 和 `agent-skills` topics) |
 | **Composio** | 精选集 [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) |
-| **MATLAB** | 官方库 [matlab/skills](https://github.com/matlab/skills) |
 | **OpenAI** | 官方库 [openai/skills](https://github.com/openai/skills) |
-| **Superpowers** | 核心库 [obra/superpowers](https://github.com/obra/superpowers) |
 | **Vercel** | AI SDK [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) |
+
+### 可选技能仓库
+
+如有特定需求，您可以添加以下额外来源：
+
+| 仓库 | 添加命令 | 说明 |
+| :--- | :--- | :--- |
+| **SkillHub** | `ask repo add skillhub/skills` | [SkillHub.club](https://www.skillhub.club) 索引 |
+| **Scientific** | `ask repo add K-Dense-AI/claude-scientific-skills` | 数据科学与研究技能 |
+| **MATLAB** | `ask repo add matlab/skills` | 官方 MATLAB 集成 |
+| **Superpowers** | `ask repo add obra/superpowers` | 全链路开发工作流 |
+| **Planning** | `ask repo add OthmanAdi/planning-with-files` | 文件持久化规划 |
+| **UI/UX Pro** | `ask repo add nextlevelbuilder/ui-ux-pro-max-skill` | 57种UI风格，95种配色 |
+| **NotebookLM** | `ask repo add PleasePrompto/notebooklm-skill` | 自动上传到NotebookLM |
+| **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | 流程图自动生成 |
+| **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | 动态PPT生成 |
 
 ## 📂 目录结构
 
