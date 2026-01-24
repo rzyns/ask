@@ -59,6 +59,8 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 	Run:  runInstall,
 }
 
+const maxInputLength = 255
+
 func runInstall(cmd *cobra.Command, args []string) {
 	// Check for offline mode
 	if offline, _ := cmd.Flags().GetBool("offline"); offline || github.OfflineMode {
@@ -103,6 +105,12 @@ func runInstall(cmd *cobra.Command, args []string) {
 
 	var expandedArgs []string
 	for _, input := range args {
+		if len(input) > maxInputLength {
+			fmt.Printf("Error: Input '%s...' is too long (max %d chars)\n", input[:20], maxInputLength)
+			failed = append(failed, input)
+			continue
+		}
+
 		// Check if input matches a configured repository name
 		var targetRepo *config.Repo
 		for i := range cfg.Repos {
@@ -574,6 +582,10 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 				scopeLabel = "project"
 			}
 		}
+	}
+
+	if skillName == "" || strings.TrimSpace(skillName) == "" {
+		return fmt.Errorf("could not determine skill name from input '%s'", input)
 	}
 
 	fmt.Printf("Installing %s to %s...\n", skillName, scopeLabel)
