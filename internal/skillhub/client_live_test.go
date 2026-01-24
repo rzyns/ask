@@ -2,6 +2,7 @@ package skillhub_test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -9,6 +10,10 @@ import (
 )
 
 func TestSkillHubLive(t *testing.T) {
+	if os.Getenv("ASK_LIVE_TESTS") != "1" {
+		t.Skip("Skipping live test; set ASK_LIVE_TESTS=1 to run")
+	}
+
 	client := skillhub.NewClient()
 
 	// Test Search
