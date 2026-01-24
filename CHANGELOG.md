@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Panic on Single-Word Install**: Fixed critical panic when using `ask install <name>` with a single word argument.
 - **Uninstall Alias**: Added missing top-level `ask uninstall` alias (previously only `ask skill uninstall` worked).
+- **Documentation**: Removed invalid `skillhub/skills` repository example and clarified `mcp-builder` installation.
 
 ### Changed
 - **Repository Naming**: Local cache directories now use the user-configured repository name (e.g. `anthropics`).

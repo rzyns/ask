@@ -91,7 +91,7 @@ ask init
 ask search mcp
 
 # 安装 Skill (通过名称或仓库，支持使用 ask add 别名)
-ask install mcp-builder
+ask install anthropics/mcp-builder
 ask add superpowers
 
 # 安装指定版本
@@ -138,7 +138,6 @@ ASK 默认内置了以下受信源：
 
 | 仓库 | 添加命令 | 说明 |
 | :--- | :--- | :--- |
-| **SkillHub** | `ask repo add skillhub/skills` | [SkillHub.club](https://www.skillhub.club) 索引 |
 | **Scientific** | `ask repo add K-Dense-AI/claude-scientific-skills` | 数据科学与研究技能 |
 | **MATLAB** | `ask repo add matlab/skills` | 官方 MATLAB 集成 |
 | **Superpowers** | `ask repo add obra/superpowers` | 全链路开发工作流 |

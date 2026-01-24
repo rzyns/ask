@@ -91,7 +91,7 @@ This creates an `ask.yaml` configuration file.
 ask search mcp
 
 # Install a skill (by name or repo, `ask add` is an alias for `ask install`)
-ask install mcp-builder
+ask install anthropics/mcp-builder
 ask install superpowers
 
 # Install specific version
@@ -138,7 +138,6 @@ For specific needs, you can add these additional sources:
 
 | Repository | Command to Add | Description |
 | :--- | :--- | :--- |
-| **SkillHub** | `ask repo add skillhub/skills` | [SkillHub.club](https://www.skillhub.club) index |
 | **Scientific** | `ask repo add K-Dense-AI/claude-scientific-skills` | Data science & research skills |
 | **MATLAB** | `ask repo add matlab/skills` | Official MATLAB integration |
 | **Superpowers** | `ask repo add obra/superpowers` | Full dev workflow with sub-agents |
