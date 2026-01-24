@@ -73,9 +73,15 @@ If no repo name is specified, syncs all configured repositories.`,
 
 		successCount := 0
 		starCounts := make(map[string]int)
+		repoURLs := make(map[string]string)
 		for _, repo := range targetRepos {
 			repoURL := buildRepoURL(repo.URL)
-			repoName := buildRepoName(repo.URL)
+			repoName := repo.Name
+			if repoName == "" {
+				repoName = buildRepoName(repo.URL)
+			}
+
+			repoURLs[repoName] = repoURL
 
 			err := reposCache.CloneOrPull(repoURL, repoName)
 			if err != nil {
@@ -97,8 +103,8 @@ If no repo name is specified, syncs all configured repositories.`,
 
 		fmt.Printf("\nSynced %d/%d repositories.\n", successCount, len(targetRepos))
 
-		// Save index with star counts
-		if err := reposCache.SaveIndexWithStars(starCounts); err != nil {
+		// Save index with star counts and URLs
+		if err := reposCache.SaveIndexWithStars(starCounts, repoURLs); err != nil {
 			fmt.Printf("Warning: Failed to save index: %v\n", err)
 		}
 

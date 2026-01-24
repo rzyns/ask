@@ -31,3 +31,4 @@ skills/
 ask.yaml
 homebrew-tap/
 dist/
+.agent/

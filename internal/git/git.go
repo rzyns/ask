@@ -86,8 +86,6 @@ func InstallSubdir(repoURL, branch, subDir, dest string) error {
 	}
 	defer func() { _ = os.RemoveAll(tempDir) }() // Clean up
 
-	fmt.Printf("Installing %s (sparse checkout)...\n", subDir)
-
 	// Try sparse checkout first
 	if err := SparseClone(repoURL, branch, subDir, tempDir); err != nil {
 		// Fallback to full clone
@@ -118,7 +116,6 @@ func InstallSubdir(repoURL, branch, subDir, dest string) error {
 		return fmt.Errorf("subdirectory %s not found in repo", subDir)
 	}
 
-	fmt.Printf("Copying skill to %s...\n", dest)
 	return copyDir(srcPath, dest)
 }
 

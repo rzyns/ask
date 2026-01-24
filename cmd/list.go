@@ -18,60 +18,62 @@ var listCmd = &cobra.Command{
 	Long: `List all skills currently installed.
 Use --global to show global skills, --all to show both project and global skills.
 Use --agent (-a) to list skills for specific agents (checks agent directories).`,
-	Run: func(cmd *cobra.Command, args []string) {
-		global, _ := cmd.Flags().GetBool("global")
-		all, _ := cmd.Flags().GetBool("all")
-		agents, _ := cmd.Flags().GetStringSlice("agent")
+	Run: runList,
+}
 
-		// Ensure project is initialized for non-global operations
-		if !global && !all && len(agents) == 0 {
-			if !ensureInitialized() {
-				return
-			}
-		}
+func runList(cmd *cobra.Command, args []string) {
+	global, _ := cmd.Flags().GetBool("global")
+	all, _ := cmd.Flags().GetBool("all")
+	agents, _ := cmd.Flags().GetStringSlice("agent")
 
-		// Validate agent names
-		for _, agent := range agents {
-			if !config.IsValidAgent(agent) {
-				fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
-					agent, strings.Join(config.GetSupportedAgentNames(), ", "))
-				os.Exit(1)
-			}
-		}
-
-		if len(agents) > 0 {
-			// Show skills for specific agents by checking directories
-			for _, agentName := range agents {
-				agentType, _ := config.ResolveAgentType(agentName)
-
-				if all || (!global) {
-					// Project level
-					dir, _ := config.GetAgentSkillsDir(agentType, false)
-					showAgentSkills(agentName, dir, "Project")
-				}
-
-				if all || global {
-					// Global level
-					dir, _ := config.GetAgentSkillsDir(agentType, true)
-					showAgentSkills(agentName, dir, "Global")
-				}
-			}
+	// Ensure project is initialized for non-global operations
+	if !global && !all && len(agents) == 0 {
+		if !ensureInitialized() {
 			return
 		}
+	}
 
-		if all {
-			// Show both project and global skills from config
-			showSkills("Project", false)
-			fmt.Println()
-			showSkills("Global", true)
-		} else {
-			scope := "Project"
-			if global {
-				scope = "Global"
-			}
-			showSkills(scope, global)
+	// Validate agent names
+	for _, agent := range agents {
+		if !config.IsValidAgent(agent) {
+			fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
+				agent, strings.Join(config.GetSupportedAgentNames(), ", "))
+			os.Exit(1)
 		}
-	},
+	}
+
+	if len(agents) > 0 {
+		// Show skills for specific agents by checking directories
+		for _, agentName := range agents {
+			agentType, _ := config.ResolveAgentType(agentName)
+
+			if all || (!global) {
+				// Project level
+				dir, _ := config.GetAgentSkillsDir(agentType, false)
+				showAgentSkills(agentName, dir, "Project")
+			}
+
+			if all || global {
+				// Global level
+				dir, _ := config.GetAgentSkillsDir(agentType, true)
+				showAgentSkills(agentName, dir, "Global")
+			}
+		}
+		return
+	}
+
+	if all {
+		// Show both project and global skills from config
+		showSkills("Project", false)
+		fmt.Println()
+		showSkills("Global", true)
+	} else {
+		scope := "Project"
+		if global {
+			scope = "Global"
+		}
+		showSkills(scope, global)
+	}
 }
 
 func showAgentSkills(agentName, dir, scope string) {
@@ -160,8 +162,12 @@ func showSkills(scope string, global bool) {
 	}
 }
 
+func registerListFlags(cmd *cobra.Command) {
+	cmd.Flags().Bool("all", false, "show both project and global skills")
+	cmd.Flags().StringSliceP("agent", "a", []string{}, "list skills for specific agent(s)")
+}
+
 func init() {
 	skillCmd.AddCommand(listCmd)
-	listCmd.Flags().Bool("all", false, "show both project and global skills")
-	listCmd.Flags().StringSliceP("agent", "a", []string{}, "list skills for specific agent(s)")
+	registerListFlags(listCmd)
 }

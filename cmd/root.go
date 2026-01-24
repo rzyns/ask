@@ -46,7 +46,33 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "0.9.6",
+	Version: "1.0.0-rc1",
+}
+
+// Top-level aliases (Docker-style)
+var installRootCmd = &cobra.Command{
+	Use:     "install [url...]",
+	Aliases: []string{"add", "i"},
+	Short:   "Install one or more skills (alias for 'skill install')",
+	Long:    "Download and install skills into agent-specific directories.\nThis is a shortcut for 'ask skill install'.",
+	Example: installCmd.Example, // Reuse example from original command
+	Args:    installCmd.Args,    // Reuse args validation
+	Run:     runInstall,
+}
+
+var searchRootCmd = &cobra.Command{
+	Use:     "search [keyword]",
+	Short:   "Search for skills on GitHub (alias for 'skill search')",
+	Long:    "Search for skills matching the keyword.\nThis is a shortcut for 'ask skill search'.",
+	Example: searchCmd.Example,
+	Run:     runSearch,
+}
+
+var listRootCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List installed skills (alias for 'skill list')",
+	Long:  "List all skills currently installed.\nThis is a shortcut for 'ask skill list'.",
+	Run:   runList,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -71,6 +97,16 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./ask.yaml)")
 	rootCmd.PersistentFlags().Bool("offline", false, "run in offline mode (no network requests)")
 	rootCmd.PersistentFlags().BoolP("global", "g", false, "use global installation (~/.ask/skills)")
+
+	// Register top-level aliases
+	rootCmd.AddCommand(installRootCmd)
+	registerInstallFlags(installRootCmd)
+
+	rootCmd.AddCommand(searchRootCmd)
+	registerSearchFlags(searchRootCmd)
+
+	rootCmd.AddCommand(listRootCmd)
+	registerListFlags(listRootCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

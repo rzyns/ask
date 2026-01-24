@@ -17,11 +17,12 @@ type ReposCache struct {
 
 // RepoInfo represents cached repository metadata
 type RepoInfo struct {
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	LocalPath string    `json:"local_path"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Stars     int       `json:"stars"`
+	Name         string    `json:"name"`
+	URL          string    `json:"url"`
+	LocalPath    string    `json:"local_path"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	LastSyncedAt time.Time `json:"last_synced_at"`
+	Stars        int       `json:"stars"`
 }
 
 // SkillEntry represents a skill found in local cache
@@ -208,19 +209,23 @@ func extractDescription(skillMDPath string) string {
 
 // SaveIndex saves the current repo index to disk (without stars)
 func (c *ReposCache) SaveIndex() error {
-	return c.SaveIndexWithStars(nil)
+	return c.SaveIndexWithStars(nil, nil)
 }
 
-// SaveIndexWithStars saves the current repo index to disk with star counts
-func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int) error {
+// SaveIndexWithStars saves the current repo index to disk with star counts and URLs
+func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int, urls map[string]string) error {
 	indexPath := filepath.Join(c.baseDir, "index.json")
 	repos := c.GetCachedRepos()
 
-	// Load existing index to preserve stars for repos not synced in this run
+	// Load existing index to preserve stars, URLs, and sync times for repos not synced in this run
 	existingStars := make(map[string]int)
+	existingURLs := make(map[string]string)
+	existingSyncTimes := make(map[string]time.Time)
 	existingInfos, _ := c.LoadIndex()
 	for _, info := range existingInfos {
 		existingStars[info.Name] = info.Stars
+		existingURLs[info.Name] = info.URL
+		existingSyncTimes[info.Name] = info.LastSyncedAt
 	}
 
 	var repoInfos []RepoInfo
@@ -229,10 +234,17 @@ func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int) error {
 		info, _ := os.Stat(repoPath)
 
 		// Use new star count if provided, otherwise use existing
+		// Logic: if provided in map, it means we just synced it (successfully or attempted)
+		// So we update LastSyncedAt if starCounts has entry?
+		// Actually starCounts is populated only on success in syncCmd.
+
 		stars := 0
+		lastSyncedAt := existingSyncTimes[repo]
+
 		if starCounts != nil {
 			if count, ok := starCounts[repo]; ok {
 				stars = count
+				lastSyncedAt = time.Now()
 			} else if existingCount, ok := existingStars[repo]; ok {
 				stars = existingCount
 			}
@@ -240,11 +252,25 @@ func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int) error {
 			stars = existingCount
 		}
 
+		// Use new URL if provided, otherwise use existing
+		url := ""
+		if urls != nil {
+			if u, ok := urls[repo]; ok {
+				url = u
+			} else if existingURL, ok := existingURLs[repo]; ok {
+				url = existingURL
+			}
+		} else if existingURL, ok := existingURLs[repo]; ok {
+			url = existingURL
+		}
+
 		repoInfos = append(repoInfos, RepoInfo{
-			Name:      repo,
-			LocalPath: repoPath,
-			UpdatedAt: info.ModTime(),
-			Stars:     stars,
+			Name:         repo,
+			URL:          url,
+			LocalPath:    repoPath,
+			UpdatedAt:    info.ModTime(),
+			LastSyncedAt: lastSyncedAt,
+			Stars:        stars,
 		})
 	}
 

@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  <strong>AI 智能体必备的技能管理器</strong>
+  <strong>智能体必备的技能包管理器</strong>
 </p>
 
 <p align="center">
-  只需 ask，智能体即可掌握新技能！
+  只需一行命令，让智能体掌握无限可能。
 </p>
 
 <p align="center">
@@ -34,14 +34,14 @@
 
 ---
 
-**ASK** (Agent Skills Kit) 是专为 AI Agent 设计的技能包管理器。就像 `brew` 管理 macOS 软件、`pip` 管理 Python 包、`npm` 管理 Node.js 依赖一样，`ask` 帮助您发现、安装和管理 AI 智能体的各种能力（支持 Claude, Cursor, Codex 等）。
+**ASK** (Agent Skills Kit) 是专为 AI Agent 设计的技能包管理器。就像 `brew` 管理 macOS 软件、`pip` 管理 Python 包一样，`ask` 帮助您高效发现、安装和管理 AI 智能体的各种能力（支持 Claude, Cursor, Codex 等）。
 
 ```mermaid
 graph LR
-    User[用户/Agent] -->|ask skill search| Sources[GitHub/社区]
+    User[开发者] -->|ask skill search| Sources[GitHub/社区]
     Sources -->|发现| Skills{技能库}
     User -->|ask skill install| Skills
-    Skills -->|下载 & 锁定| Agent[.agent/skills/]
+    Skills -->|下载 & 锁定| Agent[智能体环境]
     
     style User fill:#4a9eff,color:white
     style Sources fill:#ff6b6b,color:white
@@ -54,12 +54,12 @@ graph LR
 
 | 特性 | 说明 |
 | :--- | :--- |
-| **📦 智能管理** | 轻松安装、升级、卸载技能。支持 `ask.lock` 版本锁定，确保环境一致性。 |
-| **🔍 多源聚合** | 统一搜索 GitHub 及官方仓库 (Anthropic, OpenAI, MATLAB)。 |
-| **🤖 多 Agent 支持** | 自动检测并适配 **Claude** (`.claude/`)、**Cursor** (`.cursor/`)、**Codex** (`.codex/`) 等。 |
-| **⚡ 极速体验** | Go 语言编写，平行下载，稀疏检出（Sparse Checkout），无运行时依赖。 |
-| **🔌 离线模式** | 支持 `--offline` 离线运行，使用本地缓存，适合安全受限环境。 |
-| **🌍 全局与本地** | 支持项目级管理 (`.agent/skills`) 和用户级全局工具 (`~/.ask/skills`)。 |
+| **📦 智能管理** | 轻松安装、升级和卸载。支持 `ask.lock` 版本锁定，确保环境一致性。 |
+| **🔍 多源聚合** | 统一检索 GitHub 社区及官方仓库 (Anthropic, OpenAI 等)。支持添加更多自定义源。 |
+| **🤖 多 Agent 支持** | 自动检测并适配 **Claude** (`.claude/`)、**Cursor** (`.cursor/`)、**Codex** (`.codex/`) 等环境。 |
+| **⚡ 极速体验** | 纯 Go 语言编写。支持并发下载、稀疏检出 (Sparse Checkout)，无运行时依赖，毫秒级响应。 |
+| **🔌 离线模式** | 支持 `--offline` 离线模式，优先使用本地缓存，完美适配内网或安全受限环境。 |
+| **🌍 全局与本地** | 灵活支持项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
 
 ## 🚀 快速开始
 
@@ -87,39 +87,37 @@ ask init
 
 ### 3. 使用
 ```bash
-# 搜索技能
-ask skill search mcp
+# 搜索 Skill
+ask search mcp
 
-# 安装技能（按名称或仓库）
-ask skill install mcp-builder
+# 安装 Skill (通过名称或仓库，支持使用 ask add 别名)
+ask install mcp-builder
+ask add superpowers
 
-# 批量安装仓库中的所有技能
-ask skill install superpowers
+# 安装指定版本
+ask install mcp-builder@v1.0.0
 
-# 指定版本安装
-ask skill install mcp-builder@v1.0.0
-
-# 为特定 Agent 安装
-ask skill install mcp-builder --agent claude
+# 为指定 Agent 安装
+ask install mcp-builder --agent claude
 ```
 
-## 📋 常用命令
+## 📋 命令参考
 
-### 技能管理
+### Skill 管理
 | 命令 | 说明 |
 | :--- | :--- |
-| `ask skill search <关键字>` | 全网搜索技能 |
-| `ask skill install <名称>` | 安装技能 |
-| `ask skill list` | 列出已安装技能 |
-| `ask skill uninstall <名称>` | 卸载技能 |
-| `ask skill update` | 升级已安装技能 |
-| `ask skill outdated` | 检查可用更新 |
+| `ask search <keyword>` | 在所有源中搜索 |
+| `ask install <name>` | 安装 Skill (别名: `add`, `i`) |
+| `ask list` | 列出已安装的 Skill |
+| `ask uninstall <name>` | 卸载 Skill |
+| `ask update` | 更新 Skill 到最新版本 |
+| `ask outdated` | 检查可用更新 |
 
 ### 仓库管理
 | 命令 | 说明 |
 | :--- | :--- |
-| `ask repo list` | 查看配置的仓库源 |
-| `ask repo add <url>` | 添加自定义源 |
+| `ask repo list` | 显示已配置的仓库 |
+| `ask repo add <url>` | 添加自定义 Skill 源 |
 | `ask repo sync` | 同步仓库到本地缓存 |
 
 ## 🌐 技能来源

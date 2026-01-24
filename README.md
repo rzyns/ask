@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>The Missing Package Manager for AI Agents</strong>
+  <strong>The Missing Package Manager for Agent Skills</strong>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 ---
 
-**ASK** (Agent Skills Kit) is the package manager for AI Agent capabilities. Just like `brew` manages macOS packages, `pip` manages Python packages, or `npm` manages Node.js dependencies, `ask` helps you discover, install, and lock skills for your AI agents (Claude, Cursor, Codex, etc.).
+**ASK** (Agent Skills Kit) is the package manager for AI Agent skills. Just like `brew` manages macOS packages, `pip` manages Python packages, or `npm` manages Node.js dependencies, `ask` helps you discover, install, and lock skills for your agents (Claude, Cursor, Codex, etc.).
 
 ```mermaid
 graph LR
@@ -56,7 +56,7 @@ graph LR
 | Feature | Description |
 | :--- | :--- |
 | **📦 Smart Management** | Install, update, and remove skills with ease. Includes `ask.lock` for reproducible builds. |
-| **🔍 Multi-Source** | Unified search across GitHub and official repos (Anthropic, OpenAI, MATLAB). |
+| **🔍 Multi-Source** | Unified search across GitHub and official repos (Anthropic, OpenAI, etc.). You can add more skill sources. |
 | **🤖 Multi-Agent** | Auto-detects and installs for **Claude** (`.claude/`), **Cursor** (`.cursor/`), **Codex** (`.codex/`), and more. |
 | **⚡ Blazing Fast** | Written in Go. Parallel downloads, sparse checkouts, and zero runtime dependencies. |
 | **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
@@ -85,19 +85,20 @@ ask init
 This creates an `ask.yaml` configuration file.
 
 ### 3. Use
+
 ```bash
 # Search for skills
-ask skill search mcp
+ask search mcp
 
-# Install a skill (by name or repo)
-ask skill install mcp-builder
-ask skill install superpowers
+# Install a skill (by name or repo, `ask add` is an alias for `ask install`)
+ask install mcp-builder
+ask install superpowers
 
 # Install specific version
-ask skill install mcp-builder@v1.0.0
+ask install mcp-builder@v1.0.0
 
 # Install for specific agent
-ask skill install mcp-builder --agent claude
+ask install mcp-builder --agent claude
 ```
 
 ## 📋 Commands

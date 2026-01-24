@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc1] - 2026-01-24
+
+### Added
+- **Docker-Style Aliases**: New top-level commands `ask install`, `ask search`, `ask list` for faster access.
+- **Install Aliases**: `ask add` (and `ask i`) supported as aliases for `install`.
+- **Smart Sync**: `ask search` now automatically initializes the local cache if empty (Lazy Init) and updates it in the background if stale (> 3 days).
+- **Auto-Caching on Install**: Installation of a skill from an uncached repository now triggers a background sync.
+- **Local Install Optimization**: Installing a skill that exists in the local cache now performs a fast file copy instead of a git clone.
+- **Testing**: Added comprehensive unit tests for CLI commands.
+
+### Changed
+- **Repository Naming**: Local cache directories now use the user-configured repository name (e.g. `anthropics`).
+- **Improved UX**: Reduced verbosity of installation commands.
+- **Search UI**: Removed `local:` prefix from search results.
+- **Documentation**: Updated English and Chinese READMEs with new alias usage.
+
+### Fixed
+- **Robust Installation**: Fixed issue where `ask skill install Source/Skill` would fail if the local cache was empty/missing.
+- **Index Reliability**: Fixed a bug where repository URLs were not being persisted to `index.json`.
+
 ## [0.9.0] - 2026-01-21
 
 ### Changed

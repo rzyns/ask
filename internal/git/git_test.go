@@ -4,30 +4,41 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// TestGetLatestTag tests the GetLatestTag function
-// Note: This test requires an actual git repository with tags
-func TestGetLatestTag(t *testing.T) {
-	// Create a temporary git repository
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	if err := cmd.Run(); err != nil {
-		t.Skip("Git not available, skipping test")
+// runGit executes a git command in the specified directory with a clean environment
+func runGit(t *testing.T, dir string, args ...string) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	// Filter out GIT_ vars from environment to prevent contamination from parent repo
+	var env []string
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "GIT_") {
+			env = append(env, e)
+		}
 	}
+	cmd.Env = env
 
-	// Configure git user for commits
-	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
-	configCmd.Dir = tmpDir
-	_ = configCmd.Run()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
+	}
+}
 
-	configCmd = exec.Command("git", "config", "user.name", "Test User")
-	configCmd.Dir = tmpDir
-	_ = configCmd.Run()
+// setupTestRepo creates a temp dir, initializes git, and configures a user
+func setupTestRepo(t *testing.T) string {
+	tmpDir := t.TempDir()
+	runGit(t, tmpDir, "init")
+	runGit(t, tmpDir, "config", "user.email", "test@example.com")
+	runGit(t, tmpDir, "config", "user.name", "Test User")
+	runGit(t, tmpDir, "config", "commit.gpgsign", "false")
+	return tmpDir
+}
+
+// TestGetLatestTag tests the GetLatestTag function
+func TestGetLatestTag(t *testing.T) {
+	tmpDir := setupTestRepo(t)
 
 	// Create a test file and commit
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -35,24 +46,11 @@ func TestGetLatestTag(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	addCmd := exec.Command("git", "add", "test.txt")
-	addCmd.Dir = tmpDir
-	if err := addCmd.Run(); err != nil {
-		t.Fatalf("Failed to add file: %v", err)
-	}
-
-	commitCmd := exec.Command("git", "commit", "-m", "Initial commit")
-	commitCmd.Dir = tmpDir
-	if err := commitCmd.Run(); err != nil {
-		t.Fatalf("Failed to commit: %v", err)
-	}
+	runGit(t, tmpDir, "add", "test.txt")
+	runGit(t, tmpDir, "commit", "-m", "Initial commit")
 
 	// Create a tag
-	tagCmd := exec.Command("git", "tag", "v1.0.0")
-	tagCmd.Dir = tmpDir
-	if err := tagCmd.Run(); err != nil {
-		t.Fatalf("Failed to create tag: %v", err)
-	}
+	runGit(t, tmpDir, "tag", "v1.0.0")
 
 	// Test GetLatestTag
 	tag, err := GetLatestTag(tmpDir)
@@ -67,23 +65,7 @@ func TestGetLatestTag(t *testing.T) {
 
 // TestGetCurrentCommit tests the GetCurrentCommit function
 func TestGetCurrentCommit(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	if err := cmd.Run(); err != nil {
-		t.Skip("Git not available, skipping test")
-	}
-
-	// Configure git user
-	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
-	configCmd.Dir = tmpDir
-	_ = configCmd.Run()
-
-	configCmd = exec.Command("git", "config", "user.name", "Test User")
-	configCmd.Dir = tmpDir
-	_ = configCmd.Run()
+	tmpDir := setupTestRepo(t)
 
 	// Create and commit a file
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -91,17 +73,8 @@ func TestGetCurrentCommit(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	addCmd := exec.Command("git", "add", "test.txt")
-	addCmd.Dir = tmpDir
-	if err := addCmd.Run(); err != nil {
-		t.Fatalf("Failed to add file: %v", err)
-	}
-
-	commitCmd := exec.Command("git", "commit", "-m", "Test commit")
-	commitCmd.Dir = tmpDir
-	if err := commitCmd.Run(); err != nil {
-		t.Fatalf("Failed to commit: %v", err)
-	}
+	runGit(t, tmpDir, "add", "test.txt")
+	runGit(t, tmpDir, "commit", "-m", "Test commit")
 
 	// Test GetCurrentCommit
 	commit, err := GetCurrentCommit(tmpDir)
@@ -117,23 +90,7 @@ func TestGetCurrentCommit(t *testing.T) {
 
 // TestCheckout tests the Checkout function
 func TestCheckout(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	if err := cmd.Run(); err != nil {
-		t.Skip("Git not available, skipping test")
-	}
-
-	// Configure git user
-	configCmd := exec.Command("git", "config", "user.email", "test@example.com")
-	configCmd.Dir = tmpDir
-	_ = configCmd.Run()
-
-	configCmd = exec.Command("git", "config", "user.name", "Test User")
-	configCmd.Dir = tmpDir
-	_ = configCmd.Run()
+	tmpDir := setupTestRepo(t)
 
 	// Create initial commit on main
 	testFile := filepath.Join(tmpDir, "test.txt")
@@ -141,20 +98,12 @@ func TestCheckout(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	addCmd := exec.Command("git", "add", "test.txt")
-	addCmd.Dir = tmpDir
-	_ = addCmd.Run()
-
-	commitCmd := exec.Command("git", "commit", "-m", "Main commit")
-	commitCmd.Dir = tmpDir
-	_ = commitCmd.Run()
+	// Create initial commit
+	runGit(t, tmpDir, "add", "test.txt")
+	runGit(t, tmpDir, "commit", "-m", "Main commit")
 
 	// Create a branch
-	branchCmd := exec.Command("git", "branch", "test-branch")
-	branchCmd.Dir = tmpDir
-	if err := branchCmd.Run(); err != nil {
-		t.Fatalf("Failed to create branch: %v", err)
-	}
+	runGit(t, tmpDir, "branch", "test-branch")
 
 	// Test checkout
 	err := Checkout(tmpDir, "test-branch")
@@ -163,9 +112,18 @@ func TestCheckout(t *testing.T) {
 	}
 
 	// Verify we're on the branch
-	verifyCmd := exec.Command("git", "branch", "--show-current")
-	verifyCmd.Dir = tmpDir
-	output, err := verifyCmd.Output()
+	cmd := exec.Command("git", "branch", "--show-current")
+	cmd.Dir = tmpDir
+	// Sanitize env here too for verification
+	var env []string
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "GIT_") {
+			env = append(env, e)
+		}
+	}
+	cmd.Env = env
+
+	output, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("Failed to verify branch: %v", err)
 	}

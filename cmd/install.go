@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/git"
 	"github.com/yeasy/ask/internal/github"
@@ -19,8 +21,9 @@ import (
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
-	Use:   "install [url...]",
-	Short: "Install one or more skills from git repositories",
+	Use:     "install [url...]",
+	Aliases: []string{"add", "i"},
+	Short:   "Install one or more skills from git repositories",
 	Long: `Download and install skills into agent-specific directories. 
 You can provide full git URLs or GitHub shorthands (owner/repo).
 You can also specify versions: owner/repo@v1.0.0
@@ -53,138 +56,140 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
   # Install from full URL
   ask skill install https://github.com/browser-use/browser-use.git`,
 	Args: cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		// Check for offline mode
-		if offline, _ := cmd.Flags().GetBool("offline"); offline || github.OfflineMode {
-			fmt.Println("Error: Cannot install skills in offline mode.")
+	Run:  runInstall,
+}
+
+func runInstall(cmd *cobra.Command, args []string) {
+	// Check for offline mode
+	if offline, _ := cmd.Flags().GetBool("offline"); offline || github.OfflineMode {
+		fmt.Println("Error: Cannot install skills in offline mode.")
+		os.Exit(1)
+	}
+
+	// Check for global flag
+	global, _ := cmd.Flags().GetBool("global")
+
+	// Get agent targets
+	agents, _ := cmd.Flags().GetStringSlice("agent")
+
+	// Validate agent names
+	for _, agent := range agents {
+		if !config.IsValidAgent(agent) {
+			fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
+				agent, strings.Join(config.GetSupportedAgentNames(), ", "))
 			os.Exit(1)
 		}
+	}
 
-		// Check for global flag
-		global, _ := cmd.Flags().GetBool("global")
+	// Ensure project is initialized for non-global, non-agent-specific operations
+	if !global && len(agents) == 0 {
+		if !ensureInitialized() {
+			return
+		}
+	}
 
-		// Get agent targets
-		agents, _ := cmd.Flags().GetStringSlice("agent")
+	// Track installation results
+	var succeeded, failed []string
 
-		// Validate agent names
-		for _, agent := range agents {
-			if !config.IsValidAgent(agent) {
-				fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
-					agent, strings.Join(config.GetSupportedAgentNames(), ", "))
-				os.Exit(1)
+	// Install each skill
+	// Check for repo aliases and expand them
+	// Load config to check for repos
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		// Ignore error, might not be initialized
+		def := config.DefaultConfig()
+		cfg = &def
+	}
+
+	var expandedArgs []string
+	for _, input := range args {
+		// Check if input matches a configured repository name
+		var targetRepo *config.Repo
+		for i := range cfg.Repos {
+			r := &cfg.Repos[i]
+			// Debug print to diagnose matching issues (will remove later)
+			// fmt.Printf("DEBUG: Checking input '%s' against repo '%s' (URL: %s)\n", input, r.Name, r.URL)
+
+			// Match by name
+			if r.Name == input {
+				targetRepo = r
+				break
 			}
-		}
-
-		// Ensure project is initialized for non-global, non-agent-specific operations
-		if !global && len(agents) == 0 {
-			if !ensureInitialized() {
-				return
-			}
-		}
-
-		// Track installation results
-		var succeeded, failed []string
-
-		// Install each skill
-		// Check for repo aliases and expand them
-		// Load config to check for repos
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			// Ignore error, might not be initialized
-			def := config.DefaultConfig()
-			cfg = &def
-		}
-
-		var expandedArgs []string
-		for _, input := range args {
-			// Check if input matches a configured repository name
-			var targetRepo *config.Repo
-			for i := range cfg.Repos {
-				r := &cfg.Repos[i]
-				// Debug print to diagnose matching issues (will remove later)
-				// fmt.Printf("DEBUG: Checking input '%s' against repo '%s' (URL: %s)\n", input, r.Name, r.URL)
-
-				// Match by name
-				if r.Name == input {
+			// Match by owner/repo shorthand from URL
+			if strings.Contains(r.URL, input) {
+				if strings.HasPrefix(r.URL, input) || strings.Contains(r.URL, "/"+input) {
 					targetRepo = r
 					break
 				}
-				// Match by owner/repo shorthand from URL
-				if strings.Contains(r.URL, input) {
-					if strings.HasPrefix(r.URL, input) || strings.Contains(r.URL, "/"+input) {
-						targetRepo = r
-						break
-					}
-				}
+			}
+		}
+
+		if targetRepo != nil {
+			fmt.Printf("Fetching skills from repo '%s'...\n", input)
+
+			var repos []github.Repository
+			var err error
+
+			// Try git-based discovery first for 'dir' type repos (avoids API rate limits)
+			if targetRepo.Type == "dir" {
+				repos, err = repository.FetchSkillsViaGit(*targetRepo)
 			}
 
-			if targetRepo != nil {
-				fmt.Printf("Fetching skills from repo '%s'...\n", input)
-
-				var repos []github.Repository
-				var err error
-
-				// Try git-based discovery first for 'dir' type repos (avoids API rate limits)
-				if targetRepo.Type == "dir" {
-					repos, err = repository.FetchSkillsViaGit(*targetRepo)
-				}
-
-				// If git discovery failed or wasn't applicable, fall back to API
-				if err != nil || targetRepo.Type != "dir" {
-					repos, err = repository.FetchSkills(*targetRepo)
-					if err != nil {
-						fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
-						failed = append(failed, input)
-						continue
-					}
-				}
-
-				if len(repos) == 0 {
-					fmt.Printf("No skills found in repo '%s'\n", input)
+			// If git discovery failed or wasn't applicable, fall back to API
+			if err != nil || targetRepo.Type != "dir" {
+				repos, err = repository.FetchSkills(*targetRepo)
+				if err != nil {
+					fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
+					failed = append(failed, input)
 					continue
 				}
-
-				fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
-				for _, r := range repos {
-					// Construct install URL for each skill
-					// Ideally we should use the skill's specific path if possible
-					// But for now, we can use the HTML URL or clone URL + path
-					// The simplest way given current installSingleSkill logic might be passing the full browser URL
-					expandedArgs = append(expandedArgs, r.HTMLURL)
-				}
-			} else {
-				expandedArgs = append(expandedArgs, input)
 			}
+
+			if len(repos) == 0 {
+				fmt.Printf("No skills found in repo '%s'\n", input)
+				continue
+			}
+
+			fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
+			for _, r := range repos {
+				// Construct install URL for each skill
+				// Ideally we should use the skill's specific path if possible
+				// But for now, we can use the HTML URL or clone URL + path
+				// The simplest way given current installSingleSkill logic might be passing the full browser URL
+				expandedArgs = append(expandedArgs, r.HTMLURL)
+			}
+		} else {
+			expandedArgs = append(expandedArgs, input)
 		}
+	}
 
-		// Install each expanded skill
-		for _, input := range expandedArgs {
-			err := installSingleSkill(input, global, agents)
-			if err != nil {
-				failed = append(failed, input)
-				fmt.Printf("Failed to install %s: %v\n", input, err)
-			} else {
-				succeeded = append(succeeded, input)
-			}
+	// Install each expanded skill
+	for _, input := range expandedArgs {
+		err := installSingleSkill(input, global, agents, cfg)
+		if err != nil {
+			failed = append(failed, input)
+			fmt.Printf("Failed to install %s: %v\n", input, err)
+		} else {
+			succeeded = append(succeeded, input)
 		}
+	}
 
-		// Print summary if multiple skills were requested
-		if len(args) > 1 {
-			fmt.Println()
-			fmt.Println("Installation Summary:")
-			if len(succeeded) > 0 {
-				fmt.Printf("  ✓ Succeeded: %d (%s)\n", len(succeeded), strings.Join(succeeded, ", "))
-			}
-			if len(failed) > 0 {
-				fmt.Printf("  ✗ Failed: %d (%s)\n", len(failed), strings.Join(failed, ", "))
-			}
+	// Print summary if multiple skills were requested
+	if len(args) > 1 {
+		fmt.Println()
+		fmt.Println("Installation Summary:")
+		if len(succeeded) > 0 {
+			fmt.Printf("  ✓ Succeeded: %d (%s)\n", len(succeeded), strings.Join(succeeded, ", "))
 		}
-
-		// Exit with error if any installation failed
 		if len(failed) > 0 {
-			os.Exit(1)
+			fmt.Printf("  ✗ Failed: %d (%s)\n", len(failed), strings.Join(failed, ", "))
 		}
-	},
+	}
+
+	// Exit with error if any installation failed
+	if len(failed) > 0 {
+		os.Exit(1)
+	}
 }
 
 // parseGitHubBrowserURL parses a GitHub browser URL and extracts components
@@ -226,7 +231,7 @@ func parseGitHubBrowserURL(url string) (repoURL, branch, subDir, skillName strin
 }
 
 // installSingleSkill installs a single skill and returns an error if it fails
-func installSingleSkill(input string, global bool, agents []string) error {
+func installSingleSkill(input string, global bool, agents []string, cfg *config.Config) error {
 	// Parse version if specified (skill@version)
 	var version string
 	originalInput := input
@@ -235,7 +240,7 @@ func installSingleSkill(input string, global bool, agents []string) error {
 		input = input[:idx]
 	}
 
-	var repoURL, subDir, skillName, branch string
+	var repoURL, subDir, skillName, branch, localSourcePath string
 
 	// First, check if it's a GitHub browser URL with /tree/
 	if parsedURL, parsedBranch, parsedSubDir, parsedName, ok := parseGitHubBrowserURL(input); ok {
@@ -257,10 +262,148 @@ func installSingleSkill(input string, global bool, agents []string) error {
 				skillName = parts[len(parts)-1]
 				repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 			} else {
-				// Standard install: owner/repo
-				repoURL = "https://github.com/" + input
-				urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
-				skillName = urlParts[len(urlParts)-1]
+				// Potential RepoName/SkillName from cache (e.g. "anthropics-skills/browser-use")
+				// or Standard install: owner/repo (e.g. "browser-use/browser-use")
+
+				foundInCache := false
+				repoName := parts[0]
+				skillNamePart := parts[1]
+
+				reposCache, err := cache.NewReposCache()
+				if err == nil && reposCache.HasRepo(repoName) {
+					// Repo exists in cache, check if skill exists in it
+					skills, err := reposCache.ListSkills(repoName)
+					if err == nil {
+						for _, s := range skills {
+							if s.Name == skillNamePart {
+								fmt.Printf("Found skill '%s' in cached repo '%s'\n", skillNamePart, repoName)
+
+								// Resolve URL and subDir
+								repoInfos, err := reposCache.LoadIndex()
+								if err == nil {
+									for _, info := range repoInfos {
+										if info.Name == s.RepoName {
+											repoURL = info.URL
+
+											// If URL is missing in index (bug fix), lookup from config
+											if repoURL == "" && cfg != nil {
+												for _, r := range cfg.Repos {
+													// Calculate derived name as used in sync
+													derivedName := r.Name
+													if !strings.HasPrefix(r.URL, "http") {
+														parts := strings.Split(r.URL, "/")
+														if len(parts) >= 2 {
+															derivedName = parts[0] + "-" + parts[1]
+														}
+													} else {
+														derivedName = strings.ReplaceAll(r.URL, "/", "-")
+													}
+
+													if r.Name == s.RepoName || derivedName == s.RepoName {
+														// Construct URL from repo config
+														// r.URL might be "anthropics/skills/skills"
+														// We need to convert it to git URL
+														if !strings.HasPrefix(r.URL, "http") {
+															parts := strings.Split(r.URL, "/")
+															if len(parts) >= 2 {
+																repoURL = fmt.Sprintf("https://github.com/%s/%s.git", parts[0], parts[1])
+															}
+														} else {
+															repoURL = r.URL
+														}
+														break
+													}
+												}
+											}
+
+											localSourcePath = s.Path
+											rel, err := filepath.Rel(info.LocalPath, s.Path)
+											if err == nil && rel != "." {
+												subDir = rel
+											}
+											skillName = s.Name
+											foundInCache = true
+											break
+										}
+									}
+								}
+								if foundInCache {
+									break
+								}
+							}
+						}
+					}
+				}
+
+				if !foundInCache {
+					// Fallback: Check if it's a known repo in config (e.g. anthropics/skill-creator)
+					// This handles the case where cache is missing/deleted but input format matches config
+					configMatch := false
+					if cfg != nil {
+						for _, r := range cfg.Repos {
+							if r.Name == parts[0] {
+								// Found matching repo config
+								if !strings.HasPrefix(r.URL, "http") {
+									repoParts := strings.Split(r.URL, "/")
+									if len(repoParts) >= 2 {
+										repoURL = fmt.Sprintf("https://github.com/%s/%s.git", repoParts[0], repoParts[1])
+									}
+								} else {
+									repoURL = r.URL
+								}
+
+								// Use the second part as skill name/subdir
+								// Note: We don't know the exact subdir structure inside the repo if not cached.
+								// However, most skill repos have skills at root or in /skills/.
+								// 'ask' assumes sparse checkout of subDir.
+								// Ideally we need the subDir path relative to repo root.
+								// r.URL might be "anthropics/skills/skills" -> subDir base is "skills"
+								// So full subDir = "skills/" + parts[1]
+
+								baseSubDir := ""
+								if !strings.HasPrefix(r.URL, "http") {
+									repoParts := strings.Split(r.URL, "/")
+									if len(repoParts) > 2 {
+										baseSubDir = strings.Join(repoParts[2:], "/")
+									}
+								}
+
+								if baseSubDir != "" {
+									subDir = filepath.Join(baseSubDir, parts[1])
+								} else {
+									subDir = parts[1]
+								}
+
+								skillName = parts[1]
+								configMatch = true
+
+								// Trigger background sync for this repo
+								go func(name string) {
+									// Locate the executable
+									exe, err := os.Executable()
+									if err != nil {
+										return
+									}
+									// Spawn 'ask repo sync name' detached
+									cmd := exec.Command(exe, "repo", "sync", name)
+									// Detach process attributes could be OS-specific, but simple Start() usually works for short-lived parent
+									// if we don't attach pipes.
+									_ = cmd.Start()
+									// We don't wait.
+								}(r.Name)
+
+								break
+							}
+						}
+					}
+
+					if !configMatch {
+						// Standard install: owner/repo
+						repoURL = "https://github.com/" + input
+						urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
+						skillName = urlParts[len(urlParts)-1]
+					}
+				}
 			}
 		} else {
 			// It's a URL (e.g., https://github.com/xxx.git)
@@ -305,17 +448,88 @@ func installSingleSkill(input string, global bool, agents []string) error {
 	// Doing it optimistically: if `strings.Contains(input, "/")` is false, it might be a slug.
 
 	if !strings.Contains(input, "/") && !strings.HasPrefix(input, "http") && !strings.HasPrefix(input, "git") {
-		// Try resolving as SkillHub slug
-		client := skillhub.NewClient()
-		if resolved, err := client.Resolve(input); err == nil {
-			fmt.Printf("Resolved SkillHub slug '%s' to '%s'\n", input, resolved)
-			// Recursive call or set variables?
-			// URL found (e.g. https://github.com/owner/repo#...)
-			// Recursing is easiest to handle the new URL format (which might be a tree URL).
-			return installSingleSkill(resolved, global, agents)
+		// 1. Try resolving from local cache first
+		reposCache, err := cache.NewReposCache()
+		if err == nil {
+			skills, _ := reposCache.SearchSkills(input)
+
+			// Find all exact matches
+			var exactMatches []cache.SkillEntry
+			for _, s := range skills {
+				if s.Name == input {
+					exactMatches = append(exactMatches, s)
+				}
+			}
+
+			if len(exactMatches) > 1 {
+				// Ambiguous!
+				fmt.Printf("Error: Multiple skills named '%s' found:\n", input)
+				for _, m := range exactMatches {
+					fmt.Printf("  - %s/%s\n", m.RepoName, m.Name)
+				}
+				return fmt.Errorf("ambiguous skill name '%s'. Please specify the repository like 'RepoName/SkillName'", input)
+			} else if len(exactMatches) == 1 {
+				// Single match
+				s := exactMatches[0]
+				fmt.Printf("found skill '%s' in local cache (repo: %s)\n", input, s.RepoName)
+
+				// We need to resolve the repo URL.
+				repoInfos, err := reposCache.LoadIndex()
+				if err == nil {
+					for _, info := range repoInfos {
+						if info.Name == s.RepoName {
+							repoURL = info.URL
+
+							// If URL is missing in index (bug fix), lookup from config
+							if repoURL == "" && cfg != nil {
+								for _, r := range cfg.Repos {
+									// Calculate derived name as used in sync
+									derivedName := r.Name
+									if !strings.HasPrefix(r.URL, "http") {
+										parts := strings.Split(r.URL, "/")
+										if len(parts) >= 2 {
+											derivedName = parts[0] + "-" + parts[1]
+										}
+									} else {
+										derivedName = strings.ReplaceAll(r.URL, "/", "-")
+									}
+
+									if r.Name == s.RepoName || derivedName == s.RepoName {
+										if !strings.HasPrefix(r.URL, "http") {
+											parts := strings.Split(r.URL, "/")
+											if len(parts) >= 2 {
+												repoURL = fmt.Sprintf("https://github.com/%s/%s.git", parts[0], parts[1])
+											}
+										} else {
+											repoURL = r.URL
+										}
+										break
+									}
+								}
+							}
+
+							// Calculate relative path (subdir)
+							localSourcePath = s.Path
+							rel, err := filepath.Rel(info.LocalPath, s.Path)
+							if err == nil && rel != "." {
+								subDir = rel
+							}
+							skillName = s.Name
+							break
+						}
+					}
+				}
+			}
 		}
-		// If resolve fails, we proceed (it might be a local directory or something, though `ask` doesn't strictly support local paths yet in this function).
-		// Or it falls through to be treated as `github.com/input` which will fail.
+
+		// 2. If not found in cache, try resolving as SkillHub slug
+		if repoURL == "" {
+			client := skillhub.NewClient()
+			if resolved, err := client.Resolve(input); err == nil {
+				fmt.Printf("Resolved SkillHub slug '%s' to '%s'\n", input, resolved)
+				return installSingleSkill(resolved, global, agents, cfg)
+			}
+		}
 	}
 
 	// Use branch from version if not set from URL parsing
@@ -384,14 +598,20 @@ func installSingleSkill(input string, global bool, agents []string) error {
 
 	tempSkillPath := filepath.Join(tempDir, skillName)
 
-	if subDir != "" {
-		err = git.InstallSubdir(repoURL, branch, subDir, tempSkillPath)
+	if localSourcePath != "" {
+		if err := copyDir(localSourcePath, tempSkillPath); err != nil {
+			return fmt.Errorf("failed to copy local skill: %w", err)
+		}
 	} else {
-		err = git.Clone(repoURL, tempSkillPath)
-	}
+		if subDir != "" {
+			err = git.InstallSubdir(repoURL, branch, subDir, tempSkillPath)
+		} else {
+			err = git.Clone(repoURL, tempSkillPath)
+		}
 
-	if err != nil {
-		return fmt.Errorf("git operation failed: %w", err)
+		if err != nil {
+			return fmt.Errorf("git operation failed: %w", err)
+		}
 	}
 
 	// Checkout specific version if specified
@@ -441,7 +661,6 @@ func installSingleSkill(input string, global bool, agents []string) error {
 		if err := copyDir(tempSkillPath, centralPath); err != nil {
 			return fmt.Errorf("failed to copy skill to central storage %s: %w", centralPath, err)
 		}
-		fmt.Printf("  → Stored source in %s\n", centralPath)
 	}
 
 	// Create symlinks (or copy as fallback) to each target directory
@@ -481,7 +700,7 @@ func installSingleSkill(input string, global bool, agents []string) error {
 	}
 
 	// Update config
-	cfg, err := config.LoadConfigByScope(global)
+	updatedCfg, err := config.LoadConfigByScope(global)
 	if err == nil {
 		skillInfo := config.SkillInfo{
 			Name:        skillName,
@@ -497,8 +716,8 @@ func installSingleSkill(input string, global bool, agents []string) error {
 			}
 		}
 
-		cfg.AddSkillInfo(skillInfo)
-		err = cfg.SaveByScope(global)
+		updatedCfg.AddSkillInfo(skillInfo)
+		err = updatedCfg.SaveByScope(global)
 		if err != nil {
 			configFile := "ask.yaml"
 			if global {
@@ -617,8 +836,12 @@ func isSymlink(path string) bool {
 	return info.Mode()&os.ModeSymlink != 0
 }
 
+func registerInstallFlags(cmd *cobra.Command) {
+	cmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) (claude->.claude/skills, cursor->.cursor/skills, etc.)")
+	cmd.Flags().BoolP("global", "g", false, "install globally (user-level)")
+}
+
 func init() {
 	skillCmd.AddCommand(installCmd)
-	installCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) (claude->.claude/skills, cursor->.cursor/skills, etc.)")
-	installCmd.Flags().BoolP("global", "g", false, "install globally (user-level)")
+	registerInstallFlags(installCmd)
 }
