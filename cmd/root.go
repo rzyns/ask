@@ -46,7 +46,7 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "1.0.0-rc1",
+	Version: "1.0.0-rc2",
 }
 
 // Top-level aliases (Docker-style)
