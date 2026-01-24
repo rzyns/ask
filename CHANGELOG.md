@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Local Install Optimization**: Installing a skill that exists in the local cache now performs a fast file copy instead of a git clone.
 - **Testing**: Added comprehensive unit tests for CLI commands.
 
+### Fixed
+- **Panic on Single-Word Install**: Fixed critical panic when using `ask install <name>` with a single word argument.
+- **Uninstall Alias**: Added missing top-level `ask uninstall` alias (previously only `ask skill uninstall` worked).
+
 ### Changed
 - **Repository Naming**: Local cache directories now use the user-configured repository name (e.g. `anthropics`).
 - **Improved UX**: Reduced verbosity of installation commands.

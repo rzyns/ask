@@ -75,6 +75,15 @@ var listRootCmd = &cobra.Command{
 	Run:   runList,
 }
 
+var uninstallRootCmd = &cobra.Command{
+	Use:     "uninstall [skill-name]",
+	Short:   "Uninstall a skill (alias for 'skill uninstall')",
+	Long:    "Remove a skill from the skills directory.\nThis is a shortcut for 'ask skill uninstall'.",
+	Example: uninstallCmd.Example,
+	Args:    uninstallCmd.Args,
+	Run:     uninstallCmd.Run,
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -107,6 +116,15 @@ func init() {
 
 	rootCmd.AddCommand(listRootCmd)
 	registerListFlags(listRootCmd)
+
+	rootCmd.AddCommand(uninstallRootCmd)
+	// No specific flags to register for uninstall root shim as it uses uninstallCmd.Run directly?
+	// Actually uninstallCmd.Run uses flags so we should share flags definition or re-register.
+	// Since uninstallCmd is in another file, we can't easily reuse 'registerUninstallFlags' unless we export it.
+	// But uninstallCmd is exported. Let's see how registerListFlags works.
+	// It's likely defined in list.go.
+	// We should probably just copy flags setup here.
+	uninstallRootCmd.Flags().AddFlagSet(uninstallCmd.Flags())
 }
 
 // initConfig reads in config file and ENV variables if set.

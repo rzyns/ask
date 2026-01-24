@@ -261,11 +261,12 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 				subDir = strings.Join(parts[2:], "/")
 				skillName = parts[len(parts)-1]
 				repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
-			} else {
+			} else if len(parts) >= 2 {
 				// Potential RepoName/SkillName from cache (e.g. "anthropics-skills/browser-use")
 				// or Standard install: owner/repo (e.g. "browser-use/browser-use")
 
 				foundInCache := false
+
 				repoName := parts[0]
 				skillNamePart := parts[1]
 
@@ -333,6 +334,7 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 							}
 						}
 					}
+
 				}
 
 				if !foundInCache {
