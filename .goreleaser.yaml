@@ -50,3 +50,9 @@ brews:
       bin.install "ask"
     test: |
       system "#{bin}/ask", "--help"
+
+release:
+  github:
+    owner: yeasy
+    name: ask
+  replace_existing_artifacts: true
