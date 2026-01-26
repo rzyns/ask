@@ -99,6 +99,10 @@ ask install mcp-builder@v1.0.0
 
 # Install for specific agent
 ask install mcp-builder --agent claude
+
+# Security Check
+ask check .
+ask check anthropics/mcp-builder --report report.html
 ```
 
 ## 📋 Commands
@@ -112,6 +116,7 @@ ask install mcp-builder --agent claude
 | `ask skill uninstall <name>` | Remove a skill |
 | `ask skill update` | Update skills to latest version |
 | `ask skill outdated` | Check for newer versions |
+| `ask skill check <path>` | Security scan (Secrets, Dangerous Commands) |
 
 ### Repository Management
 | Command | Description |

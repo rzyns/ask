@@ -13,7 +13,7 @@ import (
 
 // Clone clones a git repository to the specified destination
 func Clone(url, dest string) error {
-	bar := ui.NewSpinner(fmt.Sprintf("Cloning %s...", url))
+	bar := ui.NewSpinner(fmt.Sprintf("Cloning %s...", filepath.Base(url)))
 	cmd := exec.Command("git", "clone", "--depth", "1", "--progress", url, dest)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
@@ -25,7 +25,7 @@ func Clone(url, dest string) error {
 // SparseClone clones only a specific subdirectory using sparse checkout
 // This is much faster than full clone for large repos when only a subdir is needed
 func SparseClone(repoURL, branch, subDir, dest string) error {
-	bar := ui.NewSpinner(fmt.Sprintf("Sparse cloning %s from %s...", subDir, repoURL))
+	bar := ui.NewSpinner(fmt.Sprintf("Sparse cloning %s from %s...", subDir, filepath.Base(repoURL)))
 	defer func() { _ = bar.Finish() }()
 
 	// Step 1: Clone with filter and no checkout

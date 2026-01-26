@@ -20,4 +20,5 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(skillCmd)
+	skillCmd.AddCommand(checkCmd)
 }

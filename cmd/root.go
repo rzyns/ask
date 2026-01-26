@@ -24,6 +24,7 @@ Skill Commands (ask skill <command>):
   info        Show detailed skill information
   update      Update skills to latest versions
   outdated    Check for available updates
+  check       Check a skill for security issues
   create      Create a new skill template
 
 Repository Commands (ask repo <command>):
@@ -46,7 +47,7 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "1.0.0-rc2",
+	Version: "1.0.0",
 }
 
 // Top-level aliases (Docker-style)
@@ -84,6 +85,13 @@ var uninstallRootCmd = &cobra.Command{
 	Run:     uninstallCmd.Run,
 }
 
+var checkRootCmd = &cobra.Command{
+	Use:   "check [skill-path]",
+	Short: "Check a skill for security issues (alias for 'skill check')",
+	Long:  "Analyze a skill directory for potential security risks.\nThis is a shortcut for 'ask skill check'.",
+	Run:   runCheck,
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -118,6 +126,7 @@ func init() {
 	registerListFlags(listRootCmd)
 
 	rootCmd.AddCommand(uninstallRootCmd)
+	rootCmd.AddCommand(checkRootCmd)
 	// No specific flags to register for uninstall root shim as it uses uninstallCmd.Run directly?
 	// Actually uninstallCmd.Run uses flags so we should share flags definition or re-register.
 	// Since uninstallCmd is in another file, we can't easily reuse 'registerUninstallFlags' unless we export it.
@@ -125,6 +134,7 @@ func init() {
 	// It's likely defined in list.go.
 	// We should probably just copy flags setup here.
 	uninstallRootCmd.Flags().AddFlagSet(uninstallCmd.Flags())
+	checkRootCmd.Flags().StringVar(&reportFile, "report", "", "Save report to file (supports .md, .html)")
 }
 
 // initConfig reads in config file and ENV variables if set.

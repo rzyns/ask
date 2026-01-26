@@ -244,6 +244,28 @@ Generate shell completion scripts.
 ask completion [bash|zsh|fish|powershell]
 ```
 
+
+---
+
+### ask skill check
+
+Check a skill for security issues.
+
+```bash
+ask skill check <skill-path>      # Check local skill
+ask skill check .                 # Check current directory
+ask skill check --report out.html # Generate HTML report
+```
+
+**Flags:**
+- `--report`: Save detailed findings to a file (`.md` or `.html`).
+
+**What it does:**
+- Scans for hardcoded secrets (API keys, tokens)
+- specific dangerous commands (`rm -rf`, `sudo`, reverse shells)
+- Flags suspicious file extensions (`.exe`, `.dll`, etc.)
+- Calculates entropy to reduce false positives
+
 ---
 
 ## Global Flags

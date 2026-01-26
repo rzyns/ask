@@ -99,6 +99,10 @@ ask install mcp-builder@v1.0.0
 
 # 为指定 Agent 安装
 ask install mcp-builder --agent claude
+
+# 安全检查
+ask check .
+ask check anthropics/mcp-builder --report report.html
 ```
 
 ## 📋 命令参考
@@ -112,6 +116,7 @@ ask install mcp-builder --agent claude
 | `ask uninstall <name>` | 卸载 Skill |
 | `ask update` | 更新 Skill 到最新版本 |
 | `ask outdated` | 检查可用更新 |
+| `ask check <path>` | 安全扫描 (密钥泄漏, 危险命令等) |
 
 ### 仓库管理
 | 命令 | 说明 |
