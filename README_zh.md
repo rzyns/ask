@@ -16,7 +16,7 @@
   <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
-  <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
 </p>
 
 <p align="center">
@@ -61,20 +61,6 @@ graph LR
 | **🔌 离线模式** | 支持 `--offline` 离线模式，优先使用本地缓存，完美适配内网或安全受限环境。 |
 | **🌎 全局与本地** | 灵活支持项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
 | **🛡️ 安全守卫** | 内置安全扫描引擎，通过熵值分析检测敏感信息泄漏、危险命令及恶意代码，为智能体保驾护航。 |
-
-## 📊 安全审计报告
-
-<img src="reports/anthropics.png" width="300">
-<img src="reports/openai.png" width="300">
-<img src="reports/composio.png" width="300">
-<img src="reports/vercel.png" width="300">
-
-查看完整安全审计报告：
-
-- [🛡️ Anthropic 安全审计报告](reports/anthropics.html)
-- [🛡️ OpenAI 安全审计报告](reports/openai.html)
-- [🛡️ Composio 安全审计报告](reports/composio.html)
-- [🛡️ Vercel 安全审计报告](reports/vercel.html)
 
 ## 🚀 快速开始
 
@@ -167,6 +153,20 @@ ASK 默认内置了以下受信源：
 | **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | 流程图自动生成 |
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | 动态PPT生成 |
 
+## 📊 安全审计报告
+
+<img src="reports/anthropics.png" width="300">
+<img src="reports/openai.png" width="300">
+<img src="reports/composio.png" width="300">
+<img src="reports/vercel.png" width="300">
+
+完整安全审计报告：
+
+- [🛡️ Anthropic 安全审计报告](reports/anthropics.html)
+- [🛡️ OpenAI 安全审计报告](reports/openai.html)
+- [🛡️ Composio 安全审计报告](reports/composio.html)
+- [🛡️ Vercel 安全审计报告](reports/vercel.html)
+
 ## 📂 目录结构
 
 安装后的默认结构：
@@ -180,10 +180,19 @@ my-project/
         └── writing-plans/
 ```
 
-**不同 Agent 的安装路径:**
+**不同 Agent 会自动探索对应安装路径:**
 - **Claude**: `.claude/skills/`
 - **Cursor**: `.cursor/skills/`
 - **Codex**: `.codex/skills/`
+
+## 🐞 调试
+
+要查看详细的操作日志（如扫描、更新、搜索），请设置 `ASK_LOG=debug`：
+
+```bash
+export ASK_LOG=debug
+ask skill install browser-use
+```
 
 ## 🤝 贡献参与
 欢迎提交 PR 或 Issue！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
