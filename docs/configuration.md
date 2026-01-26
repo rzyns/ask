@@ -47,6 +47,9 @@ repos:
   - name: matlab
     type: dir
     url: https://github.com/matlab/skills/tree/main/skills
+  - name: vercel
+    type: dir
+    url: https://github.com/vercel-labs/agent-skills
 ```
 
 ### Fields
@@ -127,6 +130,7 @@ ASK automatically includes these sources, even if not in your `ask.yaml`:
 | `superpowers` | dir | `https://github.com/obra/superpowers/tree/main/skills` |
 | `openai` | dir | `https://github.com/openai/skills/tree/main/skills` |
 | `matlab` | dir | `https://github.com/matlab/skills/tree/main/skills` |
+| `vercel` | dir | `https://github.com/vercel-labs/agent-skills` |
 
 To add custom sources, see [Skill Sources](skill-sources.md).
 

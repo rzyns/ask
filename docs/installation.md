@@ -75,7 +75,7 @@ Expand-Archive -Path "ask.zip" -DestinationPath "C:\tools\ask"
 
 ## Build from Source
 
-If you have Go 1.21+ installed:
+If you have Go 1.24+ installed:
 
 ```bash
 git clone https://github.com/yeasy/ask.git

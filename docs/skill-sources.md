@@ -18,6 +18,7 @@ ASK comes with six pre-configured sources:
 | **MATLAB** | Official | `matlab` | MATLAB Official Skills |
 | **Composio** | Community | `composio` | Awesome Claude Skills |
 | **SkillHub** | Service | `skills` | SkillHub.club Search Service |
+| **Vercel** | AI SDK | `vercel-labs/agent-skills` | Vercel AI SDK Skills |
 
 ---
 

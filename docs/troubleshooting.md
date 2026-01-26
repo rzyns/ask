@@ -32,7 +32,7 @@ sudo mv ask /usr/local/bin/
 
 **Solutions**:
 ```bash
-# Check Go version (requires 1.21+)
+# Check Go version (requires 1.24+)
 go version
 
 # Update Go if needed (macOS)
@@ -339,7 +339,7 @@ ask skill install browser-use
 
 ```bash
 # Verify all requirements
-go version      # Should be 1.21+
+go version      # Should be 1.24+
 git --version   # Should be 2.25+
 which ask       # Should show installation path
 
