@@ -64,7 +64,12 @@ graph LR
 
 ## 📊 安全审计报告
 
-查看针对内置技能仓库生成的安全审计报告：
+<img src="reports/anthropics.png" width="300">
+<img src="reports/openai.png" width="300">
+<img src="reports/composio.png" width="300">
+<img src="reports/vercel.png" width="300">
+
+查看完整安全审计报告：
 
 - [🛡️ Anthropic 安全审计报告](reports/anthropics.html)
 - [🛡️ OpenAI 安全审计报告](reports/openai.html)

@@ -65,7 +65,12 @@ graph LR
 
 ## 📊 Security Audit Reports
 
-See actual security audit reports generated for top skill repositories:
+<img src="reports/anthropics.png" width="300">
+<img src="reports/openai.png" width="300">
+<img src="reports/composio.png" width="300">
+<img src="reports/vercel.png" width="300">
+
+See detailed security audit reports generated for top skill repositories:
 
 - [🛡️ Anthropic Security Audit Report](reports/anthropics.html)
 - [🛡️ OpenAI Security Audit Report](reports/openai.html)
