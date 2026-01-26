@@ -61,7 +61,16 @@ graph LR
 | **⚡ Blazing Fast** | Written in Go. Parallel downloads, sparse checkouts, and zero runtime dependencies. |
 | **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
 | **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
-| **🛡️ Security Guard** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
+| **🛡️ Security Audit** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
+
+## 📊 Security Audit Reports
+
+See actual security audit reports generated for top skill repositories:
+
+- [🛡️ Anthropic Security Audit Report](reports/anthropics.html)
+- [🛡️ OpenAI Security Audit Report](reports/openai.html)
+- [🛡️ Composio Security Audit Report](reports/composio.html)
+- [🛡️ Vercel Security Audit Report](reports/vercel.html)
 
 ## 🚀 Quick Start
 

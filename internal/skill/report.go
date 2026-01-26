@@ -72,67 +72,261 @@ func generateHTML(result *CheckResult) string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Security Report: {{.SkillName}}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 20px; }
-        h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .summary { display: flex; gap: 20px; margin-bottom: 30px; }
-        .card { background: #f9f9f9; padding: 15px; border-radius: 8px; flex: 1; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .count { font-size: 2em; font-weight: bold; display: block; }
-        .critical { color: #d73a49; }
-        .warning { color: #b08800; }
-        .info { color: #0366d6; }
-        .finding { border: 1px solid #e1e4e8; border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
-        .finding-header { padding: 10px 15px; background: #f6f8fa; border-bottom: 1px solid #e1e4e8; display: flex; justify-content: space-between; align-items: center; }
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.85em; font-weight: 600; color: white; }
-        .bg-critical { background-color: #d73a49; }
-        .bg-warning { background-color: #dbab09; color: #24292e; }
-        .bg-info { background-color: #0366d6; }
-        .finding-body { padding: 15px; }
-        .location { color: #586069; font-size: 0.9em; margin-bottom: 10px; }
-        code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; }
-        pre { background: #f6f8fa; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 10px; }
+        :root {
+            --critical: #d73a49;
+            --warning: #dbab09;
+            --info: #0366d6;
+            --bg-color: #f6f8fa;
+            --card-bg: #ffffff;
+            --text-color: #24292e;
+            --border-color: #e1e4e8;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: var(--text-color); max-width: 1200px; margin: 0 auto; padding: 20px; background-color: var(--bg-color); }
+        .header { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .timestamp { color: #586069; font-size: 14px; }
+        
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        
+        .summary-stats { display: flex; justify-content: space-around; text-align: center; margin-top: 20px; }
+        .stat-item { flex: 1; }
+        .stat-value { font-size: 36px; font-weight: bold; display: block; }
+        .stat-label { font-size: 14px; color: #586069; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .text-critical { color: var(--critical); }
+        .text-warning { color: var(--warning); }
+        .text-info { color: var(--info); }
+        
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
+        .tab.active { border-bottom-color: #0366d6; color: #0366d6; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .module-group { margin-bottom: 30px; background: var(--card-bg); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .module-header { background: #f1f8ff; padding: 15px 20px; font-weight: bold; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .module-header:hover { background-color: #e6f3ff; }
+        .module-header::after { content: '▼'; font-size: 12px; transition: transform 0.3s ease; }
+        .module-group.collapsed .module-header::after { transform: rotate(-90deg); }
+        .module-group.collapsed .finding-list { display: none; }
+        .module-bg-critical { background-color: #ffeef0; }
+        .module-bg-critical:hover { background-color: #ffdce0; }
+        
+        .finding-list { padding: 0; margin: 0; list-style: none; }
+        .finding-item { padding: 15px 20px; border-bottom: 1px solid var(--border-color); }
+        .finding-item:last-child { border-bottom: none; }
+        
+        .finding-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .finding-title { font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .badge { padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; color: white; text-transform: uppercase; }
+        .bg-critical { background-color: var(--critical); }
+        .bg-warning { background-color: var(--warning); }
+        .bg-info { background-color: var(--info); }
+        
+        .location { font-family: monospace; color: #586069; font-size: 13px; margin-bottom: 8px; }
+        .code-snippet { background: #f6f8fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 12px; border: 1px solid var(--border-color); }
+        
+        .empty-state { text-align: center; padding: 50px; color: #586069; }
+        .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; }
+        
+        .footer { text-align: center; margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 20px; color: #586069; font-size: 14px; }
+        .footer a { color: #0366d6; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <h1>Security Report: {{.SkillName}}</h1>
-    <p>Generated on {{.Date}}</p>
-
-    <div class="summary">
-        <div class="card critical">
-            <span class="count">{{.Stats.Critical}}</span>
-            Critical
+    <div class="header">
+        <div>
+            <h1>🛡️ Agent Security Audit Report</h1>
+            <div class="timestamp">Target: {{.SkillName}} | Generated: {{.Date}} by <a href="https://github.com/yeasy/ask" target="_blank" style="color: #0366d6; text-decoration: none;">ASK</a></div>
         </div>
-        <div class="card warning">
-            <span class="count">{{.Stats.Warning}}</span>
-            Warning
-        </div>
-        <div class="card info">
-            <span class="count">{{.Stats.Info}}</span>
-            Info
+        <div>
+            <span class="badge {{if eq .Stats.Critical 0}}bg-info{{else}}bg-critical{{end}}" style="font-size: 14px; padding: 8px 16px;">
+                {{if eq .Stats.Critical 0}}PASSED{{else}}FAILED{{end}}
+            </span>
         </div>
     </div>
 
-    {{if not .Findings}}
-    <div style="text-align: center; padding: 40px; background: #e6fffa; border-radius: 8px; color: #006644;">
-        <h2>✅ No issues found</h2>
-        <p>The skill appears to be safe based on current checks.</p>
-    </div>
-    {{end}}
-
-    {{range .FormattedFindings}}
-    <div class="finding">
-        <div class="finding-header">
-            <strong>{{.Description}}</strong>
-            <span class="badge bg-{{.SeverityClass}}">{{.Severity}}</span>
-        </div>
-        <div class="finding-body">
-            <div class="location">
-                📍 {{.File}}:{{.Line}} <span style="margin-left: 10px; color: #999;">Rule: {{.RuleID}}</span>
+    <div class="dashboard">
+        <!-- Overview Chart -->
+        <div class="card">
+            <h2>Severity Distribution</h2>
+            <div class="chart-container">
+                <canvas id="severityChart"></canvas>
             </div>
-            <pre><code>{{.Match}}</code></pre>
+        </div>
+        
+        <!-- Summary Stats -->
+        <div class="card">
+            <h2>Overview</h2>
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <span class="stat-value text-critical">{{.Stats.Critical}}</span>
+                    <span class="stat-label">Critical</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value text-warning">{{.Stats.Warning}}</span>
+                    <span class="stat-label">Warning</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value text-info">{{.Stats.Info}}</span>
+                    <span class="stat-label">Info</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{.Stats.Total}}</span>
+                    <span class="stat-label">Total Findings</span>
+                </div>
+            </div>
+            <div style="margin-top: 30px; padding: 15px; background: #f1f8ff; border-radius: 4px; font-size: 14px;">
+                <strong>Scan Scope:</strong> {{.SkillName}}<br>
+                <strong>Modules Affected:</strong> {{.Stats.ModulesAffected}}<br>
+                <strong>Status:</strong> 
+                {{if gt .Stats.Critical 0}}
+                <span class="text-critical">Immediate Action Required</span>
+                {{else if gt .Stats.Warning 0}}
+                <span class="text-warning">Review Recommended</span>
+                {{else}}
+                <span class="text-info" style="color: green;">Clean</span>
+                {{end}}
+            </div>
         </div>
     </div>
-    {{end}}
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('by-module')">By Module</div>
+        <div class="tab" onclick="switchTab('by-severity')">By Severity</div>
+    </div>
+
+    <!-- Findings by Module -->
+    <div id="by-module" class="tab-content active">
+        {{if not .ModuleGroups}}
+            <div class="card empty-state">
+                <h3>✅ No security issues found</h3>
+                <p>Your codebase appears clean based on the active ruleset.</p>
+            </div>
+        {{end}}
+
+        {{range .ModuleGroups}}
+        <div class="module-group collapsed">
+            <div class="module-header {{if .HasCritical}}module-bg-critical{{end}}" onclick="toggleGroup(this)">
+                <span>📦 {{.Name}}</span>
+                <div>
+                   {{if gt .Critical 0}}<span class="badge bg-critical" style="margin-right: 5px">{{.Critical}} Crit</span>{{end}}
+                   {{if gt .Warning 0}}<span class="badge bg-warning" style="margin-right: 5px">{{.Warning}} Warn</span>{{end}}
+                   <span style="font-size: 12px; color: #586069;">{{.Total}} issues</span>
+                </div>
+            </div>
+            <ul class="finding-list">
+                {{range .Findings}}
+                <li class="finding-item">
+                    <div class="finding-header">
+                        <div class="finding-title">
+                            <span class="badge bg-{{.SeverityClass}}">{{.Severity}}</span>
+                            {{.Description}}
+                        </div>
+                        <span style="font-size: 12px; color: #999;">{{.RuleID}}</span>
+                    </div>
+                    <div class="location">File: {{.File}}:{{.Line}}</div>
+                    <div class="code-snippet">{{.Match}}</div>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+        {{end}}
+    </div>
+
+    <!-- Findings by Severity -->
+    <div id="by-severity" class="tab-content">
+        {{range .SeverityGroups}}
+        <div class="module-group collapsed">
+            <div class="module-header" onclick="toggleGroup(this)">
+                <span class="badge bg-{{.Class}}" style="font-size: 14px;">{{.Name}}</span>
+                <span style="font-size: 12px; color: #586069;">{{.Count}} findings</span>
+            </div>
+            <ul class="finding-list">
+                {{range .Findings}}
+                <li class="finding-item">
+                    <div class="finding-header">
+                        <div class="finding-title">
+                            <span style="color: #666;">[{{.Module}}]</span> {{.Description}}
+                        </div>
+                        <span style="font-size: 12px; color: #999;">{{.RuleID}}</span>
+                    </div>
+                    <div class="location">File: {{.File}}:{{.Line}}</div>
+                    <div class="code-snippet">{{.Match}}</div>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+        {{end}}
+    </div>
+
+    <script>
+        // Charts
+        const ctx = document.getElementById('severityChart').getContext('2d');
+        
+        const labels = [];
+        const data = [];
+        const colors = [];
+
+        {{if gt .Stats.Critical 0}}
+        labels.push('Critical');
+        data.push({{.Stats.Critical}});
+        colors.push('#d73a49');
+        {{end}}
+
+        {{if gt .Stats.Warning 0}}
+        labels.push('Warning');
+        data.push({{.Stats.Warning}});
+        colors.push('#dbab09');
+        {{end}}
+
+        {{if gt .Stats.Info 0}}
+        labels.push('Info');
+        data.push({{.Stats.Info}});
+        colors.push('#0366d6');
+        {{end}}
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+
+        // Tabs
+        function switchTab(id) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(id).classList.add('active');
+        }
+
+        function toggleGroup(header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+    </script>
+    <div class="footer">
+        generated by <a href="https://github.com/yeasy/ask/" target="_blank">ASK</a>, Agent Skills Manager for Enterprise AI
+    </div>
 </body>
 </html>`
 
@@ -141,35 +335,106 @@ func generateHTML(result *CheckResult) string {
 		SeverityClass string
 	}
 
-	criticals, warnings, infos := countSeverities(result.Findings)
-
-	data := struct {
-		SkillName         string
-		Date              string
-		Stats             struct{ Critical, Warning, Info int }
-		Findings          []Finding
-		FormattedFindings []FindingView
-	}{
-		SkillName: result.SkillName,
-		Date:      time.Now().Format("2006-01-02 15:04:05"),
-		Stats:     struct{ Critical, Warning, Info int }{criticals, warnings, infos},
-		Findings:  result.Findings,
+	type ModuleGroup struct {
+		Name        string
+		Findings    []FindingView
+		Critical    int
+		Warning     int
+		Total       int
+		HasCritical bool
 	}
 
+	type SeverityGroup struct {
+		Name     string
+		Class    string
+		Findings []FindingView
+		Count    int
+	}
+
+	// Process data for grouping
+	moduleMap := make(map[string]*ModuleGroup)
+	var moduleGroups []*ModuleGroup
+
+	// Group by Module
 	for _, f := range result.Findings {
-		var class string
+		moduleName := f.Module
+		if moduleName == "" {
+			moduleName = "Unknown"
+		}
+
+		group, exists := moduleMap[moduleName]
+		if !exists {
+			group = &ModuleGroup{Name: moduleName}
+			moduleMap[moduleName] = group
+			moduleGroups = append(moduleGroups, group)
+		}
+
+		class := "info"
 		switch f.Severity {
 		case SeverityCritical:
 			class = "critical"
+			group.Critical++
+			group.HasCritical = true
 		case SeverityWarning:
 			class = "warning"
-		default:
-			class = "info"
+			group.Warning++
 		}
-		data.FormattedFindings = append(data.FormattedFindings, FindingView{
-			Finding:       f,
-			SeverityClass: class,
-		})
+
+		group.Total++
+		group.Findings = append(group.Findings, FindingView{Finding: f, SeverityClass: class})
+	}
+
+	// Group by Severity
+	var critGroup, warnGroup, infoGroup SeverityGroup
+	critGroup = SeverityGroup{Name: "CRITICAL", Class: "critical"}
+	warnGroup = SeverityGroup{Name: "WARNING", Class: "warning"}
+	infoGroup = SeverityGroup{Name: "INFO", Class: "info"}
+
+	for _, f := range result.Findings {
+		fv := FindingView{Finding: f}
+		switch f.Severity {
+		case SeverityCritical:
+			fv.SeverityClass = "critical"
+			critGroup.Findings = append(critGroup.Findings, fv)
+		case SeverityWarning:
+			fv.SeverityClass = "warning"
+			warnGroup.Findings = append(warnGroup.Findings, fv)
+		default:
+			fv.SeverityClass = "info"
+			infoGroup.Findings = append(infoGroup.Findings, fv)
+		}
+	}
+	critGroup.Count = len(critGroup.Findings)
+	warnGroup.Count = len(warnGroup.Findings)
+	infoGroup.Count = len(infoGroup.Findings)
+
+	var sevGroups []SeverityGroup
+	if critGroup.Count > 0 {
+		sevGroups = append(sevGroups, critGroup)
+	}
+	if warnGroup.Count > 0 {
+		sevGroups = append(sevGroups, warnGroup)
+	}
+	if infoGroup.Count > 0 {
+		sevGroups = append(sevGroups, infoGroup)
+	}
+
+	criticals, warnings, infos := countSeverities(result.Findings)
+
+	data := struct {
+		SkillName      string
+		Date           string
+		Stats          struct{ Critical, Warning, Info, Total, ModulesAffected int }
+		Findings       []Finding
+		ModuleGroups   []*ModuleGroup
+		SeverityGroups []SeverityGroup
+	}{
+		SkillName:      result.SkillName,
+		Date:           time.Now().Format("2006-01-02 15:04:05"),
+		Stats:          struct{ Critical, Warning, Info, Total, ModulesAffected int }{criticals, warnings, infos, criticals + warnings + infos, len(moduleGroups)},
+		Findings:       result.Findings,
+		ModuleGroups:   moduleGroups,
+		SeverityGroups: sevGroups,
 	}
 
 	tmpl, err := template.New("report").Parse(htmlTemplate)

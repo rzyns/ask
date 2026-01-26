@@ -110,10 +110,9 @@ repos:
 ```yaml
 ---
 name: browser-use
-description: Browser automation for AI agents
-version: 1.0.0
-author: browser-use
-dependencies:
+description: Browser automation for AI name: ask
+version: 1.1.0
+summary: The package manager for AI Agent skills:
   - playwright
 tags:
   - browser

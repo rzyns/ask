@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-01-26
+
+### Added
+- **Enhanced Security Reports**: 
+    - Generated HTML reports now include collapsible Module/Severity sections for better navigation.
+    - Added comprehensive Overview dashboard with severity distribution charts.
+    - Improved report header with "by ASK" attribution and precise timestamp.
+    - Path display optimization: Reports now intelligently show paths (e.g., `~/Projects/...`) instead of just `.` or full absolute paths.
+- **Batch Scanning**: Support for batch security scanning of multiple repositories.
+- **Documentation**: Added "Security Reports" section to `README.md` and `README_zh.md` with links to live samples.
+
+### Changed
+- Refined HTML report CSS for better readability and interactivity.
+- Defaulted findings groups to collapsed state for cleaner initial view.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

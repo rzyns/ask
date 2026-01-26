@@ -32,119 +32,63 @@ func init() {
 }
 
 func runCheck(_ *cobra.Command, args []string) {
-	// Case 1: Specific path provided
+	var targetPath string
+	var err error
+
+	// Determine target path
 	if len(args) > 0 {
-		skillPath := args[0]
-		absPath, err := filepath.Abs(skillPath)
+		targetPath, err = filepath.Abs(args[0])
 		if err != nil {
 			fmt.Printf("Error resolving path: %v\n", err)
 			os.Exit(1)
 		}
-
-		if !skill.FindSkillMD(absPath) {
-			fmt.Printf("Error: No SKILL.md found in %s. Is this a valid skill directory?\n", absPath)
+	} else {
+		targetPath, err = os.Getwd()
+		if err != nil {
+			fmt.Printf("Error getting current directory: %v\n", err)
 			os.Exit(1)
 		}
+	}
 
-		result, err := checkSingleSkill(absPath)
+	// Check if the target itself is a skill
+	if skill.FindSkillMD(targetPath) {
+		if len(args) == 0 {
+			fmt.Printf("Checking skill in current directory...\n")
+		}
+
+		result, err := checkSingleSkill(targetPath)
 		if err != nil {
 			fmt.Printf("Error checking skill: %v\n", err)
 			os.Exit(1)
 		}
 
-		if outputFile != "" {
-			handleReport(result, outputFile)
-		} else {
-			printReport(result)
-		}
-		if hasCriticalIssues(result) {
-			os.Exit(1)
-		}
-		return
-	}
-
-	// Case 2: No path provided. Check current directory first.
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Printf("Error getting current directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	if skill.FindSkillMD(cwd) {
-		fmt.Printf("Checking skill in current directory...\n")
-		result, err := checkSingleSkill(cwd)
-		if err != nil {
-			fmt.Printf("Error checking skill: %v\n", err)
-			os.Exit(1)
-		}
-
-		if outputFile != "" {
-			handleReport(result, outputFile)
-		} else {
-			printReport(result)
-		}
-		if hasCriticalIssues(result) {
-			os.Exit(1)
-		}
-		return
-	}
-
-	// Case 3: Current directory is not a skill. Scan all *PROJECT* skills.
-	fmt.Println("Current directory is not a skill. Scanning project skills...")
-	fmt.Println()
-
-	// Only scan project-level directories, not global ones
-	dirs := []string{config.DefaultSkillsDir}
-	for _, agentConfig := range config.SupportedAgents {
-		dirs = append(dirs, agentConfig.ProjectDir)
-	}
-
-	foundSkills := 0
-	issuesFound := false
-
-	for _, relDir := range dirs {
-		// Join with CWD to get absolute path
-		dir := filepath.Join(cwd, relDir)
-
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				skillPath := filepath.Join(dir, entry.Name())
-				if skill.FindSkillMD(skillPath) {
-					foundSkills++
-					displayPath := formatPathForDisplay(skillPath)
-					fmt.Printf("Checking %s...\n", displayPath)
-
-					result, err := checkSingleSkill(skillPath)
-					if err != nil {
-						fmt.Printf("  Error checking skill: %v\n", err)
-						continue
-					}
-
-					// For bulk check, we primarily only show issues or summary
-					printCompactReport(result)
-					if hasCriticalIssues(result) {
-						issuesFound = true
-					}
-				}
+		// Ensure module name is set
+		for i := range result.Findings {
+			if result.Findings[i].Module == "" {
+				result.Findings[i].Module = result.SkillName
 			}
 		}
+
+		if outputFile != "" {
+			handleReport(result, outputFile)
+		} else {
+			printReport(result)
+		}
+		if hasCriticalIssues(result) {
+			os.Exit(1)
+		}
+		return
 	}
 
-	if foundSkills == 0 {
-		fmt.Println("No skills found to check.")
+	// Not a skill? Scan as a project
+	label := "project skills"
+	if len(args) > 0 {
+		label = args[0]
 	} else {
-		fmt.Printf("\nScanned %d skills.\n", foundSkills)
+		fmt.Println("Current directory is not a skill. Scanning project skills...")
 	}
 
-	if issuesFound {
-		fmt.Println(color.RedString("\nCritical issues found in one or more skills."))
-		os.Exit(1)
-	}
+	scanProject(targetPath, label)
 }
 
 func formatPathForDisplay(path string) string {
@@ -272,4 +216,143 @@ func printFinding(prefix string, finding skill.Finding) {
 	fmt.Printf("%s %s\n", prefix, finding.Description)
 	fmt.Printf("  File: %s:%d\n", finding.File, finding.Line)
 	fmt.Printf("  Match: %s\n\n", finding.Match)
+}
+
+// scanProject scans a project root for skills in known directories
+func scanProject(rootDir string, label string) {
+	// Define directories to check. Order matters for precedence implicitly if we were deduplicating skills by name,
+	// but here we report everything.
+	// 1. .agent/skills (Default)
+	// 2. <agent> project dirs (e.g. .claude/skills)
+	// 3. skills (Generic)
+	// 4. . (Root - for flat repos)
+	searchDirs := []string{config.DefaultSkillsDir, "skills", "."}
+	for _, agentConfig := range config.SupportedAgents {
+		searchDirs = append(searchDirs, agentConfig.ProjectDir)
+	}
+
+	// Deduplicate search dirs
+	uniqueDirs := make(map[string]bool)
+	var dirs []string
+	for _, d := range searchDirs {
+		if !uniqueDirs[d] {
+			uniqueDirs[d] = true
+			dirs = append(dirs, d)
+		}
+	}
+
+	foundSkills := 0
+	issuesFound := false
+	cwd, _ := os.Getwd()
+
+	// Aggregate results
+	// Use formatted path for display if it looks like a path
+	displayLabel := label
+	if filepath.IsAbs(label) || strings.Contains(label, string(os.PathSeparator)) || label == "." {
+		displayLabel = formatPathForDisplay(label)
+	}
+
+	// If display label resolves to ".", it's confusing in a static report. Use absolute or home-relative path instead.
+	if displayLabel == "." {
+		if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(rootDir, home) {
+			displayLabel = "~" + strings.TrimPrefix(rootDir, home)
+		} else {
+			displayLabel = rootDir
+		}
+	}
+
+	aggregatedResult := &skill.CheckResult{
+		SkillName: displayLabel,
+		Findings:  []skill.Finding{},
+	}
+
+	// Track examined paths to avoid duplicate scans if nested dirs overlap
+	// (e.g. scanning "." and "skills" - "." covers "skills")
+	scannedPaths := make(map[string]bool)
+
+	for _, relDir := range dirs {
+		startDir := filepath.Join(rootDir, relDir)
+
+		// If we already scanned this directory (or a parent of it) as part of "." scan, strictly speaking we might double scan.
+		// However, "WalkDir" on "." will cover everything.
+		// If "." is in the list, it effectively supersedes others if they are subdirs of it.
+		// To keep it simple and robust: we will walk each requested dir.
+		// Inside walk, we check unique SKILL.md paths.
+
+		_ = filepath.WalkDir(startDir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil // Skip errors
+			}
+
+			if d.IsDir() {
+				// Optimization: Skip .git
+				if d.Name() == ".git" {
+					return filepath.SkipDir
+				}
+
+				// Check if this directory is a skill
+				if skill.FindSkillMD(path) {
+					// Use absolute path for uniqueness check
+					absPath, _ := filepath.Abs(path)
+					if scannedPaths[absPath] {
+						return filepath.SkipDir // Already scanned this skill
+					}
+					scannedPaths[absPath] = true
+
+					foundSkills++
+					displayPath := formatPathForDisplay(path)
+					fmt.Printf("Checking %s...\n", displayPath)
+
+					result, err := checkSingleSkill(path)
+					if err != nil {
+						fmt.Printf("  Error checking skill: %v\n", err)
+						return nil
+					}
+
+					printCompactReport(result)
+					if hasCriticalIssues(result) {
+						issuesFound = true
+					}
+
+					// Add to aggregated results
+					relSkillPath, _ := filepath.Rel(cwd, path)
+					if relSkillPath == "" || strings.HasPrefix(relSkillPath, "..") {
+						relSkillPath, _ = filepath.Rel(rootDir, path)
+					}
+					if relSkillPath == "" || strings.HasPrefix(relSkillPath, "..") {
+						relSkillPath = filepath.Base(path)
+					}
+
+					for _, f := range result.Findings {
+						if f.Module == "" {
+							f.Module = result.SkillName
+						}
+						f.File = filepath.Join(relSkillPath, f.File)
+						aggregatedResult.Findings = append(aggregatedResult.Findings, f)
+					}
+
+					// If we found a skill, we typically don't scan subdirectories of a skill
+					// (nested skills are rare/discouraged), but to be safe we can continue or skip.
+					// Let's SkipDir to avoid scanning internal directories of a skill as potential skills.
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		})
+	}
+
+	if foundSkills == 0 {
+		fmt.Printf("No skills found in %s (checked recursively).\n", rootDir)
+	} else {
+		fmt.Printf("\nScanned %d skills.\n", foundSkills)
+
+		if outputFile != "" {
+			handleReport(aggregatedResult, outputFile)
+		}
+	}
+
+	if issuesFound {
+		fmt.Println(color.RedString("\nCritical issues found in one or more skills."))
+		os.Exit(1)
+	}
 }

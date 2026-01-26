@@ -62,10 +62,10 @@ func TestGenerateReport_HTML(t *testing.T) {
 	if !strings.Contains(report, "<title>Security Report: Test Skill</title>") {
 		t.Error("HTML missing title")
 	}
-	if !strings.Contains(report, "<span class=\"count\">0</span>\n            Critical") {
+	if !strings.Contains(report, "<span class=\"stat-value text-critical\">0</span>") {
 		t.Error("HTML missing critical count (should be 0)")
 	}
-	if !strings.Contains(report, "<span class=\"count\">1</span>\n            Warning") {
+	if !strings.Contains(report, "<span class=\"stat-value text-warning\">1</span>") {
 		t.Error("HTML missing warning count (should be 1)")
 	}
 	if !strings.Contains(report, "Warning Issue") {

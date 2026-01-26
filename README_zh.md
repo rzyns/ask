@@ -62,6 +62,15 @@ graph LR
 | **🌎 全局与本地** | 灵活支持项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
 | **🛡️ 安全守卫** | 内置安全扫描引擎，通过熵值分析检测敏感信息泄漏、危险命令及恶意代码，为智能体保驾护航。 |
 
+## 📊 安全审计报告
+
+查看针对内置技能仓库生成的安全审计报告：
+
+- [🛡️ Anthropic 安全审计报告](reports/anthropics.html)
+- [🛡️ OpenAI 安全审计报告](reports/openai.html)
+- [🛡️ Composio 安全审计报告](reports/composio.html)
+- [🛡️ Vercel 安全审计报告](reports/vercel.html)
+
 ## 🚀 快速开始
 
 ### 1. 安装

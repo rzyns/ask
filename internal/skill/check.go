@@ -37,6 +37,7 @@ type Finding struct {
 	RuleID      string
 	Severity    Severity
 	Description string
+	Module      string // The skill or module name where this finding occurred
 	File        string
 	Line        int
 	Match       string
