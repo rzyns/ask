@@ -59,7 +59,8 @@ graph LR
 | **🤖 多 Agent 支持** | 自动检测并适配 **Claude** (`.claude/`)、**Cursor** (`.cursor/`)、**Codex** (`.codex/`) 等环境。 |
 | **⚡ 极速体验** | 纯 Go 语言编写。支持并发下载、稀疏检出 (Sparse Checkout)，无运行时依赖，毫秒级响应。 |
 | **🔌 离线模式** | 支持 `--offline` 离线模式，优先使用本地缓存，完美适配内网或安全受限环境。 |
-| **🌍 全局与本地** | 灵活支持项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
+| **🌎 全局与本地** | 灵活支持项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
+| **🛡️ 安全守卫** | 内置安全扫描引擎，通过熵值分析检测敏感信息泄漏、危险命令及恶意代码，为智能体保驾护航。 |
 
 ## 🚀 快速开始
 
@@ -102,7 +103,7 @@ ask install mcp-builder --agent claude
 
 # 安全检查
 ask check .
-ask check anthropics/mcp-builder --report report.html
+ask check anthropics/mcp-builder -o report.html
 ```
 
 ## 📋 命令参考

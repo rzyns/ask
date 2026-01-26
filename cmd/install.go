@@ -17,6 +17,7 @@ import (
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/skill"
 	"github.com/yeasy/ask/internal/skillhub"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // installCmd represents the install command
@@ -32,26 +33,26 @@ Use --agent (-a) to specify target agents (claude, cursor, codex, opencode).
 Multiple agents can be specified by repeating the flag.
 If no agent is specified, skills are installed to .agent/skills/ by default.`,
 	Example: `  # Install from GitHub shorthand
-  ask skill install browser-use/browser-use
+  ask skill install anthropics/pdf
   
   # Install to specific agents
-  ask skill install mcp-builder --agent claude --agent cursor
-  ask skill install mcp-builder -a claude -a cursor
+  ask skill install pdf --agent claude --agent cursor
+  ask skill install pdf -a claude -a cursor
   
   # Install globally for an agent
-  ask skill install mcp-builder --agent claude --global
+  ask skill install pdf --agent claude --global
   
   # Install multiple skills at once
-  ask skill install browser-use web-surfer mcp-server
+  ask skill install pdf docx mcp-builder
   
   # Install specific version
-  ask skill install anthropics/skills@v1.2.0
+  ask skill install browser-use/browser-use@v0.1.0
   
   # Install from subdirectory
-  ask skill install anthropics/skills/skills/browser-use
+  ask skill install anthropics/skills/skills/pdf
   
   # Install from GitHub browser URL
-  ask skill install https://github.com/anthropics/skills/tree/main/skills/mcp-builder
+  ask skill install https://github.com/anthropics/skills/tree/main/skills/pdf
   
   # Install from full URL
   ask skill install https://github.com/browser-use/browser-use.git`,
@@ -93,6 +94,21 @@ func runInstall(cmd *cobra.Command, args []string) {
 	// Track installation results
 	var succeeded, failed []string
 
+	// Pre-process args to separate skills and agents
+	// Only perform smart detection if --agent flag is used, to handle commands like:
+	// 'ask install skill --agent claude cursor'
+	// Otherwise, treat all args as skills (e.g. 'ask install cursor')
+	var skillArgs []string
+	agentFlagChanged := cmd.Flags().Changed("agent")
+
+	for _, arg := range args {
+		if agentFlagChanged && config.IsValidAgent(arg) {
+			agents = append(agents, arg)
+		} else {
+			skillArgs = append(skillArgs, arg)
+		}
+	}
+
 	// Install each skill
 	// Check for repo aliases and expand them
 	// Load config to check for repos
@@ -104,7 +120,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 	}
 
 	var expandedArgs []string
-	for _, input := range args {
+	for _, input := range skillArgs {
 		if len(input) > maxInputLength {
 			fmt.Printf("Error: Input '%s...' is too long (max %d chars)\n", input[:20], maxInputLength)
 			failed = append(failed, input)
@@ -186,8 +202,30 @@ func runInstall(cmd *cobra.Command, args []string) {
 	if len(args) > 1 {
 		fmt.Println()
 		fmt.Println("Installation Summary:")
+
+		// Calculate target display name
+		var targetDisplay string
+		if len(agents) > 0 {
+			targetDisplay = strings.Join(agents, ", ")
+		} else if global {
+			targetDisplay = "global"
+		} else {
+			// Auto-detect targets for display
+			wd, _ := os.Getwd()
+			detected := config.DetectExistingToolDirs(wd)
+			if len(detected) > 0 {
+				var names []string
+				for _, t := range detected {
+					names = append(names, t.Name)
+				}
+				targetDisplay = strings.Join(names, ", ")
+			} else {
+				targetDisplay = ".agent/skills"
+			}
+		}
+
 		if len(succeeded) > 0 {
-			fmt.Printf("  ✓ Succeeded: %d (%s)\n", len(succeeded), strings.Join(succeeded, ", "))
+			fmt.Printf("  ✓ Succeeded: %d (%s) -> to: %s\n", len(succeeded), strings.Join(succeeded, ", "), targetDisplay)
 		}
 		if len(failed) > 0 {
 			fmt.Printf("  ✗ Failed: %d (%s)\n", len(failed), strings.Join(failed, ", "))
@@ -285,7 +323,7 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 					if err == nil {
 						for _, s := range skills {
 							if s.Name == skillNamePart {
-								fmt.Printf("Found skill '%s' in cached repo '%s'\n", skillNamePart, repoName)
+								ui.Debug(fmt.Sprintf("Found skill '%s' in cached repo '%s'", skillNamePart, repoName))
 
 								// Resolve URL and subDir
 								repoInfos, err := reposCache.LoadIndex()
@@ -481,7 +519,7 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 			} else if len(exactMatches) == 1 {
 				// Single match
 				s := exactMatches[0]
-				fmt.Printf("found skill '%s' in local cache (repo: %s)\n", input, s.RepoName)
+				ui.Debug(fmt.Sprintf("Found skill '%s' in local cache (repo: %s)", input, s.RepoName))
 
 				// We need to resolve the repo URL.
 				repoInfos, err := reposCache.LoadIndex()
@@ -689,9 +727,9 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 		// Skip if already exists
 		if _, err := os.Stat(destPath); !os.IsNotExist(err) {
 			if isSymlink(destPath) {
-				fmt.Printf("  → Already linked in %s\n", destPath)
+				ui.Debug("  → Already linked in " + destPath)
 			} else {
-				fmt.Printf("  → Already installed in %s\n", destPath)
+				ui.Debug("  → Already installed in " + destPath)
 			}
 			continue
 		}
@@ -707,9 +745,9 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 		}
 
 		if isSymlink(destPath) {
-			fmt.Printf("  → Linked to %s\n", destPath)
+			ui.Debug("  → Linked to " + destPath)
 		} else {
-			fmt.Printf("  → Copied to %s (symlink not supported)\n", destPath)
+			ui.Debug("  → Copied to " + destPath + " (symlink not supported)")
 		}
 	}
 
@@ -759,7 +797,7 @@ func installSingleSkill(input string, global bool, agents []string, cfg *config.
 		}
 	} else if !global {
 		// If config doesn't exist for project-level, we might be in a non-init project
-		fmt.Println("Warning: ask.yaml not found. Run 'ask init' to track dependencies.")
+		ui.Debug("Note: ask.yaml not found. Run 'ask init' to track dependencies.")
 	}
 
 	fmt.Printf("Successfully installed %s!\n", skillName)

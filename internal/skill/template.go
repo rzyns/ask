@@ -9,8 +9,8 @@ import (
 	"text/template"
 )
 
-// SkillTemplateData holds data for the skill template
-type SkillTemplateData struct {
+// TemplateData holds data for the skill template
+type TemplateData struct {
 	Name        string
 	Description string
 	Author      string
@@ -84,7 +84,7 @@ func CreateSkillTemplate(name, destDir string) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	data := SkillTemplateData{
+	data := TemplateData{
 		Name:        name,
 		Description: "A new skill for AI Agents",
 		Author:      getGitAuthor(),

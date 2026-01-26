@@ -33,3 +33,4 @@ homebrew-tap/
 dist/
 .agent/
 .ask/
+ask.lock

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // outdatedCmd represents the outdated command
@@ -19,7 +20,7 @@ var outdatedCmd = &cobra.Command{
 	Short: "Check for outdated skills",
 	Long: `Check which installed skills have updates available.
 Use --global to check global skills.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		global, _ := cmd.Flags().GetBool("global")
 
 		// Ensure project is initialized for non-global operations
@@ -31,7 +32,7 @@ Use --global to check global skills.`,
 
 		cfg, err := config.LoadConfigByScope(global)
 		if err != nil {
-			fmt.Printf("Error loading config: %v\n", err)
+			ui.Debug(fmt.Sprintf("Error loading config: %v", err))
 			os.Exit(1)
 		}
 
@@ -50,7 +51,7 @@ Use --global to check global skills.`,
 		if global {
 			scopeLabel = "global"
 		}
-		fmt.Printf("Checking for updates (%s)...\n", scopeLabel)
+		ui.Debug(fmt.Sprintf("Checking for updates (%s)...", scopeLabel))
 		fmt.Println()
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)

@@ -326,11 +326,13 @@ git config --global credential.helper cache
 ## General Debugging
 
 ### Enable Verbose Logging
+Most operational messages (scanning, updating, searching) are hidden by default to keep the output clean.
+To see detailed logs for debugging purposes, set the log level to `DEBUG`:
 
 ```bash
 # Run commands with verbose output
-# (Note: Not yet implemented, but can use go run directly)
-go run main.go skill install browser-use -v
+export ASK_LOG=debug
+ask skill install browser-use
 ```
 
 ### Check System Requirements
@@ -364,7 +366,7 @@ If you're still experiencing issues:
 1. **Check existing issues**: https://github.com/yeasy/ask/issues
 2. **Search discussions**: https://github.com/yeasy/ask/discussions
 3. **Open a new issue**: Provide:
-   - ASK version (`ask --version`)
+   - ASK version (`ask version`)
    - Operating system
    - Go version (`go version`)
    - Git version (`git --version`)

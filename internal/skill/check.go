@@ -1,3 +1,4 @@
+// Package skill provides core skill manipulation and security checking logic.
 package skill
 
 import (
@@ -13,8 +14,11 @@ import (
 type Severity string
 
 const (
-	SeverityInfo     Severity = "INFO"
-	SeverityWarning  Severity = "WARNING"
+	// SeverityInfo indicates informational findings
+	SeverityInfo Severity = "INFO"
+	// SeverityWarning indicates potential issues
+	SeverityWarning Severity = "WARNING"
+	// SeverityCritical indicates critical vulnerabilities
 	SeverityCritical Severity = "CRITICAL"
 )
 

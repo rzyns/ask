@@ -7,6 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// LockFileName is the name of the lock file
 const LockFileName = "ask.lock"
 
 // LockEntry represents a locked skill version

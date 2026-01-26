@@ -1,19 +1,22 @@
 package skill
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"strings"
 	"time"
 )
 
-// GenerateReport generates a report in the specified format ("md" or "html")
+// GenerateReport generates a report in the specified format ("md", "html", or "json")
 func GenerateReport(result *CheckResult, format string) (string, error) {
 	switch strings.ToLower(format) {
 	case "md", "markdown":
 		return generateMarkdown(result), nil
-	case "html":
+	case "html", "htm":
 		return generateHTML(result), nil
+	case "json":
+		return generateJSON(result), nil
 	default:
 		return "", fmt.Errorf("unsupported format: %s", format)
 	}
@@ -195,4 +198,23 @@ func countSeverities(findings []Finding) (int, int, int) {
 		}
 	}
 	return c, w, i
+}
+
+func generateJSON(result *CheckResult) string {
+	// Add timestamp to the result for JSON output since CheckResult doesn't have it by default
+	type JSONResult struct {
+		*CheckResult
+		Timestamp string `json:"timestamp"`
+	}
+
+	output := JSONResult{
+		CheckResult: result,
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+
+	jsonData, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("{\"error\": \"failed to marshal json: %v\"}", err)
+	}
+	return string(jsonData)
 }

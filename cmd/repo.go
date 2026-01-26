@@ -39,10 +39,10 @@ Format: owner/repo or full URL
 
 Examples:
   ask repo add anthropics/skills
-  ask repo add my-org/my-skills
-  ask repo add browser-use/browser-use`,
+  ask repo add browser-use/browser-use
+  ask repo add openai/skills`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		input := args[0]
 
 		// Parse username/repo format
@@ -61,7 +61,7 @@ Examples:
 			path = strings.Join(parts[2:], "/")
 		}
 
-		fmt.Printf("Validating repository %s/%s...\n", owner, repo)
+		ui.Debug(fmt.Sprintf("Validating repository %s/%s...", owner, repo))
 
 		// Validate repository exists and is a valid skills repo
 		valid, repoType, detectedPath := validateSkillsRepo(owner, repo, path)
@@ -95,7 +95,7 @@ Examples:
 		// Check if repo already exists
 		for _, r := range cfg.Repos {
 			if r.URL == repoURL || r.Name == repoName {
-				fmt.Printf("Repo '%s' already exists.\n", repoName)
+				ui.Warn(fmt.Sprintf("Repo '%s' already exists.", repoName))
 				return
 			}
 		}
@@ -128,7 +128,7 @@ If a repository name is provided, list all skills available in that repository.
 Examples:
   ask repo list                # List all configured repositories
   ask repo list anthropics     # List skills in 'anthropics' repository`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -205,7 +205,7 @@ Examples:
 			os.Exit(1)
 		}
 
-		fmt.Printf("Fetching skills from '%s'...\n", repoName)
+		ui.Debug(fmt.Sprintf("Fetching skills from '%s'...", repoName))
 
 		// Create progress bar
 		bar := ui.NewProgressBar(1, "Fetching")
@@ -318,7 +318,7 @@ var repoRemoveCmd = &cobra.Command{
 	Short: "Remove a skill repository",
 	Long:  `Remove a configured skill repository source.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		name := args[0]
 		cfg, err := config.LoadConfig()
 		if err != nil {

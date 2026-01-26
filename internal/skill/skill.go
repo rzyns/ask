@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// SkillMeta represents metadata parsed from SKILL.md
-type SkillMeta struct {
+// Meta represents metadata parsed from SKILL.md
+type Meta struct {
 	Name         string   `yaml:"name"`
 	Description  string   `yaml:"description"`
 	Version      string   `yaml:"version"`
@@ -20,7 +20,7 @@ type SkillMeta struct {
 }
 
 // ParseSkillMD parses a SKILL.md file and extracts frontmatter metadata
-func ParseSkillMD(skillPath string) (*SkillMeta, error) {
+func ParseSkillMD(skillPath string) (*Meta, error) {
 	skillMDPath := filepath.Join(skillPath, "SKILL.md")
 
 	file, err := os.Open(skillMDPath)
@@ -63,7 +63,7 @@ func ParseSkillMD(skillPath string) (*SkillMeta, error) {
 		return parseFromContent(skillMDPath)
 	}
 
-	var meta SkillMeta
+	var meta Meta
 	yamlContent := strings.Join(frontmatter, "\n")
 	if err := yaml.Unmarshal([]byte(yamlContent), &meta); err != nil {
 		return nil, err
@@ -73,14 +73,14 @@ func ParseSkillMD(skillPath string) (*SkillMeta, error) {
 }
 
 // parseFromContent attempts to extract metadata from SKILL.md content
-func parseFromContent(skillMDPath string) (*SkillMeta, error) {
+func parseFromContent(skillMDPath string) (*Meta, error) {
 	content, err := os.ReadFile(skillMDPath)
 	if err != nil {
 		return nil, err
 	}
 
 	lines := strings.Split(string(content), "\n")
-	meta := &SkillMeta{}
+	meta := &Meta{}
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)

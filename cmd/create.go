@@ -16,7 +16,7 @@ var createCmd = &cobra.Command{
 	Long: `Create a new skill directory with a standardized structure.
 This will generate a SKILL.md and necessary subdirectories (scripts, references, assets).`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		name := args[0]
 
 		// Validate name (alphanumeric and dashes only)

@@ -17,7 +17,7 @@
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
   <a href="https://goreportcard.com/report/github.com/yeasy/ask"><img src="https://goreportcard.com/badge/github.com/yeasy/ask?style=flat-square" alt="Go Report Card"></a>
-  <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go" alt="Go Version">
+  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
 </p>
 
 <p align="center">
@@ -60,7 +60,8 @@ graph LR
 | **🤖 Multi-Agent** | Auto-detects and installs for **Claude** (`.claude/`), **Cursor** (`.cursor/`), **Codex** (`.codex/`), and more. |
 | **⚡ Blazing Fast** | Written in Go. Parallel downloads, sparse checkouts, and zero runtime dependencies. |
 | **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
-| **🌍 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
+| **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
+| **🛡️ Security Guard** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
 
 ## 🚀 Quick Start
 
@@ -99,10 +100,11 @@ ask install mcp-builder@v1.0.0
 
 # Install for specific agent
 ask install mcp-builder --agent claude
+ask install mcp-builder --agent claude cursor
 
 # Security Check
 ask check .
-ask check anthropics/mcp-builder --report report.html
+ask check anthropics/mcp-builder -o report.html
 ```
 
 ## 📋 Commands
@@ -169,6 +171,15 @@ my-project/
 - **Claude**: `.claude/skills/`
 - **Cursor**: `.cursor/skills/`
 - **Codex**: `.codex/skills/`
+
+## 🐞 Debugging
+
+To see detailed operational logs (scanning, updating, searching), set `ASK_LOG=debug`:
+
+```bash
+export ASK_LOG=debug
+ask skill install browser-use
+```
 
 ## 🤝 Contributing
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

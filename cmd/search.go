@@ -26,13 +26,13 @@ By default, uses local cache if available (fastest), otherwise fetches from remo
 Use --local to force local-only search.
 Use --remote to force remote API search.`,
 	Example: `  # Search (local-first, then remote)
-  ask skill search mcp
+  ask skill search pdf
   
   # Force local cache only (offline, fastest)
-  ask skill search mcp --local
+  ask skill search pdf --local
   
   # Force remote API (latest data)
-  ask skill search mcp --remote`,
+  ask skill search pdf --remote`,
 	Run: runSearch,
 }
 
@@ -73,7 +73,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 			repoInfos, err := reposCache.LoadIndex()
 			// Lazy Init: If cache is empty or index missing, sync automatically
 			if err != nil || len(repoInfos) == 0 {
-				fmt.Println("Initializing local skill database (this may take a minute)...")
+				ui.Debug("Initializing local skill database (this may take a minute)...")
 				exe, err := os.Executable()
 				if err == nil {
 					// Run sync synchronously for the first time
@@ -81,7 +81,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					if err := cmd.Run(); err != nil {
-						fmt.Printf("Warning: Initial sync failed: %v\n", err)
+						ui.Warn(fmt.Sprintf("Initial sync failed: %v", err))
 					} else {
 						// Reload index after sync
 						repoInfos, _ = reposCache.LoadIndex()
@@ -101,7 +101,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 				}
 
 				if time.Since(oldestSync) > 72*time.Hour {
-					fmt.Println("Cache is stale, updating in background...")
+					ui.Debug("Cache is stale, updating in background...")
 					exe, err := os.Executable()
 					if err == nil {
 						// Fire and forget
@@ -112,7 +112,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 			}
 
 			if len(repoInfos) > 0 || forceLocal {
-				fmt.Printf("Searching local cache for '%s'...\n", keyword)
+				ui.Debug(fmt.Sprintf("Searching local cache for '%s'...", keyword))
 				skills, _ := reposCache.SearchSkills(keyword)
 
 				for _, skill := range skills {
@@ -138,7 +138,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 	}
 
 	// Remote search
-	fmt.Printf("Searching for skills matching '%s'...\n", keyword)
+	ui.Debug(fmt.Sprintf("Searching for skills matching '%s'...", keyword))
 	searchSource = "remote"
 
 	// Create progress bar for scanning sources
@@ -208,11 +208,12 @@ func runSearch(cmd *cobra.Command, args []string) {
 
 	fmt.Println()
 	if len(errors) > 0 {
-		fmt.Println("Warning: Some sources failed to load:")
-		for _, errMsg := range errors {
-			fmt.Printf("  - %s\n", errMsg)
+		if len(errors) > 0 {
+			ui.Warn("Some sources failed to load:")
+			for _, errMsg := range errors {
+				ui.Warn(fmt.Sprintf("  - %s", errMsg))
+			}
 		}
-		fmt.Println()
 	}
 
 	displaySearchResults(allRepos, installedSkills, searchSource, minStars)
@@ -263,7 +264,7 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 	fmt.Println(".")
 
 	if source == "local" {
-		fmt.Println("(from local cache - run 'ask repo sync' to update)")
+		ui.Debug("(from local cache - run 'ask repo sync' to update)")
 	}
 }
 

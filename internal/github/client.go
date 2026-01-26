@@ -1,3 +1,4 @@
+// Package github interacts with the GitHub API to search and fetch repositories.
 package github
 
 import (
@@ -12,9 +13,10 @@ import (
 )
 
 const (
-	// Default topic to search for agent skills
+	// SkillTopic is the default topic to search for agent skills
 	SkillTopic = "agent-skill"
-	APIURL     = "https://api.github.com/search/repositories"
+	// APIURL is the GitHub API endpoint for searching repositories
+	APIURL = "https://api.github.com/search/repositories"
 )
 
 // Global cache instance
@@ -38,11 +40,13 @@ func init() {
 	}
 }
 
+// SearchResult represents the response from GitHub search API
 type SearchResult struct {
 	TotalCount int          `json:"total_count"`
 	Items      []Repository `json:"items"`
 }
 
+// Repository represents a GitHub repository structure
 type Repository struct {
 	Name            string    `json:"name"`
 	FullName        string    `json:"full_name"`

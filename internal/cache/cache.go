@@ -1,3 +1,4 @@
+// Package cache manages the local caching of repositories and skills.
 package cache
 
 import (
@@ -16,8 +17,8 @@ type Cache struct {
 	ttl time.Duration
 }
 
-// CacheEntry represents a cached item with metadata
-type CacheEntry struct {
+// Entry represents a cached item with metadata
+type Entry struct {
 	Data      json.RawMessage `json:"data"`
 	CreatedAt time.Time       `json:"created_at"`
 }
@@ -64,7 +65,7 @@ func (c *Cache) Get(key string, v interface{}) bool {
 		return false
 	}
 
-	var entry CacheEntry
+	var entry Entry
 	if err := json.Unmarshal(data, &entry); err != nil {
 		return false
 	}
@@ -89,7 +90,7 @@ func (c *Cache) Set(key string, v interface{}) error {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	entry := CacheEntry{
+	entry := Entry{
 		Data:      data,
 		CreatedAt: time.Now(),
 	}

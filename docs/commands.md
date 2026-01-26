@@ -254,11 +254,12 @@ Check a skill for security issues.
 ```bash
 ask skill check <skill-path>      # Check local skill
 ask skill check .                 # Check current directory
-ask skill check --report out.html # Generate HTML report
+ask skill check -o report.html    # Generate HTML report
+ask skill check -o report.json    # Generate JSON report
 ```
 
 **Flags:**
-- `--report`: Save detailed findings to a file (`.md` or `.html`).
+- `--output, -o`: Save detailed findings to a file (`.md`, `.html`, `.json`).
 
 **What it does:**
 - Scans for hardcoded secrets (API keys, tokens)

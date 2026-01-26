@@ -1,3 +1,4 @@
+// Package config handles configuration loading and management.
 package config
 
 import (
@@ -9,23 +10,40 @@ import (
 type AgentType string
 
 const (
-	AgentClaude      AgentType = "claude"
-	AgentCursor      AgentType = "cursor"
-	AgentCodex       AgentType = "codex"
-	AgentOpenCode    AgentType = "opencode"
+	// AgentClaude represents the Claude agent
+	AgentClaude AgentType = "claude"
+	// AgentCursor represents the Cursor agent
+	AgentCursor AgentType = "cursor"
+	// AgentCodex represents the OpenAI Codex agent
+	AgentCodex AgentType = "codex"
+	// AgentOpenCode represents the OpenCode agent
+	AgentOpenCode AgentType = "opencode"
+	// AgentAntigravity represents the Antigravity agent
 	AgentAntigravity AgentType = "antigravity"
-	AgentGemini      AgentType = "gemini"
-	AgentCopilot     AgentType = "copilot"
-	AgentWindsurf    AgentType = "windsurf"
-	AgentAmp         AgentType = "amp"
-	AgentGoose       AgentType = "goose"
-	AgentKilo        AgentType = "kilo"
-	AgentKiro        AgentType = "kiro"
-	AgentRoo         AgentType = "roo"
-	AgentTrae        AgentType = "trae"
-	AgentDroid       AgentType = "droid"
-	AgentClawdBot    AgentType = "clawdbot"
-	AgentNeovate     AgentType = "neovate"
+	// AgentGemini represents the Gemini CLI agent
+	AgentGemini AgentType = "gemini"
+	// AgentCopilot represents the GitHub Copilot agent
+	AgentCopilot AgentType = "copilot"
+	// AgentWindsurf represents the Windsurf agent
+	AgentWindsurf AgentType = "windsurf"
+	// AgentAmp represents the Amp agent
+	AgentAmp AgentType = "amp"
+	// AgentGoose represents the Goose agent
+	AgentGoose AgentType = "goose"
+	// AgentKilo represents the Kilo agent
+	AgentKilo AgentType = "kilo"
+	// AgentKiro represents the Kiro agent
+	AgentKiro AgentType = "kiro"
+	// AgentRoo represents the Roo agent
+	AgentRoo AgentType = "roo"
+	// AgentTrae represents the Trae agent
+	AgentTrae AgentType = "trae"
+	// AgentDroid represents the Droid agent
+	AgentDroid AgentType = "droid"
+	// AgentClawdBot represents the ClawdBot agent
+	AgentClawdBot AgentType = "clawdbot"
+	// AgentNeovate represents the Neovate agent
+	AgentNeovate AgentType = "neovate"
 )
 
 // AgentConfig holds directory paths for an agent

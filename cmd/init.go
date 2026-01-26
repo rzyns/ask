@@ -14,7 +14,7 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new ASK project",
 	Long: `Initialize a new Agent Skills Kit project. 
 This will create ask.yaml and the skills directory (default: .agent/skills/).`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		if _, err := os.Stat("ask.yaml"); err == nil {
 			fmt.Println("ask.yaml already exists in this directory.")
 			return

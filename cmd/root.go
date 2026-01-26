@@ -1,19 +1,22 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/ui"
 )
 
-var cfgFile string
+var (
+	cfgFile  string
+	logLevel string
+)
 
 // Custom help template with subcommand details at the end
-const rootHelpTemplate = `{{with .Version}}ASK v{{.}}
-{{end}}{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+var rootHelpTemplate = `ASK v` + Version + `
+{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
 
 {{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}
 Skill Commands (ask skill <command>):
@@ -47,8 +50,14 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
-	Version: "1.0.0",
+	// Version: "1.0.0",
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		ui.Setup(logLevel)
+	},
 }
+
+// Version is the current version of the application
+const Version = "1.0.0"
 
 // Top-level aliases (Docker-style)
 var installRootCmd = &cobra.Command{
@@ -113,6 +122,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./ask.yaml)")
 	rootCmd.PersistentFlags().Bool("offline", false, "run in offline mode (no network requests)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().BoolP("global", "g", false, "use global installation (~/.ask/skills)")
 
 	// Register top-level aliases
@@ -134,7 +144,7 @@ func init() {
 	// It's likely defined in list.go.
 	// We should probably just copy flags setup here.
 	uninstallRootCmd.Flags().AddFlagSet(uninstallCmd.Flags())
-	checkRootCmd.Flags().StringVar(&reportFile, "report", "", "Save report to file (supports .md, .html)")
+	checkRootCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Write report to file (supports .md, .html/.htm, .json)")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -162,6 +172,6 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		ui.Debug("Using config file: " + viper.ConfigFileUsed())
 	}
 }

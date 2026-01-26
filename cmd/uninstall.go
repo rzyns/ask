@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // uninstallCmd represents the uninstall command
@@ -21,10 +22,10 @@ Use --agent (-a) to specify target agents (claude, cursor, codex, opencode).
 If no agent is specified, uninstalls from agent directories only (keeps source).
 
 Use --all to remove both symlinks AND the source files in .agent/skills/.`,
-	Example: `  ask skill uninstall browser-use
-  ask skill uninstall --global browser-use
-  ask skill uninstall browser-use --agent claude --agent cursor
-  ask skill uninstall browser-use --all  # Removes source and all symlinks`,
+	Example: `  ask skill uninstall pdf
+  ask skill uninstall --global pdf
+  ask skill uninstall pdf --agent claude --agent cursor
+  ask skill uninstall pdf --all  # Removes source and all symlinks`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		skillName := args[0]
@@ -60,7 +61,7 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 				agentType, _ := config.ResolveAgentType(agentName)
 				dir, err := config.GetAgentSkillsDir(agentType, global)
 				if err != nil {
-					fmt.Printf("Error getting skills dir for agent %s: %v\n", agentName, err)
+					ui.Debug(fmt.Sprintf("Error getting skills dir for agent %s: %v", agentName, err))
 					continue
 				}
 				targetDirs = append(targetDirs, dir)
@@ -104,16 +105,16 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 
 			if _, err := os.Stat(skillPath); !os.IsNotExist(err) {
 				if isSymlink(skillPath) {
-					fmt.Printf("Removing symlink %s...\n", skillPath)
+					ui.Debug(fmt.Sprintf("Removing symlink %s...", skillPath))
 					if err := os.Remove(skillPath); err != nil {
-						fmt.Printf("Failed to remove symlink %s: %v\n", skillPath, err)
+						ui.Warn(fmt.Sprintf("Failed to remove symlink %s: %v", skillPath, err))
 					} else {
 						removedCount++
 					}
 				} else {
-					fmt.Printf("Removing %s...\n", skillPath)
+					ui.Debug(fmt.Sprintf("Removing %s...", skillPath))
 					if err := os.RemoveAll(skillPath); err != nil {
-						fmt.Printf("Failed to remove skill directory %s: %v\n", skillPath, err)
+						ui.Warn(fmt.Sprintf("Failed to remove skill directory %s: %v", skillPath, err))
 					} else {
 						removedCount++
 					}
@@ -124,9 +125,9 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 		// Remove source from central storage if --all is specified
 		if removeAll {
 			if _, err := os.Stat(centralPath); !os.IsNotExist(err) {
-				fmt.Printf("Removing source %s...\n", centralPath)
+				ui.Debug(fmt.Sprintf("Removing source %s...", centralPath))
 				if err := os.RemoveAll(centralPath); err != nil {
-					fmt.Printf("Failed to remove source: %v\n", err)
+					ui.Warn(fmt.Sprintf("Failed to remove source: %v", err))
 				} else {
 					removedCount++
 				}

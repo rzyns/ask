@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // updateCmd represents the update command
@@ -21,7 +22,7 @@ Use --global to update global skills.`,
   ask skill update
   
   # Update a specific skill
-  ask skill update browser-use
+  ask skill update pdf
   
   # Update global skills
   ask skill update --global`,
@@ -37,7 +38,7 @@ Use --global to update global skills.`,
 
 		cfg, err := config.LoadConfigByScope(global)
 		if err != nil {
-			fmt.Printf("Error loading config: %v\n", err)
+			ui.Debug(fmt.Sprintf("Error loading config: %v", err))
 			os.Exit(1)
 		}
 
@@ -79,11 +80,11 @@ Use --global to update global skills.`,
 			// Check if it's a git repository
 			gitDir := filepath.Join(skillPath, ".git")
 			if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-				fmt.Printf("Skipping %s (not a git repository)\n", skillName)
+				ui.Debug(fmt.Sprintf("Skipping %s (not a git repository)", skillName))
 				continue
 			}
 
-			fmt.Printf("Updating %s...\n", skillName)
+			ui.Debug(fmt.Sprintf("Updating %s...", skillName))
 
 			// Run git pull
 			gitCmd := exec.Command("git", "pull", "--rebase")
@@ -92,11 +93,11 @@ Use --global to update global skills.`,
 			gitCmd.Stderr = os.Stderr
 
 			if err := gitCmd.Run(); err != nil {
-				fmt.Printf("  Failed to update %s: %v\n", skillName, err)
+				ui.Warn(fmt.Sprintf("  Failed to update %s: %v", skillName, err))
 				continue
 			}
 
-			fmt.Printf("  Updated %s successfully!\n", skillName)
+			ui.Debug(fmt.Sprintf("  Updated %s successfully!", skillName))
 		}
 	},
 }

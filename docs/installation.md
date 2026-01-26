@@ -47,7 +47,7 @@ sudo mv ask /usr/local/bin/
 ### Verify Installation
 
 ```bash
-ask --version
+ask version
 ```
 
 ---
@@ -97,7 +97,7 @@ go install github.com/yeasy/ask@latest
 After installation, verify ASK is working:
 
 ```bash
-ask --version
+ask version
 ask --help
 ```
 

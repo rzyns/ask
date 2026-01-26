@@ -1,3 +1,4 @@
+// Package deps provides dependency resolution for skills.
 package deps
 
 import (

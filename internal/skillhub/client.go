@@ -1,3 +1,4 @@
+// Package skillhub provides an interface to search and interact with skill registries.
 package skillhub
 
 import (
@@ -117,19 +118,12 @@ func (c *Client) Resolve(slug string) (string, error) {
 
 	// Fallback: try to find repoUrl in Next.js hydration data or JSON
 	// Matches: "repoUrl":"https://github.com/..."
-	reJson := regexp.MustCompile(`"repoUrl":"(https://github\.com/[^"]+)"`)
-	matchesJson := reJson.FindStringSubmatch(string(body))
-	if len(matchesJson) > 1 {
-		rawURL := matchesJson[1]
+	reJSON := regexp.MustCompile(`"repoUrl":"(https://github\.com/[^"]+)"`)
+	matchesJSON := reJSON.FindStringSubmatch(string(body))
+	if len(matchesJSON) > 1 {
+		rawURL := matchesJSON[1]
 		// unescape backward slashes if any (though usually forward slashes are fine in JSON)
-		// But in the hydration data we saw, it was like \"repoUrl\":\"https...\"
-		// The string(body) should have the raw bytes.
-		// If it's inside a JS string, it might be escaped.
-		// The curl output showed: \"repoUrl\":\"https://github.com/MadAppGang/claude-code\"
-		// So the regex needs to handle the escaped quotes?
-		// Actually, if we use a broader regex, we can capture it.
-		// Let's rely on finding https://github.com inside the quote.
-		return rawURL, nil
+		return strings.ReplaceAll(rawURL, `\/`, "/"), nil
 	}
 
 	// Try one more pattern for escaped JSON

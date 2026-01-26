@@ -20,7 +20,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.24 or higher
 - Git
 - A GitHub account
 
@@ -195,7 +195,7 @@ Before submitting, ensure:
 - [ ] Code builds successfully (`make build`)
 - [ ] All tests pass (`make test`)
 - [ ] Code is formatted (`make fmt`)
-- [ ] No linter warnings (`make vet`)
+- [ ] No linter warnings (`make lint`)
 - [ ] Documentation is updated (if needed)
 - [ ] CHANGELOG.md is updated (if applicable)
 - [ ] Commit messages follow convention

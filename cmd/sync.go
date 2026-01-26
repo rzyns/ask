@@ -9,6 +9,7 @@ import (
 	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/ui"
 )
 
 // syncCmd represents the sync command
@@ -21,8 +22,8 @@ This enables fast offline skill discovery without GitHub API rate limits.
 If no repo name is specified, syncs all configured repositories.`,
 	Example: `  ask repo sync              # Sync all configured repos
   ask repo sync anthropics   # Sync only anthropics repo
-  ask repo sync superpowers  # Sync only superpowers repo`,
-	Run: func(cmd *cobra.Command, args []string) {
+  ask repo sync openai       # Sync only openai repo`,
+	Run: func(_ *cobra.Command, args []string) {
 		reposCache, err := cache.NewReposCache()
 		if err != nil {
 			fmt.Printf("Error initializing repos cache: %v\n", err)
@@ -85,9 +86,9 @@ If no repo name is specified, syncs all configured repositories.`,
 
 			err := reposCache.CloneOrPull(repoURL, repoName)
 			if err != nil {
-				fmt.Printf("  ✗ Failed to sync %s: %v\n", repo.Name, err)
+				ui.Warn(fmt.Sprintf("  ✗ Failed to sync %s: %v", repo.Name, err))
 			} else {
-				fmt.Printf("  ✓ Synced %s\n", repo.Name)
+				ui.Debug(fmt.Sprintf("  ✓ Synced %s", repo.Name))
 				successCount++
 
 				// Fetch star count from GitHub API
@@ -105,11 +106,11 @@ If no repo name is specified, syncs all configured repositories.`,
 
 		// Save index with star counts and URLs
 		if err := reposCache.SaveIndexWithStars(starCounts, repoURLs); err != nil {
-			fmt.Printf("Warning: Failed to save index: %v\n", err)
+			ui.Warn(fmt.Sprintf("Failed to save index: %v", err))
 		}
 
 		// Show cache location
-		fmt.Printf("\nLocal cache: %s\n", cache.GetReposCacheDir())
+		ui.Debug(fmt.Sprintf("Local cache: %s", cache.GetReposCacheDir()))
 	},
 }
 

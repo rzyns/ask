@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Security Checks**: New `ask check` command to scan skills for secrets, dangerous commands, and suspicious files.
-- **Security Reports**: Generate detailed security reports in Markdown or HTML with `ask check --report <file>`.
+- **Values Reports**: Generate detailed security reports in Markdown, HTML, or JSON with `ask check -o <file>`.
 - **Entropy Analysis**: Smart secret detection using Shannon entropy to reduce false positives.
 
 ## [1.0.0-rc2] - 2026-01-24

@@ -1,3 +1,4 @@
+// Package cmd provides the command line interface logic for ask.
 package cmd
 
 import (
@@ -17,7 +18,7 @@ var benchmarkCmd = &cobra.Command{
 	Use:   "benchmark",
 	Short: "Run performance benchmarks",
 	Long:  `Measure the performance of key CLI operations like search, list, and info.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println("Running benchmarks...")
 		fmt.Println()
 

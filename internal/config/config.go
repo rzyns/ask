@@ -63,12 +63,20 @@ type Config struct {
 	Repos       []Repo       `yaml:"repos,omitempty"`
 }
 
+// DefaultSkillsDir is the default directory to install skills
 const DefaultSkillsDir = ".agent/skills"
 
+// GlobalConfigDirName is the name of the global config directory
 // Global installation paths
 const GlobalConfigDirName = ".ask"
+
+// GlobalConfigFileName is the name of the global config file
 const GlobalConfigFileName = "config.yaml"
+
+// GlobalSkillsDirName is the name of the global skills directory
 const GlobalSkillsDirName = "skills"
+
+// GlobalLockFileName is the name of the global lock file
 const GlobalLockFileName = "ask.lock"
 
 // GetGlobalConfigDir returns the global config directory path (~/.ask)
@@ -104,7 +112,7 @@ func EnsureGlobalDirExists() error {
 	return os.MkdirAll(globalDir, 0755)
 }
 
-// GetSkillsDir returns the skills directory based on global flag
+// GetSkillsDirByScope returns the skills directory based on global flag
 func GetSkillsDirByScope(global bool) string {
 	if global {
 		return GetGlobalSkillsDir()

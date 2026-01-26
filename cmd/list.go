@@ -21,7 +21,7 @@ Use --agent (-a) to list skills for specific agents (checks agent directories).`
 	Run: runList,
 }
 
-func runList(cmd *cobra.Command, args []string) {
+func runList(cmd *cobra.Command, _ []string) {
 	global, _ := cmd.Flags().GetBool("global")
 	all, _ := cmd.Flags().GetBool("all")
 	agents, _ := cmd.Flags().GetStringSlice("agent")
