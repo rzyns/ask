@@ -57,7 +57,7 @@ graph LR
 | :--- | :--- |
 | **📦 Smart Management** | Install, update, and remove skills with ease. Includes `ask.lock` for reproducible builds. |
 | **🔍 Multi-Source** | Unified search across GitHub and official repos (Anthropic, OpenAI, etc.). You can add more skill sources. |
-| **🤖 Multi-Agent** | Auto-detects and installs for **Claude** (`.claude/`), **Cursor** (`.cursor/`), **Codex** (`.codex/`), and more. |
+| **🤖 Agent Agnostic** | Works with **any** agent. Auto-detects configuration for **Claude**, **Cursor**, **Codex**, and adapts to your custom agents. |
 | **⚡ Blazing Fast** | Written in Go. Parallel downloads, sparse checkouts, and zero runtime dependencies. |
 | **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
 | **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
