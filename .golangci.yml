@@ -1,51 +1,11 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
   tests: true
 
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  misspell:
-    locale: US
-  revive:
-    rules:
-      - name: exported
-        severity: warning
-      - name: package-comments
-        severity: warning
-      - name: error-naming
-        severity: warning
-      - name: error-strings
-        severity: warning
-      - name: error-return
-        severity: warning
-      - name: var-naming
-        severity: warning
-      - name: context-keys-type
-        severity: warning
-      - name: time-naming
-        severity: warning
-      - name: unexported-return
-        severity: warning
-      - name: indent-error-flow
-        severity: warning
-      - name: blank-imports
-        severity: warning
-      - name: context-as-argument
-        severity: warning
-      - name: unused-parameter
-        severity: warning
-      - name: unreachable-code
-        severity: warning
-      - name: redefines-builtin-id
-        severity: warning
-
 linters:
-  disable-all: true
+
   enable:
     - govet
     - staticcheck
@@ -53,8 +13,47 @@ linters:
     - revive
     - ineffassign
     - errcheck
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+        - name: package-comments
+          severity: warning
+        - name: error-naming
+          severity: warning
+        - name: error-strings
+          severity: warning
+        - name: error-return
+          severity: warning
+        - name: var-naming
+          severity: warning
+        - name: context-keys-type
+          severity: warning
+        - name: time-naming
+          severity: warning
+        - name: unexported-return
+          severity: warning
+        - name: indent-error-flow
+          severity: warning
+        - name: blank-imports
+          severity: warning
+        - name: context-as-argument
+          severity: warning
+        - name: unused-parameter
+          severity: warning
+        - name: unreachable-code
+          severity: warning
+        - name: redefines-builtin-id
+          severity: warning
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
