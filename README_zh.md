@@ -153,19 +153,6 @@ ASK 默认内置了以下受信源：
 | **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | 流程图自动生成 |
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | 动态PPT生成 |
 
-## 📊 安全审计报告
-
-<img src="reports/anthropics.png" width="300">
-<img src="reports/openai.png" width="300">
-<img src="reports/composio.png" width="300">
-<img src="reports/vercel.png" width="300">
-
-完整安全审计报告：
-
-- [🛡️ Anthropic 安全审计报告](reports/anthropics.html)
-- [🛡️ OpenAI 安全审计报告](reports/openai.html)
-- [🛡️ Composio 安全审计报告](reports/composio.html)
-- [🛡️ Vercel 安全审计报告](reports/vercel.html)
 
 ## 📂 目录结构
 
@@ -193,6 +180,20 @@ my-project/
 export ASK_LOG=debug
 ask skill install browser-use
 ```
+
+## 📊 安全审计报告
+
+<img src="reports/anthropics.png" width="300">
+<img src="reports/openai.png" width="300">
+<img src="reports/composio.png" width="300">
+<img src="reports/vercel.png" width="300">
+
+完整安全审计报告：
+
+- [🛡️ Anthropic 安全审计报告](reports/anthropics.html)
+- [🛡️ OpenAI 安全审计报告](reports/openai.html)
+- [🛡️ Composio 安全审计报告](reports/composio.html)
+- [🛡️ Vercel 安全审计报告](reports/vercel.html)
 
 ## 🤝 贡献参与
 欢迎提交 PR 或 Issue！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。

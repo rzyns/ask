@@ -63,20 +63,6 @@ graph LR
 | **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
 | **🛡️ Security Audit** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
 
-## 📊 Security Audit Reports
-
-<img src="reports/anthropics.png" width="300">
-<img src="reports/openai.png" width="300">
-<img src="reports/composio.png" width="300">
-<img src="reports/vercel.png" width="300">
-
-See detailed security audit reports generated for top skill repositories:
-
-- [🛡️ Anthropic Security Audit Report](reports/anthropics.html)
-- [🛡️ OpenAI Security Audit Report](reports/openai.html)
-- [🛡️ Composio Security Audit Report](reports/composio.html)
-- [🛡️ Vercel Security Audit Report](reports/vercel.html)
-
 ## 🚀 Quick Start
 
 ### 1. Install
@@ -168,6 +154,7 @@ For specific needs, you can add these additional sources:
 | **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | Flowchart & diagram generation |
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | Dynamic PPT generation |
 
+
 ## 📂 Installation Layout
 
 Default structure after installation:
@@ -181,7 +168,7 @@ my-project/
         └── writing-plans/
 ```
 
-**Agent-Specific Paths:**
+**Ask will automatically discover Agent-Specific Paths:**
 - **Claude**: `.claude/skills/`
 - **Cursor**: `.cursor/skills/`
 - **Codex**: `.codex/skills/`
@@ -194,6 +181,20 @@ To see detailed operational logs (scanning, updating, searching), set `ASK_LOG=d
 export ASK_LOG=debug
 ask skill install browser-use
 ```
+
+## 📊 Security Audit Reports
+
+<img src="reports/anthropics.png" width="300">
+<img src="reports/openai.png" width="300">
+<img src="reports/composio.png" width="300">
+<img src="reports/vercel.png" width="300">
+
+See detailed security audit reports generated for top skill repositories:
+
+- [🛡️ Anthropic Security Audit Report](reports/anthropics.html)
+- [🛡️ OpenAI Security Audit Report](reports/openai.html)
+- [🛡️ Composio Security Audit Report](reports/composio.html)
+- [🛡️ Vercel Security Audit Report](reports/vercel.html)
 
 ## 🤝 Contributing
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
