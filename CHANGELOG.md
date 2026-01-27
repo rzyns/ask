@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-01-26
+
+### Added
+- **Repo Sync**: Added `--sync` flag to `ask repo add` command for immediate synchronization.
+- **Fuzzy Matching**: Enhanced `ask repo list` to support fuzzy matching by URL or `owner/repo` pattern.
+
+### Changed
+- **Case Sensitivity**: Fixed an issue where `cmd_test.go` failed due to case sensitivity of agent names.
+- **Documentation**: Updated `README.md` and `README_zh.md` to clarify repository sync behavior.
+
 ## [1.1.0] - 2026-01-26
 
 ### Added

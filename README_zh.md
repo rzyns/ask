@@ -123,8 +123,8 @@ ask check anthropics/mcp-builder -o report.html
 | 命令 | 说明 |
 | :--- | :--- |
 | `ask repo list` | 显示已配置的仓库 |
-| `ask repo add <url>` | 添加自定义 Skill 源 |
-| `ask repo sync` | 同步仓库到本地缓存 |
+| `ask repo add <url>` | 添加自定义 Skill 源 (添加后可使用 `--sync` 或手动运行 `ask repo sync` 下载) |
+| `ask repo sync` | 同步仓库到本地缓存 (`~/.ask/repos`) |
 
 ## 🌐 技能来源
 
