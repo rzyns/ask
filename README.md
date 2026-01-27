@@ -124,8 +124,8 @@ ask check anthropics/mcp-builder -o report.html
 | Command | Description |
 | :--- | :--- |
 | `ask repo list` | Show configured repositories |
-| `ask repo add <url>` | Add a custom skill source |
-| `ask repo sync` | Clone/update repos to local cache |
+| `ask repo add <url>` | Add a custom skill source (run `ask repo sync` after to download) |
+| `ask repo sync` | Download/update repos to local cache (`~/.ask/repos`) |
 
 ## 🌐 Skill Sources
 
