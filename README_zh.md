@@ -79,6 +79,11 @@ cd ask
 make build && mv ask /usr/local/bin/
 ```
 
+**二进制 / 手动安装 (Windows / Linux):**
+请前往 [Releases](https://github.com/yeasy/ask/releases) 页面下载对应系统的预编译二进制文件。
+
+
+
 ### 2. 初始化
 进入项目目录并运行：
 ```bash

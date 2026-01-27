@@ -78,6 +78,10 @@ brew install ask
 go install github.com/yeasy/ask@latest
 ```
 
+**Binary / Manual Install (Windows / Linux):**
+Download the latest pre-compiled binary for your system from [Releases](https://github.com/yeasy/ask/releases).
+
+
 ### 2. Initialize
 Enter your project directory and run:
 ```bash
