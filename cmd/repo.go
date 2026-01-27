@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"text/tabwriter"
 
@@ -42,7 +43,7 @@ Examples:
   ask repo add browser-use/browser-use
   ask repo add openai/skills`,
 	Args: cobra.ExactArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		input := args[0]
 
 		// Parse username/repo format
@@ -115,6 +116,29 @@ Examples:
 
 		fmt.Printf("✓ Added repo '%s' (type: %s)\n", repoName, repoType)
 		fmt.Printf("  URL: %s\n", repoURL)
+
+		// Handle --sync flag
+		if sync, _ := cmd.Flags().GetBool("sync"); sync {
+			fmt.Printf("Syncing repo '%s'...\n", repoName)
+			// Trigger sync command logic
+			// Locate the executable
+			exe, err := os.Executable()
+			if err != nil {
+				fmt.Printf("Warning: Failed to locate executable for sync: %v\n", err)
+				return
+			}
+
+			// We can run sync in foreground here since user explicitly asked for it
+			cmd := exec.Command(exe, "repo", "sync", repoName)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("Error syncing repo: %v\n", err)
+				// Don't exit 1, as add was successful
+			}
+		} else {
+			fmt.Println("Run 'ask repo sync' to download content.")
+		}
 	},
 }
 
@@ -395,6 +419,7 @@ var repoRemoveCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(repoCmd)
 	repoCmd.AddCommand(repoAddCmd)
+	repoAddCmd.Flags().Bool("sync", false, "sync repository immediately after adding")
 	repoCmd.AddCommand(repoListCmd)
 	repoCmd.AddCommand(repoRemoveCmd)
 }

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-01-26
+
+### Added
+- **Security Report Improvements**:
+    - **Report Completeness**: HTML reports now list all scanned modules, including "safe" ones, providing a complete audit trail.
+    - **Enhanced Visualization**: Clean modules are styled with a light green background and "Safe" badge for quick identification.
+    - **Optimized Sorting**: Modules are now sorted by risk level (Critical -> Warning -> Info -> Clean) to prioritize attention on issues.
+
 ## [1.1.2] - 2026-01-26
 
 ### Added

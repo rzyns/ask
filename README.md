@@ -188,6 +188,7 @@ ask skill install browser-use
 <img src="reports/openai.png" width="300">
 <img src="reports/composio.png" width="300">
 <img src="reports/vercel.png" width="300">
+<img src="reports/superpowers.png" width="300">
 
 See detailed security audit reports generated for top skill repositories:
 
@@ -195,6 +196,7 @@ See detailed security audit reports generated for top skill repositories:
 - [🛡️ OpenAI Security Audit Report](reports/openai.html)
 - [🛡️ Composio Security Audit Report](reports/composio.html)
 - [🛡️ Vercel Security Audit Report](reports/vercel.html)
+- [🛡️ Superpowers Security Audit Report](reports/superpowers.html)
 
 ## 🤝 Contributing
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

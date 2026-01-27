@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 	"time"
 )
@@ -116,6 +117,8 @@ func generateHTML(result *CheckResult) string {
         .module-group.collapsed .finding-list { display: none; }
         .module-bg-critical { background-color: #ffeef0; }
         .module-bg-critical:hover { background-color: #ffdce0; }
+        .module-bg-clean { background-color: #e6ffed; }
+        .module-bg-clean:hover { background-color: #d1f7db; }
         
         .finding-list { padding: 0; margin: 0; list-style: none; }
         .finding-item { padding: 15px 20px; border-bottom: 1px solid var(--border-color); }
@@ -184,7 +187,7 @@ func generateHTML(result *CheckResult) string {
             </div>
             <div style="margin-top: 30px; padding: 15px; background: #f1f8ff; border-radius: 4px; font-size: 14px;">
                 <strong>Scan Scope:</strong> {{.SkillName}}<br>
-                <strong>Modules Affected:</strong> {{.Stats.ModulesAffected}}<br>
+                <strong>Modules Scanned:</strong> {{.Stats.ModulesAffected}}<br>
                 <strong>Status:</strong> 
                 {{if gt .Stats.Critical 0}}
                 <span class="text-critical">Immediate Action Required</span>
@@ -213,11 +216,12 @@ func generateHTML(result *CheckResult) string {
 
         {{range .ModuleGroups}}
         <div class="module-group collapsed">
-            <div class="module-header {{if .HasCritical}}module-bg-critical{{end}}" onclick="toggleGroup(this)">
+            <div class="module-header {{if .HasCritical}}module-bg-critical{{else if eq .Total 0}}module-bg-clean{{end}}" onclick="toggleGroup(this)">
                 <span>📦 {{.Name}}</span>
                 <div>
                    {{if gt .Critical 0}}<span class="badge bg-critical" style="margin-right: 5px">{{.Critical}} Crit</span>{{end}}
                    {{if gt .Warning 0}}<span class="badge bg-warning" style="margin-right: 5px">{{.Warning}} Warn</span>{{end}}
+                   {{if eq .Total 0}}<span class="badge bg-info" style="background-color: #28a745; margin-right: 5px">Safe</span>{{end}}
                    <span style="font-size: 12px; color: #586069;">{{.Total}} issues</span>
                 </div>
             </div>
@@ -356,6 +360,14 @@ func generateHTML(result *CheckResult) string {
 	var moduleGroups []*ModuleGroup
 
 	// Group by Module
+	for _, moduleName := range result.ScannedModules {
+		if _, exists := moduleMap[moduleName]; !exists {
+			group := &ModuleGroup{Name: moduleName}
+			moduleMap[moduleName] = group
+			moduleGroups = append(moduleGroups, group)
+		}
+	}
+
 	for _, f := range result.Findings {
 		moduleName := f.Module
 		if moduleName == "" {
@@ -383,6 +395,27 @@ func generateHTML(result *CheckResult) string {
 		group.Total++
 		group.Findings = append(group.Findings, FindingView{Finding: f, SeverityClass: class})
 	}
+
+	// Sort module groups:
+	// 1. Critical issues first
+	// 2. Warnings next
+	// 3. Info next
+	// 4. Clean modules last
+	// 5. Alphabetical within groups
+	sort.Slice(moduleGroups, func(i, j int) bool {
+		// If one has critical and other doesn't
+		if moduleGroups[i].HasCritical != moduleGroups[j].HasCritical {
+			return moduleGroups[i].HasCritical
+		}
+
+		// If both have critical or neither, check total issues count (descending)
+		if moduleGroups[i].Total != moduleGroups[j].Total {
+			return moduleGroups[i].Total > moduleGroups[j].Total
+		}
+
+		// Finally sort by name
+		return moduleGroups[i].Name < moduleGroups[j].Name
+	})
 
 	// Group by Severity
 	var critGroup, warnGroup, infoGroup SeverityGroup

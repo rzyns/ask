@@ -45,8 +45,9 @@ type Finding struct {
 
 // CheckResult contains all findings for a skill
 type CheckResult struct {
-	SkillName string
-	Findings  []Finding
+	SkillName      string
+	Findings       []Finding
+	ScannedModules []string // List of all modules scanned, including clean ones
 }
 
 // Rules definition

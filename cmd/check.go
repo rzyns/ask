@@ -331,6 +331,9 @@ func scanProject(rootDir string, label string) {
 						aggregatedResult.Findings = append(aggregatedResult.Findings, f)
 					}
 
+					// Track scanned module
+					aggregatedResult.ScannedModules = append(aggregatedResult.ScannedModules, result.SkillName)
+
 					// If we found a skill, we typically don't scan subdirectories of a skill
 					// (nested skills are rare/discouraged), but to be safe we can continue or skip.
 					// Let's SkipDir to avoid scanning internal directories of a skill as potential skills.
