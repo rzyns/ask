@@ -1,4 +1,4 @@
-# ASK: The Ultimate Agent Skills Kit
+# ASK: Agent Skills Kit for Enterprise AI
 
 <p align="center">
   <img src="assets/logo.png" alt="ASK Logo" width="150"/>

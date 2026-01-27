@@ -45,6 +45,8 @@ const (
 	AgentClawdBot AgentType = "clawdbot"
 	// AgentNeovate represents the Neovate agent
 	AgentNeovate AgentType = "neovate"
+	// AgentCodeBuddy represents the CodeBuddy agent
+	AgentCodeBuddy AgentType = "codebuddy"
 )
 
 // AgentConfig holds directory paths for an agent
@@ -157,6 +159,12 @@ var SupportedAgents = map[AgentType]AgentConfig{
 		Name:       "Neovate",
 		ProjectDir: ".neovate/skills",
 		GlobalDir:  ".neovate/skills",
+		Aliases:    []string{},
+	},
+	AgentCodeBuddy: {
+		Name:       "CodeBuddy",
+		ProjectDir: ".codebuddy/skills",
+		GlobalDir:  ".codebuddy/skills",
 		Aliases:    []string{},
 	},
 }
