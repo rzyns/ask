@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
+
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/ui"
 )
@@ -36,7 +40,7 @@ Repository Commands (ask repo <command>):
   remove      Remove a repository
   sync        Clone/update repos to local cache (~/.ask/repos/)
 
-Supported Agents: Claude, Cursor, Codex, OpenCode, Antigravity, Gemini CLI, GitHub Copilot, Windsurf, Amp, Goose, Kilo, Kiro, Roo, Trae, Droid, ClawdBot, Neovate
+Supported Agents: %s
 `
 
 // rootCmd represents the base command when called without any subcommands
@@ -57,7 +61,7 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 }
 
 // Version is the current version of the application
-const Version = "1.1.0"
+const Version = "1.1.1"
 
 // Top-level aliases (Docker-style)
 var installRootCmd = &cobra.Command{
@@ -114,7 +118,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Set custom help template to show subcommand details at the end
-	rootCmd.SetHelpTemplate(rootHelpTemplate)
+	// Dynamically generate supported agents list
+	agents := config.GetSupportedAgentNames()
+	// Join agents with comma
+	agentList := strings.Join(agents, ", ")
+	rootCmd.SetHelpTemplate(fmt.Sprintf(rootHelpTemplate, agentList))
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,

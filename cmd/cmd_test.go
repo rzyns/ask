@@ -61,7 +61,7 @@ func TestRootHelpShowsSubcommandDetails(t *testing.T) {
 		"uninstall",
 		"Claude",
 		"Cursor",
-		"Antigravity",
+		"antigravity",
 	}
 
 	for _, detail := range subcommandDetails {

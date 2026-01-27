@@ -193,15 +193,56 @@ Examples:
 		// Case 2: List skills from specific repo
 		repoName := args[0]
 		var targetRepo *config.Repo
-		for _, r := range cfg.Repos {
+		var matchedRepos []config.Repo
+
+		for i := range cfg.Repos {
+			r := cfg.Repos[i]
+			// 1. Exact Name Match (Highest priority)
 			if r.Name == repoName {
 				targetRepo = &r
+				matchedRepos = []config.Repo{r}
 				break
+			}
+
+			// 2. URL/Path Logic Match
+			// Check if the input looks like part of the URL
+			// e.g. input "anthropics/skills" match url "anthropics/skills/skills"
+			// or input "owner/repo" matches url "https://github.com/owner/repo"
+
+			normalizedURL := strings.TrimSuffix(r.URL, ".git")
+			normalizedURL = strings.TrimPrefix(normalizedURL, "https://github.com/")
+
+			// Match if:
+			// - Input is exactly the normalized URL (e.g. "owner/repo")
+			// - Input is contained in the normalized URL (e.g. "repo" in "owner/repo") -- maybe too aggressive?
+			// Let's stick to: Input matches owner/repo in URL
+
+			if normalizedURL == repoName || strings.HasSuffix(normalizedURL, "/"+repoName) || strings.Contains(normalizedURL, repoName) {
+				matchedRepos = append(matchedRepos, r)
 			}
 		}
 
 		if targetRepo == nil {
-			fmt.Printf("Repo '%s' not found. Use 'ask repo list' to see configured repos.\n", repoName)
+			if len(matchedRepos) == 1 {
+				targetRepo = &matchedRepos[0]
+				// Use the found repo's name for display
+				repoName = targetRepo.Name
+			} else if len(matchedRepos) > 1 {
+				fmt.Printf("Error: Multiple repositories match '%s':\n", repoName)
+				for _, r := range matchedRepos {
+					fmt.Printf("  - %s (URL: %s)\n", r.Name, r.URL)
+				}
+				fmt.Println("Please specify the exact repository name.")
+				os.Exit(1)
+			}
+		}
+
+		if targetRepo == nil {
+			fmt.Printf("Repo '%s' not found.\n", repoName)
+			fmt.Println("Use 'ask repo list' to see configured repos.")
+			if strings.Contains(repoName, "/") {
+				fmt.Printf("Did you mean to add it? Run: ask repo add %s\n", repoName)
+			}
 			os.Exit(1)
 		}
 

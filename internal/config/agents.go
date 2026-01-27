@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // AgentType represents a supported AI coding agent
@@ -166,6 +167,7 @@ func GetSupportedAgentNames() []string {
 	for agent := range SupportedAgents {
 		names = append(names, string(agent))
 	}
+	sort.Strings(names)
 	return names
 }
 
