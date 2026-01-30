@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yeasy/ask/internal/cache"
@@ -29,6 +30,7 @@ var webFS embed.FS
 type Server struct {
 	port   int
 	server *http.Server
+	mu     sync.Mutex
 }
 
 // New creates a new Server instance
@@ -62,20 +64,28 @@ func (s *Server) Start() error {
 	}
 	mux.Handle("/", http.FileServer(http.FS(webContent)))
 
-	s.server = &http.Server{
+	server := &http.Server{
 		Addr:              fmt.Sprintf("127.0.0.1:%d", s.port),
 		Handler:           corsMiddleware(mux),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
+	s.mu.Lock()
+	s.server = server
+	s.mu.Unlock()
+
 	ui.Info(fmt.Sprintf("Starting server on http://127.0.0.1:%d", s.port))
-	return s.server.ListenAndServe()
+	return server.ListenAndServe()
 }
 
 // Stop gracefully stops the server
 func (s *Server) Stop(ctx context.Context) error {
-	if s.server != nil {
-		return s.server.Shutdown(ctx)
+	s.mu.Lock()
+	server := s.server
+	s.mu.Unlock()
+
+	if server != nil {
+		return server.Shutdown(ctx)
 	}
 	return nil
 }
@@ -103,7 +113,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -141,7 +151,13 @@ type SkillInfo struct {
 }
 
 func getRepoFromGitConfig(path string) string {
+	// Only check the skill's own .git directory
+	// Skills are typically cloned directly, so .git should be at the skill path
 	gitConfigPath := filepath.Join(path, ".git", "config")
+	return parseGitConfigForRepo(gitConfigPath)
+}
+
+func parseGitConfigForRepo(gitConfigPath string) string {
 	data, err := os.ReadFile(gitConfigPath)
 	if err != nil {
 		return ""
@@ -180,11 +196,12 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		if os.IsNotExist(err) {
-			jsonResponse(w, []SkillInfo{})
+			def := config.DefaultConfig()
+			cfg = &def
+		} else {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		jsonError(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 
 	// Map to aggregate skill info by name
@@ -196,6 +213,15 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 			skillMap[name] = &SkillInfo{Name: name, Agents: []string{}}
 		}
 		return skillMap[name]
+	}
+
+	// Load lockfile for additional metadata
+	lockFile, _ := config.LoadLockFile() // Ignore error, file might not exist
+	lockMap := make(map[string]string)   // map name -> url
+	if lockFile != nil {
+		for _, entry := range lockFile.Skills {
+			lockMap[entry.Name] = entry.URL
+		}
 	}
 
 	// 1. Scan Configured/Legacy Skills first (base metadata)
@@ -263,6 +289,29 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 					info.Repo = getRepoFromGitConfig(skillPath)
 				}
 
+				// Try to deduce repo from lockfile if still missing
+				if info.Repo == "" && info.URL == "" {
+					if url, ok := lockMap[name]; ok {
+						info.URL = url
+					}
+				}
+
+				// Ensure info.Repo is populated if URL is present (from lockfile or other source)
+				if info.Repo == "" && info.URL != "" && strings.Contains(info.URL, "github.com") {
+					// Cleaner logic:
+					// If contains "github.com/", get everything after the LAST occurrence.
+					lastIdx := strings.LastIndex(info.URL, "github.com/")
+					if lastIdx != -1 {
+						repoName := info.URL[lastIdx+11:] // len("github.com/") = 11
+						repoName = strings.TrimSuffix(repoName, ".git")
+						// Clean up optional /tree/... path if present (deep link)
+						if idx := strings.Index(repoName, "/tree/"); idx != -1 {
+							repoName = repoName[:idx]
+						}
+						info.Repo = repoName
+					}
+				}
+
 				// Try to read SKILL.md for metadata if missing
 				if info.Version == "" || info.Description == "" || info.Repo == "" {
 					if meta, err := skill.ParseSkillMD(skillPath); err == nil && meta != nil {
@@ -311,20 +360,73 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 	// If query is empty, we search for the default topic to show "Available" skills
 	query := r.URL.Query().Get("q")
 	topic := "agent-skill"
+
+	results := make([]SearchResult, 0)
+
+	// 1. Search Local/Configured Repos via Cache
+	// This ensures we show skills from repos the user has explicitly added/configured
+	reposCache, err := cache.NewReposCache()
+	if err == nil {
+		// Load index to access Repo metadata (Stars, URL)
+		repoInfos, _ := reposCache.LoadIndex()
+		repoMap := make(map[string]cache.RepoInfo)
+		for _, info := range repoInfos {
+			repoMap[info.Name] = info
+		}
+
+		skills, err := reposCache.SearchSkills(query)
+		if err == nil {
+			for _, skill := range skills {
+				repo := repoMap[skill.RepoName]
+				// Determine source URL - try to link to the skill folder if possible, else repo URL
+				skillURL := repo.URL
+				if skillURL != "" && !strings.HasSuffix(skillURL, ".git") {
+					// Minimal attempt to deep link (works for GitHub)
+					skillURL = fmt.Sprintf("%s/tree/HEAD/%s", strings.TrimSuffix(skillURL, "/"), skill.Path)
+				}
+
+				results = append(results, SearchResult{
+					Name:        skill.Name,
+					FullName:    skill.Name, // Use simple name for installation as it's a known skill
+					Description: skill.Description,
+					Stars:       repo.Stars,
+					URL:         skillURL,
+					Source:      "repo",
+				})
+			}
+		} else {
+			// Log error but continue
+			fmt.Printf("Error searching local cache: %v\n", err)
+		}
+	}
+
+	// 2. Search GitHub (always append GitHub results for discovery)
 	if query == "" {
-		// Just search for the topic itself
+		// Just search for the topic itself if no query
 		query = ""
 	}
 
-	// Search GitHub (default to agent-skill topic for now)
-	repos, err := github.SearchTopic(topic, query)
+	// Only search GitHub if we have a query or if we want to show trending
+	// To avoid API rate limits, maybe only search if we have a query or if local results are empty?
+	// But user expects discovery. Let's keep existing behavior but be resilient.
+
+	// Default topic search
+	ghRepos, err := github.SearchTopic(topic, query)
 	if err != nil {
+		// If GitHub fails but we have local results, return what we have
+		if len(results) > 0 {
+			jsonResponse(w, results)
+			return
+		}
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	results := make([]SearchResult, 0, len(repos))
-	for _, repo := range repos {
+	for _, repo := range ghRepos {
+		// Check for duplicates (if a repo is already in our configured list, maybe skip?)
+		// But here we are listing Repos vs Skills.
+		// A GitHub result is a Repo. A Local result is a Skill.
+		// It's okay to show both.
 		results = append(results, SearchResult{
 			Name:        repo.Name,
 			FullName:    repo.FullName,

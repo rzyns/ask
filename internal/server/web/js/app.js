@@ -368,6 +368,11 @@ async function fetchSkills() {
     }
 
     try {
+        // Ensure config is loaded to get full list of agents
+        if (!state.config || !state.config.tool_targets) {
+            await fetchConfig();
+        }
+
         const res = await fetch('/api/skills');
         state.skills = await res.json();
 
@@ -411,13 +416,17 @@ function renderFilters() {
     // Populate Agents
     const currentAgent = agentSelect.value;
     agentSelect.innerHTML = '<option value="">All Agents</option>';
+
+    // Use agents derived from actual skills (reverted to behavior of showing only relevant agents)
     Array.from(agents).sort().forEach(agent => {
         const opt = document.createElement('option');
         opt.value = agent;
         opt.textContent = agent.charAt(0).toUpperCase() + agent.slice(1);
         agentSelect.appendChild(opt);
     });
+
     agentSelect.value = currentAgent;
+
     if (agents.size > 0) agentSelect.style.display = 'block';
     else agentSelect.style.display = 'none';
 
@@ -997,7 +1006,8 @@ function getIcon(item) {
 
     // Metric 1: Keyword-based Emoji Icon (Local/Installed skills usually don't have nice GitHub avatars)
     // We prioritize this for skills to give them distinct visual identity
-    if ((!item.repo || item.repo === "") && item.name) {
+    // But ONLY if we don't have other signals like a URL or full_name that might give us a real avatar
+    if ((!item.repo || item.repo === "") && (!item.url || item.url === "") && (!item.full_name || item.full_name === "") && item.name) {
         const emoji = getEmoji(item.name);
         return `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${emoji}</text></svg>`;
     }
@@ -1119,32 +1129,6 @@ function closeConfirmModal(result) {
     }
 }
 
-// Save project root
-async function saveProjectRoot() {
-    const input = document.getElementById('system-project-root');
-    const newRoot = input.value.trim();
-    if (!newRoot) {
-        showToast('Please enter a project path', 'error');
-        return;
-    }
-    try {
-        const res = await fetch('/api/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project_root: newRoot })
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-            showToast('Project root updated', 'success');
-            fetchConfig();
-            fetchStats();
-        } else {
-            throw new Error(data.error);
-        }
-    } catch (err) {
-        showToast(err.message || 'Failed to update project root', 'error');
-    }
-}
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {

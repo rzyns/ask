@@ -50,6 +50,9 @@ func DefaultToolTargets() []ToolTarget {
 				// config.ProjectDir is like ".claude/skills"
 				// We check if ".claude" exists
 				agentRootDir := filepath.Dir(config.ProjectDir)
+				if agentRootDir == "." {
+					agentRootDir = config.ProjectDir
+				}
 				if _, err := os.Stat(filepath.Join(cwd, agentRootDir)); err == nil {
 					// Found!
 					targets = append(targets, ToolTarget{
@@ -416,6 +419,9 @@ func DetectExistingToolDirs(projectDir string) []ToolTarget {
 	for name, agentConfig := range SupportedAgents {
 		// Check if the tool's parent directory exists (e.g., .claude, .cursor)
 		toolDir := filepath.Dir(agentConfig.ProjectDir)
+		if toolDir == "." {
+			toolDir = agentConfig.ProjectDir
+		}
 		if _, err := os.Stat(filepath.Join(projectDir, toolDir)); err == nil {
 			detected = append(detected, ToolTarget{
 				Name:      string(name),
