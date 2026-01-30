@@ -1,18 +1,30 @@
-# ASK Web UI
+# ASK Web UI & Desktop App
 
 The ASK Web UI provides a modern, visual interface for managing your agent skills and repositories. It allows you to discover, install, uninstall, and configure skills with ease.
 
-![Dashboard](images/dashboard.png)
+It can be run as a **web server** or built as a **native desktop application** using [Wails](https://wails.io).
+
+![Skills Manager](images/skills.png)
 
 ## Getting Started
 
-To launch the Web UI, run the following command in your project directory:
-
+### Web Server
 ```bash
 ask serve
 ```
+This will start the local server at `http://127.0.0.1:8125`.
 
-This will start the local server, usually at `http://127.0.0.1:8125`.
+### Desktop App
+```bash
+# Install Wails CLI first
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+# Build and run
+wails build
+./build/bin/ask-desktop
+```
+
+Or download pre-built desktop apps from [Releases](https://github.com/yeasy/ask/releases).
 
 ## Features
 

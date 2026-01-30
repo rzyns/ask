@@ -62,39 +62,33 @@ graph LR
 | **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
 | **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
 | **🛡️ Security Audit** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
+| **🖥️ Desktop & Web** | Beautiful UI available as `ask serve` web server or native desktop app via [Wails](https://wails.io). |
 
 ## 🖥️ Web UI & Desktop App
 
-ASK involves a local web interface for easy skill discovery and management. It can be run as a standard web server or as a native desktop application.
+<p align="center">
+  <img src="docs/images/skills.png" alt="ASK Skills Manager" width="800"/>
+</p>
 
-### Web Server
-Run `ask serve` to start the web server.
+ASK provides a beautiful web interface for skill discovery and management — available as a **web server** (`ask serve`) or a **native desktop app**.
 
-### Desktop App
-ASK can be built as a native desktop application using [Wails](https://wails.io).
+| Feature | Description |
+| :--- | :--- |
+| **📊 Visual Dashboard** | Overview of installed skills, repos, and system stats |
+| **🔍 Skill Browser** | Search, filter, and install skills with rich metadata |
+| **📦 Repository Manager** | Add and sync skill sources from GitHub |
+| **🛡️ Security Audit** | View generated safety reports |
 
-**Prerequisites:**
-- [Wails CLI](https://wails.io/docs/gettingstarted/installation) installed (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
-
-**Build:**
+### Quick Start
 ```bash
-wails build
+# Web Server
+ask serve
+
+# Desktop App (requires Wails CLI)
+wails build && ./build/bin/ask-desktop
 ```
 
-The application will be built in the `build/bin` directory.
-
-### Features
-
-
-![ASK Dashboard](docs/images/dashboard.png)
-
-Run `ask serve` to start it. Features include:
-- **Visual Dashboard**: View installed skills, repositories, and system stats.
-- **Skill Browser**: Search and filter skills with rich metadata and emoji icons.
-- **Repository Manager**: Add and sync skill sources (GitHub, etc.).
-- **Security Audit**: View generated safety reports.
-
-[Explore the Web UI Documentation →](docs/web-ui.md)
+📖 [Explore the Web UI Documentation →](docs/web-ui.md)
 
 
 ### 1. Install
