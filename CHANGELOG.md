@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.3] - 2026-01-26
+## [1.3.1] - 2026-01-30
+ 
+ ### Fixed
+ - **Web UI**: Fixed missing icons in Repositories view by correctly prioritizing GitHub URLs for avatar generation.
+ - **Server**: Fixed unused variable lint error in server code.
+ 
+ ## [1.1.3] - 2026-01-26
 
 ### Added
 - **Security Report Improvements**:
