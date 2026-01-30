@@ -1,0 +1,158 @@
+# ASK - Agent Skills Kit
+
+> The missing package manager for AI Agent skills
+
+ASK helps you discover, install, and manage skills for AI coding agents (Claude, Cursor, Codex, Windsurf, etc.).
+
+## Quick Reference
+
+### Installation
+```bash
+brew tap yeasy/ask && brew install ask
+# or: go install github.com/yeasy/ask@latest
+```
+
+### Core Commands
+
+```bash
+# Initialize a project
+ask init
+
+# Search for skills
+ask search <keyword>
+ask search mcp
+ask search pdf
+
+# Install skills
+ask install <name>
+ask install pdf
+ask install anthropics/pdf
+ask install browser-use/browser-use@v1.0.0
+
+# Install for specific agent(s)
+ask install pdf --agent claude
+ask install pdf --agent claude --agent cursor
+
+# List installed skills
+ask skill list
+ask skill list --global
+ask skill list --json
+
+# Get skill info
+ask skill info <name>
+
+# Uninstall skills
+ask skill uninstall <name>
+ask skill uninstall pdf --all
+
+# Update skills
+ask skill update
+
+# Check for outdated skills
+ask skill outdated
+```
+
+### Repository Management
+
+```bash
+# List configured repos
+ask repo list
+
+# Add a custom repo
+ask repo add <owner/repo>
+
+# Sync repos to local cache (faster searches)
+ask repo sync
+ask repo sync anthropics
+```
+
+### Security
+
+```bash
+# Security audit a skill or directory
+ask check <path>
+ask check .
+ask check anthropics/pdf -o report.html
+```
+
+### System
+
+```bash
+# Health check
+ask doctor
+ask doctor --json
+
+# Start web UI
+ask serve
+ask serve --port 8080
+
+# Shell completion
+ask completion bash
+ask completion zsh
+ask completion fish
+```
+
+## Common Workflows
+
+### Setup a new project
+```bash
+cd my-project
+ask init
+ask repo sync
+ask search mcp
+ask install mcp-builder pdf docx
+```
+
+### Install skills for multiple agents
+```bash
+ask install pdf --agent claude --agent cursor --agent codex
+```
+
+### Update all skills
+```bash
+ask skill update
+```
+
+### Check project health
+```bash
+ask doctor
+```
+
+## Directory Structure
+
+```
+my-project/
+├── ask.yaml          # Project config
+├── ask.lock          # Version lock file
+└── .agent/
+    └── skills/       # Installed skills
+        ├── pdf/
+        └── mcp-builder/
+```
+
+## Agent-Specific Directories
+
+Skills are automatically installed to detected agent directories:
+- Claude: `.claude/skills/`
+- Cursor: `.cursor/skills/`
+- Codex: `.codex/skills/`
+- Windsurf: `.windsurf/skills/`
+- And 14+ more agents supported
+
+## Environment Variables
+
+- `ASK_LOG=debug` - Enable debug logging
+- `GITHUB_TOKEN=xxx` - Increase GitHub API rate limits
+
+## Error Handling
+
+If you encounter issues:
+1. Run `ask doctor` to diagnose problems
+2. Check `ASK_LOG=debug ask <command>` for detailed logs
+3. Ensure `git` is installed and accessible
+4. Run `ask repo sync` to refresh local cache
+
+## Links
+
+- Repository: https://github.com/yeasy/ask
+- Documentation: https://github.com/yeasy/ask/tree/main/docs

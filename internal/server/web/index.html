@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASK - Agent Skills Kit</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="shortcut icon" type="image/png" href="img/logo.png">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="logo">
+            <img src="img/logo.png" alt="ASK Logo" class="logo-img">
+            <span>ASK Web UI</span>
+        </div>
+
+        <nav class="nav-menu">
+            <a class="nav-item active" data-view="dashboard" id="nav-dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                <span data-i18n="dashboard">Dashboard</span>
+            </a>
+            <a class="nav-item" data-view="skills" id="nav-skills">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+                <span data-i18n="skills">Skills</span>
+            </a>
+            <a class="nav-item" data-view="repos" id="nav-repos">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                </svg>
+                <span data-i18n="repos">Repositories</span>
+            </a>
+            <a class="nav-item" data-view="agents" id="nav-agents">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span data-i18n="agents">Agents</span>
+            </a>
+            <a class="nav-item" data-view="settings" id="nav-settings">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span data-i18n="settings">Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="https://github.com/yeasy/ask" target="_blank" class="github-link">
+                <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path
+                        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+                    </path>
+                </svg>
+                <span>GitHub Project</span>
+            </a>
+            <div class="server-status">
+                <span class="status-indicator"></span>
+                <span style="flex:1">Online</span>
+                <span id="server-version" style="opacity:0.7"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="view-section">
+            <div class="header">
+                <div class="page-title">
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <img src="img/logo.png" alt="Logo"
+                            style="width:48px; height:48px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                        <div>
+                            <h1 data-i18n="dashboard_title">Welcome to ASK</h1>
+                            <p data-i18n="dashboard_desc" style="opacity:0.8; font-size:1rem;">Overview of your agent
+                                skills environment.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card" onclick="navigate('skills')" style="cursor: pointer;">
+                    <div class="stat-icon">🧩</div>
+                    <div class="stat-content">
+                        <div class="stat-title" data-i18n="installed_skills">INSTALLED SKILLS</div>
+                        <div class="stat-value" id="stat-skills">-</div>
+                    </div>
+                </div>
+                <div class="stat-card" onclick="navigate('repos')" style="cursor: pointer;">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-content">
+                        <div class="stat-title" data-i18n="configured_repos">CONFIGURED REPOS</div>
+                        <div class="stat-value" id="stat-repos">-</div>
+                    </div>
+                </div>
+                <div class="stat-card" onclick="navigate('repos')" style="cursor: pointer;">
+                    <div class="stat-icon">🔄</div>
+                    <div class="stat-content">
+                        <div class="stat-title" data-i18n="synced_repos">SYNCED REPOS</div>
+                        <div class="stat-value" id="stat-synced">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="dashboard-section">
+                <h3 class="section-title">Quick Actions</h3>
+                <div class="quick-actions">
+                    <button class="action-card" onclick="openModal('install-skill-modal')">
+                        <div class="action-icon">⬇️</div>
+                        <div class="action-text">
+                            <div class="action-title">Install Skill</div>
+                            <div class="action-desc">Add new capabilities</div>
+                        </div>
+                    </button>
+                    <button class="action-card" onclick="navigate('skills'); switchSkillTab('available')">
+                        <div class="action-icon">🔍</div>
+                        <div class="action-text">
+                            <div class="action-title">Browse Skills</div>
+                            <div class="action-desc">Explore available skills</div>
+                        </div>
+                    </button>
+                    <button class="action-card" onclick="syncRepos()">
+                        <div class="action-icon">🔄</div>
+                        <div class="action-text">
+                            <div class="action-title">Sync Repos</div>
+                            <div class="action-desc">Update skill sources</div>
+                        </div>
+                    </button>
+                    <button class="action-card" onclick="navigate('agents')">
+                        <div class="action-icon">🤖</div>
+                        <div class="action-text">
+                            <div class="action-title">Manage Agents</div>
+                            <div class="action-desc">Configure integrations</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recent Skills -->
+            <div class="dashboard-section">
+                <h3 class="section-title">Recently Installed Skills</h3>
+                <div class="recent-skills" id="recent-skills-list">
+                    <div class="empty-state-inline">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skills View -->
+        <div id="view-skills" class="view-section" style="display: none;">
+            <div class="header">
+                <div class="page-title">
+                    <h1 data-i18n="skills_title">Skills Manager</h1>
+                    <p data-i18n="skills_desc">Find, install, and manage agent capabilities.</p>
+                </div>
+                <div class="skills-heading-row"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="installed"
+                            onclick="switchSkillTab('installed')">Installed</button>
+                        <button class="tab-btn" data-tab="available"
+                            onclick="switchSkillTab('available')">Available</button>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <!-- Filters -->
+                        <div id="skill-filters" style="display:flex; gap:0.5rem; margin-right: 0.5rem;">
+                            <select id="filter-agent" class="form-select" onchange="applyFilters()"
+                                style="padding:0.4rem 2rem 0.4rem 0.8rem; font-size:0.85rem; width:130px; display:none;">
+                                <option value="">All Agents</option>
+                            </select>
+                            <select id="filter-repo" class="form-select" onchange="applyFilters()"
+                                style="padding:0.4rem 2rem 0.4rem 0.8rem; font-size:0.85rem; width:130px; display:none;">
+                                <option value="">All Repos</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="refreshSkills()" id="refresh-btn"
+                            data-i18n="refresh_btn" title="Refresh">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M23 4v6h-6"></path>
+                                <path d="M1 20v-6h6"></path>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                        </button>
+                        <div style="width: 1px; height: 24px; background: var(--border-color); margin: 0 0.25rem;">
+                        </div>
+                        <div class="view-toggle">
+                            <button class="btn-icon active" id="view-grid" onclick="toggleView('grid')"
+                                title="Grid View">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <rect x="3" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="14" width="7" height="7"></rect>
+                                    <rect x="3" y="14" width="7" height="7"></rect>
+                                </svg>
+                            </button>
+                            <button class="btn-icon" id="view-list" onclick="toggleView('list')" title="List View">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input type="text" id="skill-search" class="search-input" placeholder="Search skills...">
+                    <button class="search-clear-btn" id="search-clear" onclick="clearSearch()" style="display:none;"
+                        title="Clear search">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="skills-grid" id="skills-list">
+                <!-- Skills populated by JS -->
+            </div>
+        </div>
+
+        <!-- Repos View -->
+        <div id="view-repos" class="view-section" style="display: none;">
+            <div class="header">
+                <div class="page-title">
+                    <h1 data-i18n="repos_title">Repository Management</h1>
+                    <p data-i18n="repos_desc">Configure and sync skill sources.</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="syncRepos()" data-i18n="sync_all_btn">Sync All</button>
+                    <button class="btn btn-primary" onclick="openModal('add-repo-modal')" data-i18n="add_repo_btn">Add
+                        Repository</button>
+                </div>
+            </div>
+
+            <div class="table-container" id="repos-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th data-i18n="table_name">Name</th>
+                            <th data-i18n="table_url">URL</th>
+                            <th data-i18n="table_stars">Stars</th>
+                            <th data-i18n="table_actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Repos populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Agents View -->
+        <div id="view-agents" class="view-section" style="display: none;">
+            <div class="header">
+                <div class="page-title">
+                    <h1 data-i18n="settings_agents_title">Agent Integrations</h1>
+                    <p data-i18n="settings_agents_desc">Manage which AI agents are enabled for skill installation.</p>
+                </div>
+            </div>
+            <div class="agents-grid" id="agent-settings-list">
+                <!-- Agents populated by JS -->
+            </div>
+        </div>
+
+        <!-- View: Settings -->
+        <div id="view-settings" class="view-section" style="display: none;">
+            <div class="header">
+                <div class="page-title">
+                    <h2 class="title" data-i18n="settings_title">Settings</h2>
+                    <p data-i18n="settings_desc">Configure web interface preferences.</p>
+                </div>
+            </div>
+
+            <!-- Appearance & Language -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <div class="settings-title">Appearance & Language</div>
+                    <div class="settings-desc">Customize the look and feel of the dashboard.</div>
+                </div>
+                <div class="settings-row">
+                    <label class="form-label" style="margin:0" data-i18n="setting_theme">Theme</label>
+                    <div style="width: 200px;">
+                        <select id="theme-select" class="form-select" onchange="changeTheme(this.value)">
+                            <option value="system">System Default</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <label class="form-label" style="margin:0" data-i18n="setting_language">Language</label>
+                    <div style="width: 200px;">
+                        <select id="lang-select" class="form-select" onchange="changeLanguage(this.value)">
+                            <option value="en">English (Default)</option>
+                            <option value="zh">中文 (Chinese)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Information -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <div class="settings-title">System Information</div>
+                    <div class="settings-desc">Details about the running environment.</div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Project Root</span>
+                    <div style="flex:1; display:flex; gap:0.5rem; align-items:center;">
+                        <input type="text" id="system-project-root" class="search-input"
+                            style="padding:0.4rem; font-size:0.85rem; font-family:monospace;"
+                            placeholder="Project path...">
+                        <button class="btn btn-primary" onclick="saveProjectRoot()"
+                            style="padding:0.4rem 0.8rem; font-size:0.8rem;">Save</button>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Version</span>
+                    <span class="settings-value" id="system-version">Loading...</span>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Skills Directory</span>
+                    <div style="flex:1; display:flex; gap:0.5rem; align-items:center;">
+                        <input type="text" id="system-skills-dir" class="search-input"
+                            style="padding:0.4rem; font-size:0.85rem;" placeholder="Path to skills...">
+                        <button class="btn btn-primary" onclick="saveSkillsDir()"
+                            style="padding:0.4rem 0.8rem; font-size:0.8rem;">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <div class="settings-title">Data Management</div>
+                    <div class="settings-desc">Manage local cache and preferences.</div>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label">Clear API Cache</div>
+                        <div class="settings-desc" style="font-size:0.8rem">Clears local repository and search cache.
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="clearCache()">Clear Cache</button>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label">Reset Preferences</div>
+                        <div class="settings-desc" style="font-size:0.8rem">Resets theme and local storage.</div>
+                    </div>
+                    <button class="btn btn-secondary" style="color:var(--error-color); border-color:var(--error-color)"
+                        onclick="resetWebPreferences()">Reset</button>
+                </div>
+            </div>
+
+            <!-- About -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <div class="settings-title">About</div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Links</span>
+                    <div style="display:flex; gap:1rem;">
+                        <a href="https://github.com/yeasy/ask" target="_blank" class="github-link">GitHub</a>
+                        <a href="https://github.com/yeasy/ask/issues" target="_blank" class="github-link">Issues</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Modal: Add Repo -->
+    <div class="modal-overlay" id="add-repo-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" data-i18n="modal_add_repo_title">Add Repository</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" data-i18n="modal_repo_label">Repository URL or Owner/Repo</label>
+                    <input type="text" id="repo-url" class="search-input" placeholder="e.g. anthropics/skills">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-repo-modal')"
+                    data-i18n="btn_cancel">Cancel</button>
+                <button class="btn btn-primary" onclick="addRepo(document.getElementById('repo-url').value)"
+                    data-i18n="btn_add">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Install Skill -->
+    <div class="modal-overlay" id="install-skill-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" data-i18n="modal_install_skill_title">Install Skill</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" data-i18n="modal_skill_label">Skill Name, URL, or Owner/Repo</label>
+                    <input type="text" id="install-skill-name" class="search-input"
+                        placeholder="e.g. browser-use or anthropics/browser-use">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('install-skill-modal')"
+                    data-i18n="btn_cancel">Cancel</button>
+                <button class="btn btn-primary"
+                    onclick="installSkill(document.getElementById('install-skill-name').value); closeModal('install-skill-modal')"
+                    data-i18n="btn_install">Install</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Skill Guide -->
+    <div class="modal-overlay" id="skill-guide-modal">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="guide-modal-title">Skill Info</h3>
+            </div>
+            <div class="modal-body">
+                <div id="guide-content" class="markdown-body"
+                    style="max-height: 60vh; overflow-y: auto; padding-right: 10px; white-space: pre-wrap; font-family: monospace; font-size: 14px; line-height: 1.6;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('skill-guide-modal')"
+                    data-i18n="btn_close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirm-title">Confirm Action</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" style="color: var(--text-secondary); line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfirmModal(false)">Cancel</button>
+                <button class="btn btn-danger" id="confirm-action-btn"
+                    onclick="closeConfirmModal(true)">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

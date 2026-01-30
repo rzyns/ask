@@ -63,7 +63,20 @@ graph LR
 | **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
 | **🛡️ Security Audit** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
 
-## 🚀 Quick Start
+## 🖥️ Web UI
+
+ASK involves a local web interface for easy skill discovery and management.
+
+![ASK Dashboard](docs/images/dashboard.png)
+
+Run `ask serve` to start it. Features include:
+- **Visual Dashboard**: View installed skills, repositories, and system stats.
+- **Skill Browser**: Search and filter skills with rich metadata and emoji icons.
+- **Repository Manager**: Add and sync skill sources (GitHub, etc.).
+- **Security Audit**: View generated safety reports.
+
+[Explore the Web UI Documentation →](docs/web-ui.md)
+
 
 ### 1. Install
 
@@ -109,6 +122,9 @@ ask install mcp-builder --agent claude cursor
 # Security Check
 ask check .
 ask check anthropics/mcp-builder -o report.html
+
+# Start Web UI
+ask serve
 ```
 
 ## 📋 Commands
@@ -130,6 +146,12 @@ ask check anthropics/mcp-builder -o report.html
 | `ask repo list` | Show configured repositories |
 | `ask repo add <url>` | Add a custom skill source (run `ask repo sync` after to download) |
 | `ask repo sync` | Download/update repos to local cache (`~/.ask/repos`) |
+
+### System Commands
+| Command | Description |
+| :--- | :--- |
+| `ask doctor` | Diagnose and report on ASK health (config, skills, cache, system) |
+| `ask serve` | Start web UI for visual skill management |
 
 ## 🌐 Skill Sources
 
@@ -185,6 +207,28 @@ To see detailed operational logs (scanning, updating, searching), set `ASK_LOG=d
 export ASK_LOG=debug
 ask skill install browser-use
 ```
+
+## ⌨️ Shell Completion
+
+ASK supports intelligent tab completion for skill names, repository names, and agent flags.
+
+**Setup (one-time):**
+```bash
+# Bash
+ask completion bash > $(brew --prefix)/etc/bash_completion.d/ask
+
+# Zsh
+ask completion zsh > "${fpath[1]}/_ask"
+
+# Fish
+ask completion fish > ~/.config/fish/completions/ask.fish
+```
+
+**Features:**
+- `ask skill install <TAB>` - Complete from cached skills
+- `ask skill uninstall <TAB>` - Complete from installed skills  
+- `ask repo sync <TAB>` - Complete from configured repositories
+- `ask install --agent <TAB>` - Complete agent names (claude, cursor, codex, etc.)
 
 ## 📊 Security Audit Reports
 

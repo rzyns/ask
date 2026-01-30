@@ -164,4 +164,10 @@ func init() {
 	uninstallCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) for uninstallation")
 	uninstallCmd.Flags().BoolP("global", "g", false, "uninstall globally")
 	uninstallCmd.Flags().Bool("all", false, "remove source and all symlinks (complete removal)")
+
+	// Register installed skill name completion
+	uninstallCmd.ValidArgsFunction = completeInstalledSkills
+
+	// Register agent flag completion
+	_ = uninstallCmd.RegisterFlagCompletionFunc("agent", completeAgentNames)
 }

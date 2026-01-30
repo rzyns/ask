@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/yeasy/ask/internal/cache"
+	"github.com/yeasy/ask/internal/config"
 )
 
 // completionCmd represents the completion command
@@ -65,4 +68,113 @@ PowerShell:
 
 func init() {
 	rootCmd.AddCommand(completionCmd)
+}
+
+// completeSkillNames provides completion for skill names from local cache
+// Used by: install command
+func completeSkillNames(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var suggestions []string
+
+	// Try to get skills from local cache
+	reposCache, err := cache.NewReposCache()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Search all cached repos
+	skills, err := reposCache.SearchSkills("")
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	toCompleteLower := strings.ToLower(toComplete)
+	for _, skill := range skills {
+		if toComplete == "" || strings.HasPrefix(strings.ToLower(skill.Name), toCompleteLower) {
+			// Add both plain name and repo/name format
+			suggestions = append(suggestions, skill.Name)
+			fullName := skill.RepoName + "/" + skill.Name
+			if toComplete == "" || strings.HasPrefix(strings.ToLower(fullName), toCompleteLower) {
+				suggestions = append(suggestions, fullName)
+			}
+		}
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeInstalledSkills provides completion for installed skill names
+// Used by: uninstall, info commands
+func completeInstalledSkills(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var suggestions []string
+
+	// Get installed skills from project config
+	cfg, err := config.LoadConfig()
+	if err == nil && cfg != nil {
+		toCompleteLower := strings.ToLower(toComplete)
+		for _, skill := range cfg.SkillsInfo {
+			if toComplete == "" || strings.HasPrefix(strings.ToLower(skill.Name), toCompleteLower) {
+				suggestions = append(suggestions, skill.Name)
+			}
+		}
+		for _, skill := range cfg.Skills {
+			if toComplete == "" || strings.HasPrefix(strings.ToLower(skill), toCompleteLower) {
+				suggestions = append(suggestions, skill)
+			}
+		}
+	}
+
+	// Also check global config
+	globalCfg, err := config.LoadConfigByScope(true)
+	if err == nil && globalCfg != nil {
+		toCompleteLower := strings.ToLower(toComplete)
+		for _, skill := range globalCfg.SkillsInfo {
+			if toComplete == "" || strings.HasPrefix(strings.ToLower(skill.Name), toCompleteLower) {
+				suggestions = append(suggestions, skill.Name)
+			}
+		}
+		for _, skill := range globalCfg.Skills {
+			if toComplete == "" || strings.HasPrefix(strings.ToLower(skill), toCompleteLower) {
+				suggestions = append(suggestions, skill)
+			}
+		}
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeAgentNames provides completion for agent names
+// Used by: install, uninstall, list --agent flag
+func completeAgentNames(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	agents := config.GetSupportedAgentNames()
+	var suggestions []string
+
+	toCompleteLower := strings.ToLower(toComplete)
+	for _, agent := range agents {
+		if toComplete == "" || strings.HasPrefix(strings.ToLower(agent), toCompleteLower) {
+			suggestions = append(suggestions, agent)
+		}
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeRepoNames provides completion for repository names
+// Used by: repo sync command
+func completeRepoNames(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	var suggestions []string
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		def := config.DefaultConfig()
+		cfg = &def
+	}
+
+	toCompleteLower := strings.ToLower(toComplete)
+	for _, repo := range cfg.Repos {
+		if toComplete == "" || strings.HasPrefix(strings.ToLower(repo.Name), toCompleteLower) {
+			suggestions = append(suggestions, repo.Name)
+		}
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
 }

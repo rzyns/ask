@@ -140,4 +140,7 @@ func buildRepoName(url string) string {
 
 func init() {
 	repoCmd.AddCommand(syncCmd)
+
+	// Register repo name completion
+	syncCmd.ValidArgsFunction = completeRepoNames
 }

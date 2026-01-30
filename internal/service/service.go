@@ -1,0 +1,92 @@
+// Package service manages the background process for the ASK web server.
+package service
+
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"syscall"
+)
+
+const (
+	pidFileName = "ask.pid"
+	logFileName = "ask.log"
+)
+
+// Manager handles service process management
+type Manager struct {
+	homeDir string
+}
+
+// NewManager creates a new service manager
+func NewManager(homeDir string) *Manager {
+	return &Manager{
+		homeDir: homeDir,
+	}
+}
+
+// GetPIDFilePath returns the path to the PID file
+func (m *Manager) GetPIDFilePath() string {
+	return filepath.Join(m.homeDir, pidFileName)
+}
+
+// GetLogFilePath returns the path to the log file
+func (m *Manager) GetLogFilePath() string {
+	return filepath.Join(m.homeDir, logFileName)
+}
+
+// WritePID writes the current process ID to the PID file
+func (m *Manager) WritePID(pid int) error {
+	pidFile := m.GetPIDFilePath()
+	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
+}
+
+// ReadPID reads the PID from the PID file
+func (m *Manager) ReadPID() (int, error) {
+	pidFile := m.GetPIDFilePath()
+	data, err := os.ReadFile(pidFile)
+	if err != nil {
+		return 0, err
+	}
+	pid, err := strconv.Atoi(string(data))
+	if err != nil {
+		return 0, err
+	}
+	return pid, nil
+}
+
+// ClearPID removes the PID file
+func (m *Manager) ClearPID() error {
+	return os.Remove(m.GetPIDFilePath())
+}
+
+// IsRunning checks if the process with the given PID is running
+func (m *Manager) IsRunning(pid int) bool {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	// On Unix systems, FindProcess always succeeds, so we need to send signal 0 to check existence
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
+}
+
+// GetStatus returns the status of the service (pid, running, error)
+func (m *Manager) GetStatus() (int, bool, error) {
+	pid, err := m.ReadPID()
+	if os.IsNotExist(err) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+
+	running := m.IsRunning(pid)
+	if !running {
+		// Stale PID file
+		_ = m.ClearPID()
+		return 0, false, nil
+	}
+
+	return pid, true, nil
+}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -45,6 +46,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 	forceLocal, _ := cmd.Flags().GetBool("local")
 	forceRemote, _ := cmd.Flags().GetBool("remote")
 	minStars, _ := cmd.Flags().GetInt("min-stars")
+	jsonOutput, _ := cmd.Flags().GetBool("json")
 
 	// Load config or use default
 	cfg, err := config.LoadConfig()
@@ -126,7 +128,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 
 				if len(allRepos) > 0 || forceLocal {
 					// Display results from local cache
-					displaySearchResults(allRepos, installedSkills, searchSource, minStars)
+					displaySearchResults(allRepos, installedSkills, searchSource, minStars, jsonOutput)
 					if forceLocal && len(allRepos) == 0 {
 						fmt.Println("\nTip: Run 'ask repo sync' to populate local cache.")
 					}
@@ -216,10 +218,10 @@ func runSearch(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	displaySearchResults(allRepos, installedSkills, searchSource, minStars)
+	displaySearchResults(allRepos, installedSkills, searchSource, minStars, jsonOutput)
 }
 
-func displaySearchResults(repos []github.Repository, installedSkills map[string]bool, source string, minStars int) {
+func displaySearchResults(repos []github.Repository, installedSkills map[string]bool, source string, minStars int, jsonOutput bool) {
 	// Filter repos if minStars > 0
 	var displayRepos []github.Repository
 	if minStars > 0 {
@@ -230,6 +232,34 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 		}
 	} else {
 		displayRepos = repos
+	}
+
+	if jsonOutput {
+		type searchResultJSON struct {
+			Name        string `json:"name"`
+			Source      string `json:"source"`
+			Installed   bool   `json:"installed"`
+			Stars       int    `json:"stars"`
+			Description string `json:"description"`
+		}
+
+		var results []searchResultJSON
+		for _, repo := range displayRepos {
+			results = append(results, searchResultJSON{
+				Name:        repo.Name,
+				Source:      repo.Source,
+				Installed:   installedSkills[repo.Name],
+				Stars:       repo.StargazersCount,
+				Description: repo.Description,
+			})
+		}
+
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(results); err != nil {
+			fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+		}
+		return
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -272,6 +302,7 @@ func registerSearchFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("local", false, "search only local cache (offline)")
 	cmd.Flags().Bool("remote", false, "force remote API search")
 	cmd.Flags().Int("min-stars", 0, "filter skills by minimum integer number of GitHub stars")
+	cmd.Flags().Bool("json", false, "output results in JSON format")
 }
 
 func init() {

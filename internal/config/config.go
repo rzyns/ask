@@ -18,9 +18,9 @@ type Repo struct {
 
 // ToolTarget represents a supported AI coding tool
 type ToolTarget struct {
-	Name      string `yaml:"name"`
-	SkillsDir string `yaml:"skills_dir"`
-	Enabled   bool   `yaml:"enabled"`
+	Name      string `yaml:"name" json:"name"`
+	SkillsDir string `yaml:"skills_dir" json:"skills_dir"`
+	Enabled   bool   `yaml:"enabled" json:"enabled"`
 }
 
 // DefaultToolTargets returns the supported AI coding tools
@@ -33,16 +33,35 @@ func DefaultToolTargets() []ToolTarget {
 		Enabled:   true,
 	})
 
-	// Add supported agents
-	for _, name := range GetSupportedAgentNames() {
-		agentType, _ := ResolveAgentType(name)
-		config := SupportedAgents[agentType]
-		targets = append(targets, ToolTarget{
-			Name:      name,
-			SkillsDir: config.ProjectDir,
-			Enabled:   true,
-		})
+	// Add DETECTED agents only, not all possible ones.
+	// This prevents showing clutter like "clawdbot" when not applicable.
+	// We use the current working directory to detect.
+	if cwd, err := os.Getwd(); err == nil {
+
+		// DetectExistingToolDirs returns ToolTarget structs created from DefaultToolTargets logic which was cyclical.
+		// We need a helper that creates targets from detected dirs WITHOUT calling DefaultToolTargets.
+		// Let's implement detection logic directly here or fix DetectExistingToolDirs.
+
+		// Implementation of direct detection to avoid cycle:
+		for _, name := range GetSupportedAgentNames() {
+			if agentType, ok := ResolveAgentType(name); ok {
+				config := SupportedAgents[agentType]
+				// Check if project dir exists
+				// config.ProjectDir is like ".claude/skills"
+				// We check if ".claude" exists
+				agentRootDir := filepath.Dir(config.ProjectDir)
+				if _, err := os.Stat(filepath.Join(cwd, agentRootDir)); err == nil {
+					// Found!
+					targets = append(targets, ToolTarget{
+						Name:      name,
+						SkillsDir: config.ProjectDir,
+						Enabled:   true,
+					})
+				}
+			}
+		}
 	}
+
 	return targets
 }
 
@@ -128,17 +147,21 @@ func (c *Config) GetSkillsDir() string {
 	return c.SkillsDir
 }
 
+// OptionalRepos returns a list of optional repositories that are not enabled by default
+var OptionalRepos = []Repo{
+	{
+		Name: "community",
+		Type: "topic",
+		URL:  "agent-skill OR topic:agent-skills",
+	},
+}
+
 // DefaultConfig returns the default configuration
 func DefaultConfig() Config {
 	return Config{
-		Version: "1.0",
+		Version: "1.2",
 		Skills:  []string{},
 		Repos: []Repo{
-			{
-				Name: "community",
-				Type: "topic",
-				URL:  "agent-skill OR topic:agent-skills",
-			},
 			{
 				Name: "anthropics",
 				Type: "dir",
@@ -184,6 +207,18 @@ func LoadConfig() (*Config, error) {
 	for _, dr := range defaultRepos {
 		if !existingNames[dr.Name] {
 			config.Repos = append(config.Repos, dr)
+		}
+	}
+
+	// Merge default tool targets with existing
+	defaultTargets := DefaultToolTargets()
+	existingTargets := make(map[string]bool)
+	for _, t := range config.ToolTargets {
+		existingTargets[t.Name] = true
+	}
+	for _, dt := range defaultTargets {
+		if !existingTargets[dt.Name] {
+			config.ToolTargets = append(config.ToolTargets, dt)
 		}
 	}
 
@@ -292,6 +327,18 @@ func LoadGlobalConfig() (*Config, error) {
 		}
 	}
 
+	// Merge default tool targets with existing
+	defaultTargets := DefaultToolTargets()
+	existingTargets := make(map[string]bool)
+	for _, t := range config.ToolTargets {
+		existingTargets[t.Name] = true
+	}
+	for _, dt := range defaultTargets {
+		if !existingTargets[dt.Name] {
+			config.ToolTargets = append(config.ToolTargets, dt)
+		}
+	}
+
 	return &config, nil
 }
 
@@ -355,11 +402,26 @@ func (c *Config) GetEnabledSkillsDirs() []string {
 // DetectExistingToolDirs detects which AI tool directories already exist in the project
 func DetectExistingToolDirs(projectDir string) []ToolTarget {
 	var detected []ToolTarget
-	for _, t := range DefaultToolTargets() {
+
+	// Check for default agent directory
+	if _, err := os.Stat(filepath.Join(projectDir, filepath.Dir(DefaultSkillsDir))); err == nil {
+		detected = append(detected, ToolTarget{
+			Name:      "agent",
+			SkillsDir: DefaultSkillsDir,
+			Enabled:   true,
+		})
+	}
+
+	// Check for each supported agent's directory
+	for name, agentConfig := range SupportedAgents {
 		// Check if the tool's parent directory exists (e.g., .claude, .cursor)
-		toolDir := filepath.Dir(t.SkillsDir)
+		toolDir := filepath.Dir(agentConfig.ProjectDir)
 		if _, err := os.Stat(filepath.Join(projectDir, toolDir)); err == nil {
-			detected = append(detected, t)
+			detected = append(detected, ToolTarget{
+				Name:      string(name),
+				SkillsDir: agentConfig.ProjectDir,
+				Enabled:   true,
+			})
 		}
 	}
 	return detected

@@ -13,6 +13,7 @@ Welcome to the ASK (Agent Skills Kit) documentation.
 | [Configuration](configuration.md) | ask.yaml and ask.lock configuration |
 | [Troubleshooting](troubleshooting.md) | Common issues and solutions |
 | [Architecture](architecture.md) | Internal design and structure |
+| [Web UI](web-ui.md) | Guide to the visual web interface |
 
 ## Getting Help
 

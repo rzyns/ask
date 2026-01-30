@@ -896,4 +896,10 @@ func registerInstallFlags(cmd *cobra.Command) {
 func init() {
 	skillCmd.AddCommand(installCmd)
 	registerInstallFlags(installCmd)
+
+	// Register skill name completion
+	installCmd.ValidArgsFunction = completeSkillNames
+
+	// Register agent flag completion
+	_ = installCmd.RegisterFlagCompletionFunc("agent", completeAgentNames)
 }

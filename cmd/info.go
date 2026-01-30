@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ Use --global to check global skills.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		global, _ := cmd.Flags().GetBool("global")
+		jsonOutput, _ := cmd.Flags().GetBool("json")
 		skillName := args[0]
 
 		// Ensure project is initialized for non-global operations
@@ -46,53 +48,99 @@ Use --global to check global skills.`,
 		if global {
 			scopeLabel = "Global"
 		}
-		fmt.Printf("Skill: %s (%s)\n", skillName, scopeLabel)
-		fmt.Printf("Path:  %s\n", skillPath)
-		fmt.Println()
+
+		type SkillInfo struct {
+			Name         string   `json:"name"`
+			Description  string   `json:"description,omitempty"`
+			Version      string   `json:"version,omitempty"`
+			Author       string   `json:"author,omitempty"`
+			Dependencies []string `json:"dependencies,omitempty"`
+			Tags         []string `json:"tags,omitempty"`
+			Path         string   `json:"path"`
+			Scope        string   `json:"scope"`
+			Files        []string `json:"files,omitempty"`
+		}
+
+		info := SkillInfo{
+			Name:  skillName,
+			Path:  skillPath,
+			Scope: scopeLabel,
+		}
 
 		// Try to parse SKILL.md
 		if skill.FindSkillMD(skillPath) {
 			meta, err := skill.ParseSkillMD(skillPath)
 			if err != nil {
-				fmt.Printf("Warning: Could not parse SKILL.md: %v\n", err)
+				if !jsonOutput {
+					fmt.Printf("Warning: Could not parse SKILL.md: %v\n", err)
+				}
 			} else {
-				if meta.Name != "" {
-					fmt.Printf("  Name:        %s\n", meta.Name)
-				}
-				if meta.Description != "" {
-					fmt.Printf("  Description: %s\n", meta.Description)
-				}
-				if meta.Version != "" {
-					fmt.Printf("  Version:     %s\n", meta.Version)
-				}
-				if meta.Author != "" {
-					fmt.Printf("  Author:      %s\n", meta.Author)
-				}
-				if len(meta.Dependencies) > 0 {
-					fmt.Printf("  Dependencies:\n")
-					for _, dep := range meta.Dependencies {
-						fmt.Printf("    - %s\n", dep)
-					}
-				}
-				if len(meta.Tags) > 0 {
-					fmt.Printf("  Tags: %v\n", meta.Tags)
-				}
+				info.Name = meta.Name // Use name from metadata if available
+				info.Description = meta.Description
+				info.Version = meta.Version
+				info.Author = meta.Author
+				info.Dependencies = meta.Dependencies
+				info.Tags = meta.Tags
 			}
-		} else {
-			fmt.Println("  No SKILL.md found.")
 		}
 
 		// List files in skill directory
-		fmt.Println()
-		fmt.Println("Files:")
 		entries, err := os.ReadDir(skillPath)
 		if err == nil {
 			for _, entry := range entries {
 				if entry.IsDir() {
-					fmt.Printf("  📁 %s/\n", entry.Name())
+					info.Files = append(info.Files, entry.Name()+"/")
 				} else {
-					fmt.Printf("  📄 %s\n", entry.Name())
+					info.Files = append(info.Files, entry.Name())
 				}
+			}
+		}
+
+		if jsonOutput {
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			if err := encoder.Encode(info); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+			}
+			return
+		}
+
+		// Text Output
+		fmt.Printf("Skill: %s (%s)\n", info.Name, info.Scope)
+		fmt.Printf("Path:  %s\n", info.Path)
+		fmt.Println()
+
+		if info.Description != "" {
+			fmt.Printf("  Name:        %s\n", info.Name)
+			fmt.Printf("  Description: %s\n", info.Description)
+			if info.Version != "" {
+				fmt.Printf("  Version:     %s\n", info.Version)
+			}
+			if info.Author != "" {
+				fmt.Printf("  Author:      %s\n", info.Author)
+			}
+			if len(info.Dependencies) > 0 {
+				fmt.Printf("  Dependencies:\n")
+				for _, dep := range info.Dependencies {
+					fmt.Printf("    - %s\n", dep)
+				}
+			}
+			if len(info.Tags) > 0 {
+				fmt.Printf("  Tags: %v\n", info.Tags)
+			}
+		} else {
+			if !skill.FindSkillMD(skillPath) {
+				fmt.Println("  No SKILL.md found.")
+			}
+		}
+
+		fmt.Println()
+		fmt.Println("Files:")
+		for _, file := range info.Files {
+			if file[len(file)-1] == '/' {
+				fmt.Printf("  📁 %s\n", file)
+			} else {
+				fmt.Printf("  📄 %s\n", file)
 			}
 		}
 	},
@@ -100,4 +148,9 @@ Use --global to check global skills.`,
 
 func init() {
 	skillCmd.AddCommand(infoCmd)
+	infoCmd.Flags().Bool("global", false, "check global skills")
+	infoCmd.Flags().Bool("json", false, "output results in JSON format")
+
+	// Register installed skill name completion
+	infoCmd.ValidArgsFunction = completeInstalledSkills
 }
