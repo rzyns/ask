@@ -1,0 +1,16 @@
+{
+  "name": "ask-desktop",
+  "outputfilename": "ask-desktop",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dir": "internal/server/web",
+  "wailsjsdir": "internal/server/web/js",
+  "version": "2",
+  "author": {
+    "name": "Ask Team",
+    "email": ""
+  },
+  "debounceMS": 100,
+  "appargs": ""
+}

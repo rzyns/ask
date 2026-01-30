@@ -35,3 +35,7 @@ dist/
 .ask/
 ask.lock
 SPEC.md
+
+# Wails build directory
+build/
+frontend/dist/

@@ -63,9 +63,28 @@ graph LR
 | **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
 | **🛡️ Security Audit** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
 
-## 🖥️ Web UI
+## 🖥️ Web UI & Desktop App
 
-ASK involves a local web interface for easy skill discovery and management.
+ASK involves a local web interface for easy skill discovery and management. It can be run as a standard web server or as a native desktop application.
+
+### Web Server
+Run `ask serve` to start the web server.
+
+### Desktop App
+ASK can be built as a native desktop application using [Wails](https://wails.io).
+
+**Prerequisites:**
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation) installed (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+
+**Build:**
+```bash
+wails build
+```
+
+The application will be built in the `build/bin` directory.
+
+### Features
+
 
 ![ASK Dashboard](docs/images/dashboard.png)
 
@@ -91,8 +110,8 @@ brew install ask
 go install github.com/yeasy/ask@latest
 ```
 
-**Binary / Manual Install (Windows / Linux):**
-Download the latest pre-compiled binary for your system from [Releases](https://github.com/yeasy/ask/releases).
+**Binary / Manual Install (Windows / Linux / Desktop):**
+Download the latest pre-compiled binary or Desktop App for your system from [Releases](https://github.com/yeasy/ask/releases).
 
 
 ### 2. Initialize
