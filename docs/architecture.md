@@ -7,26 +7,52 @@ This document describes the technical architecture of ASK (Agent Skills Kit), th
 ASK is designed as a lightweight, fast CLI tool built in Go that manages AI agent skills similar to how package managers like Homebrew or npm handle dependencies.
 
 ```mermaid
-graph TB
-    User[User/Developer] -->|Commands| CLI[ASK CLI]
-    CLI --> Config[Config Manager]
-    CLI --> Search[Skill Search]
-    CLI --> Install[Skill Installer]
-    CLI --> Repo[Repo Manager]
+graph LR
+    subgraph "User Interface"
+        direction TB
+        CLI[Terminal / CLI]
+        GUI[Web UI / Desktop]
+    end
+
+    subgraph "ASK Core"
+        direction TB
+        Mgr[Skill Manager]
+        Sec[Security Audit]
+        Config[Config ask.yaml]
+        Lock[Lock ask.lock]
+    end
+
+    subgraph "Cloud Ecosystem"
+        GitHub[GitHub / Community]
+        Official[Official Repos]
+    end
+
+    subgraph "Agent Environment"
+        direction TB
+        Project[.agent/skills/]
+        Global[~/.ask/skills/]
+        Agents{Agents}
+    end
+
+    CLI --> Mgr
+    GUI --> Mgr
     
-    Config -->|Read/Write| Files[ask.yaml & ask.lock]
-    Search -->|Query| GitHub[GitHub API]
-    Install -->|Clone| Git[Git Operations]
-    Install -->|Parse| Parser[SKILL.md Parser]
-    Repo -->|Validate| GitHub
+    Mgr <-->|Discover & Pull| GitHub
+    Mgr <-->|Discover & Pull| Official
     
-    Git -->|Download| SkillDir[.agent/skills/]
-    Parser -->|Extract Metadata| SkillDir
+    Mgr -->|Scan| Sec
+    Mgr <-->|Read/Write| Config
+    Mgr -->|Write| Lock
     
-    style CLI fill:#4a9eff
-    style Files fill:#90ee90
-    style GitHub fill:#ff6b6b
-    style SkillDir fill:#ffd93d
+    Mgr -->|Install| Project
+    Mgr -->|Install| Global
+    
+    Project -.->|Load| Agents
+    Global -.->|Load| Agents
+
+    style Mgr fill:#4a9eff,color:white
+    style Sec fill:#ff6b6b,color:white
+    style Agents fill:#90ee90,color:black
 ```
 
 ## Core Components
@@ -352,6 +378,11 @@ my-agent-project/
             ├── SKILL.md
             └── ...
 ```
+
+**Agent-Specific Paths:**
+- **Claude**: `.claude/skills/`
+- **Cursor**: `.cursor/skills/`
+- **Codex**: `.codex/skills/`
 
 ### ASK Installation
 

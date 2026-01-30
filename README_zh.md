@@ -36,17 +36,7 @@
 
 **ASK** (Agent Skills Kit) 是专为 AI Agent 设计的技能包管理器。就像 `brew` 管理 macOS 软件、`pip` 管理 Python 包一样，`ask` 帮助您高效发现、安装和管理 AI 智能体的各种能力（支持 Claude, Cursor, Codex 等）。
 
-```mermaid
-graph LR
-    User[开发者] -->|ask skill search| Sources[GitHub/社区]
-    Sources -->|发现| Skills{技能库}
-    User -->|ask skill install| Skills
-    Skills -->|下载 & 锁定| Agent[智能体环境]
-    
-    style User fill:#4a9eff,color:white
-    style Sources fill:#ff6b6b,color:white
-    style Agent fill:#90ee90,color:black
-```
+
 
 
 
@@ -189,23 +179,9 @@ ASK 默认内置了以下受信源：
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | 动态PPT生成 |
 
 
-## 📂 目录结构
+## 🏗️ 架构与布局
 
-安装后的默认结构：
-```text
-my-project/
-├── ask.yaml          # 项目配置
-├── ask.lock          # 版本锁定文件
-└── .agent/           
-    └── skills/       # 默认技能目录
-        ├── mcp-builder/
-        └── writing-plans/
-```
-
-**不同 Agent 会自动探索对应安装路径:**
-- **Claude**: `.claude/skills/`
-- **Cursor**: `.cursor/skills/`
-- **Codex**: `.codex/skills/`
+详细的架构图和安装布局说明，请参阅 [架构设计指南](docs/architecture_zh.md)。
 
 ## 🐞 调试
 

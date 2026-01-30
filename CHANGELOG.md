@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.2] - 2026-01-30
+
+ ### Fixed
+ - **Build**: Updated GoReleaser config to use `brews` instead of `homebrew_casks` for correct Formula generation.
+ - **CI**: Updated `release.yml` to use `libwebkit2gtk-4.1-dev` for compatibility with Ubuntu 24.04 (Noble).
+
 ## [1.3.1] - 2026-01-30
  
  ### Fixed

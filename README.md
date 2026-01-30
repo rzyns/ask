@@ -37,17 +37,7 @@
 
 **ASK** (Agent Skills Kit) is the package manager for AI Agent skills. Just like `brew` manages macOS packages, `pip` manages Python packages, or `npm` manages Node.js dependencies, `ask` helps you discover, install, and lock skills for your agents (Claude, Cursor, Codex, etc.).
 
-```mermaid
-graph LR
-    User[User/Agent] -->|ask skill search| Sources[GitHub/Community]
-    Sources -->|Discover| Skills{Skills}
-    User -->|ask skill install| Skills
-    Skills -->|Download & Lock| Agent[.agent/skills/]
-    
-    style User fill:#4a9eff,color:white
-    style Sources fill:#ff6b6b,color:white
-    style Agent fill:#90ee90,color:black
-```
+
 
 
 
@@ -195,23 +185,9 @@ For specific needs, you can add these additional sources:
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | Dynamic PPT generation |
 
 
-## 📂 Installation Layout
+## 🏗️ Architecture & Layout
 
-Default structure after installation:
-```text
-my-project/
-├── ask.yaml          # Project config
-├── ask.lock          # Lockfile (commit hashes)
-└── .agent/           
-    └── skills/       # Default install location
-        ├── mcp-builder/
-        └── writing-plans/
-```
-
-**Ask will automatically discover Agent-Specific Paths:**
-- **Claude**: `.claude/skills/`
-- **Cursor**: `.cursor/skills/`
-- **Codex**: `.codex/skills/`
+For detailed architecture diagrams and installation layout, see [Architecture Guide](docs/architecture.md).
 
 ## 🐞 Debugging
 
