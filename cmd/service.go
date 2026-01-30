@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -106,10 +105,8 @@ func runServiceStart(_ *cobra.Command, _ []string) {
 	bgCmd.Stdout = logFile
 	bgCmd.Stderr = logFile
 
-	// Create new process group to ensure it survives parent exit (less critical for simple start cmd but good practice)
-	bgCmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	// Create new process group to ensure it survives parent exit (Unix only)
+	bgCmd.SysProcAttr = sysProcAttr()
 
 	if err := bgCmd.Start(); err != nil {
 		ui.Error("Failed to start service: " + err.Error())
@@ -144,8 +141,8 @@ func runServiceStop(_ *cobra.Command, _ []string) {
 
 	process, err := os.FindProcess(pid)
 	if err == nil {
-		// Try graceful shutdown with SIGTERM
-		_ = process.Signal(syscall.SIGTERM)
+		// Try graceful shutdown
+		_ = signalTerm(pid)
 
 		// Wait a bit and check
 		time.Sleep(1 * time.Second)
