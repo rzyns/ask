@@ -95,9 +95,9 @@ wails build && ./build/bin/ask-desktop
 
 **Homebrew (macOS/Linux):**
 ```bash
-brew tap yeasy/ask
-brew install ask              # CLI version
-brew install --cask ask-desktop  # Desktop App (macOS only)
+brew tap yeasy/tap
+brew install yeasy/tap/ask              # CLI version
+brew install --cask yeasy/tap/ask-desktop  # Desktop App (macOS only)
 ```
 
 **Go Install:**

@@ -94,9 +94,9 @@ wails build && ./build/bin/ask-desktop
 
 **Homebrew (macOS/Linux):**
 ```bash
-brew tap yeasy/ask
-brew install ask              # 命令行版本
-brew install --cask ask-desktop  # 桌面应用 (仅 macOS)
+brew tap yeasy/tap
+brew install yeasy/tap/ask              # 命令行版本
+brew install --cask yeasy/tap/ask-desktop  # 桌面应用 (仅 macOS)
 ```
 
 **源码安装:**
