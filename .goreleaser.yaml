@@ -37,7 +37,7 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
+homebrew_casks:
   - name: ask
     repository:
       owner: yeasy

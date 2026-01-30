@@ -34,7 +34,7 @@ jobs:
 
   build-desktop:
     name: Build Desktop App
-    needs: goreleaser
+    # Run independently - don't wait for goreleaser
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
