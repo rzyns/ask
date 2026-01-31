@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
+  <a href="https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/lbjlaq/Antigravity-Manager?style=flat-square&color=blue" alt="Release"></a>
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
@@ -89,6 +89,9 @@ brew install yeasy/tap/ask              # 命令行版本
 brew install --cask yeasy/tap/ask-desktop  # 桌面应用 (仅 macOS)
 ```
 
+> [!NOTE]
+> **macOS 用户请注意**：首次打开 `ask-desktop` 时若提示"无法验证开发者"，请前往 **系统设置 > 隐私与安全性**，在"安全性"区域点击 **"仍要打开" (Open Anyway)** 即可正常运行。
+
 **源码安装:**
 ```bash
 git clone https://github.com/yeasy/ask.git
@@ -97,7 +100,7 @@ make build && mv ask /usr/local/bin/
 ```
 
 **二进制 / 手动安装 (Windows / Linux):**
-请前往 [Releases](https://github.com/yeasy/ask/releases) 页面下载对应系统的预编译二进制文件。
+请前往 [Releases](https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3) 页面下载对应系统的预编译二进制文件。
 
 
 
@@ -192,12 +195,35 @@ export ASK_LOG=debug
 ask skill install browser-use
 ```
 
+## ⌨️ Shell 自动补全
+
+ASK 支持智能 Tab 补全，可补全技能名称、仓库名称和 agent 参数。
+
+**设置 (一次性):**
+```bash
+# Bash
+ask completion bash > $(brew --prefix)/etc/bash_completion.d/ask
+
+# Zsh
+ask completion zsh > "${fpath[1]}/_ask"
+
+# Fish
+ask completion fish > ~/.config/fish/completions/ask.fish
+```
+
+**支持功能:**
+- `ask skill install <TAB>` - 从缓存中补全技能名
+- `ask skill uninstall <TAB>` - 从已安装技能中补全
+- `ask repo sync <TAB>` - 从已配置仓库中补全
+- `ask install --agent <TAB>` - 补全 agent 名称 (claude, cursor, codex 等)
+
 ## 📊 安全审计报告
 
 <img src="reports/anthropics.png" width="300">
 <img src="reports/openai.png" width="300">
 <img src="reports/composio.png" width="300">
 <img src="reports/vercel.png" width="300">
+<img src="reports/superpowers.png" width="300">
 
 完整安全审计报告：
 
@@ -205,6 +231,7 @@ ask skill install browser-use
 - [🛡️ OpenAI 安全审计报告](reports/openai.html)
 - [🛡️ Composio 安全审计报告](reports/composio.html)
 - [🛡️ Vercel 安全审计报告](reports/vercel.html)
+- [🛡️ Superpowers 安全审计报告](reports/superpowers.html)
 
 ## 🤝 贡献参与
 欢迎提交 PR 或 Issue！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。

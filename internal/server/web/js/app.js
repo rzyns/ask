@@ -196,7 +196,8 @@ async function saveProjectRoot() {
             await fetchStats(); // Reload stats if they depend on project
             await fetchRepos(); // Reload repos from new context
         } else {
-            showToast('Failed to update project root', 'error');
+            const data = await res.json();
+            showToast(data.error || 'Failed to update project root', 'error');
         }
     } catch (err) {
         console.error(err);

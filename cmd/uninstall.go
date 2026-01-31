@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/filesystem"
 	"github.com/yeasy/ask/internal/ui"
 )
 
@@ -104,16 +105,21 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 			}
 
 			if _, err := os.Stat(skillPath); !os.IsNotExist(err) {
-				if isSymlink(skillPath) {
+				// Check if the path is a symlink
+				if filesystem.IsSymlink(skillPath) {
 					ui.Debug(fmt.Sprintf("Removing symlink %s...", skillPath))
-					if err := os.Remove(skillPath); err != nil {
+					// If it's a symlink, just remove it
+					err := os.Remove(skillPath)
+					if err != nil {
 						ui.Warn(fmt.Sprintf("Failed to remove symlink %s: %v", skillPath, err))
 					} else {
 						removedCount++
 					}
 				} else {
 					ui.Debug(fmt.Sprintf("Removing %s...", skillPath))
-					if err := os.RemoveAll(skillPath); err != nil {
+					// If it's a directory (copied), remove entire directory
+					err := os.RemoveAll(skillPath)
+					if err != nil {
 						ui.Warn(fmt.Sprintf("Failed to remove skill directory %s: %v", skillPath, err))
 					} else {
 						removedCount++

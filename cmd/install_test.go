@@ -53,8 +53,9 @@ func TestInstallFlags(t *testing.T) {
 		t.Error("installCmd 'agent' flag shorthand should be 'a'")
 	}
 
-	if val := installRootCmd.Flags().Lookup("global"); val == nil {
-		t.Error("installRootCmd missing 'global' flag")
+	// Global flag is persistent on root, so it applies to installRootCmd
+	if val := rootCmd.PersistentFlags().Lookup("global"); val == nil {
+		t.Error("rootCmd missing 'global' persistent flag")
 	}
 }
 

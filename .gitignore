@@ -1,5 +1,7 @@
 # Binaries
 ask
+ask-main
+ask-test
 *.exe
 *.exe~
 *.dll

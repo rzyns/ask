@@ -802,19 +802,34 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 	updated := false
 
-	// Handle skills_dir update
-	if req.SkillsDir != "" {
-		cfg.SkillsDir = req.SkillsDir
-		updated = true
-	}
-
-	// Handle project_root update
+	// Handle project_root update first, as it changes the context for everything else
 	if req.ProjectRoot != "" {
 		if err := os.Chdir(req.ProjectRoot); err != nil {
 			jsonError(w, "Failed to change directory: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		// Refresh config to pick up any changes in the new environment/detection
+		// RELOAD config from the new directory to ensure we are editing the correct file
+		// and not overwriting the new directory's config with the old one.
+		newCfg, err := config.LoadConfig()
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Initialize default if missing in new location
+				def := config.DefaultConfig()
+				cfg = &def
+			} else {
+				jsonError(w, "Failed to load config in new root: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else {
+			cfg = newCfg
+		}
+		// We successfully switched context. Verification of initialized state will happen on next config fetch.
+		updated = true
+	}
+
+	// Handle skills_dir update
+	if req.SkillsDir != "" {
+		cfg.SkillsDir = req.SkillsDir
 		updated = true
 	}
 
