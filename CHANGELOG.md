@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.3] - 2026-01-30
+
+### Fixed
+- **Desktop**: Fixed "Failed to update project root" error in settings by properly handling configuration context switching.
+- **Linting**: Fixed various lint errors in filesystem, installer, and completion packages.
+
 ## [1.3.2] - 2026-01-30
 
  ### Fixed
@@ -222,7 +228,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration file support (`ask.yaml`)
 - Default repositories: Community, Anthropic, MCP-Servers, Scientific, Superpowers
 
-[Unreleased]: https://github.com/yeasy/ask/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/yeasy/ask/compare/v1.3.3...HEAD
+[1.3.3]: https://github.com/yeasy/ask/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/yeasy/ask/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/yeasy/ask/compare/v1.1.3...v1.3.1
 [1.1.3]: https://github.com/yeasy/ask/compare/v1.1.2...v1.1.3
