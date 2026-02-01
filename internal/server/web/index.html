@@ -13,7 +13,7 @@
     <div class="sidebar">
         <div class="logo">
             <img src="img/logo.png" alt="ASK Logo" class="logo-img">
-            <span>ASK Web UI</span>
+            <span>ASK</span>
         </div>
 
         <nav class="nav-menu">
@@ -88,6 +88,17 @@
                         </div>
                     </div>
                 </div>
+                <div style="display: flex; gap: 0.5rem; align-items:center;">
+                    <button class="btn btn-secondary" onclick="refreshDashboard()" title="Refresh Dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span data-i18n="refresh_btn">Refresh</span>
+                    </button>
+                </div>
             </div>
 
             <div class="stats-grid">
@@ -118,7 +129,7 @@
             <div class="dashboard-section">
                 <h3 class="section-title">Quick Actions</h3>
                 <div class="quick-actions">
-                    <button class="action-card" onclick="openModal('install-skill-modal')">
+                    <button class="action-card" onclick="openInstallModal('')">
                         <div class="action-icon">⬇️</div>
                         <div class="action-text">
                             <div class="action-title">Install Skill</div>
@@ -187,8 +198,7 @@
                             </select>
                         </div>
 
-                        <button class="btn btn-primary" onclick="refreshSkills()" id="refresh-btn"
-                            data-i18n="refresh_btn" title="Refresh">
+                        <button class="btn btn-secondary" onclick="refreshSkills()" id="refresh-btn" title="Refresh">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round">
@@ -196,6 +206,7 @@
                                 <path d="M1 20v-6h6"></path>
                                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                             </svg>
+                            <span data-i18n="refresh_btn">Refresh</span>
                         </button>
                         <div style="width: 1px; height: 24px; background: var(--border-color); margin: 0 0.25rem;">
                         </div>
@@ -260,6 +271,15 @@
                     <p data-i18n="repos_desc">Configure and sync skill sources.</p>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="refreshRepos()" title="Refresh Repositories">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span data-i18n="refresh_btn">Refresh</span>
+                    </button>
                     <button class="btn btn-secondary" onclick="syncRepos()" data-i18n="sync_all_btn">Sync All</button>
                     <button class="btn btn-primary" onclick="openModal('add-repo-modal')" data-i18n="add_repo_btn">Add
                         Repository</button>
@@ -290,6 +310,17 @@
                     <h1 data-i18n="settings_agents_title">Agent Integrations</h1>
                     <p data-i18n="settings_agents_desc">Manage which AI agents are enabled for skill installation.</p>
                 </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="refreshAgents()" title="Refresh Agents">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span data-i18n="refresh_btn">Refresh</span>
+                    </button>
+                </div>
             </div>
             <div class="agents-grid" id="agent-settings-list">
                 <!-- Agents populated by JS -->
@@ -308,8 +339,8 @@
             <!-- Appearance & Language -->
             <div class="settings-section">
                 <div class="settings-header">
-                    <div class="settings-title">Appearance & Language</div>
-                    <div class="settings-desc">Customize the look and feel of the dashboard.</div>
+                    <div class="settings-title">General Preferences</div>
+                    <div class="settings-desc">Customize the look, feel, and behavior.</div>
                 </div>
                 <div class="settings-row">
                     <label class="form-label" style="margin:0" data-i18n="setting_theme">Theme</label>
@@ -330,6 +361,20 @@
                         </select>
                     </div>
                 </div>
+                <div class="settings-row">
+                    <label class="form-label" style="margin:0" data-i18n="setting_refresh_interval">Auto-Refresh
+                        Interval</label>
+                    <div style="width: 200px;">
+                        <select id="refresh-interval-select" class="form-select"
+                            onchange="changeRefreshInterval(this.value)">
+                            <option value="0">Off (Manual only)</option>
+                            <option value="60000">1 Minute</option>
+                            <option value="300000" selected>5 Minutes</option>
+                            <option value="600000">10 Minutes</option>
+                            <option value="1800000">30 Minutes</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <!-- System Information -->
@@ -340,7 +385,7 @@
                 </div>
                 <div class="settings-row">
                     <span class="settings-label">Project Root</span>
-                    <div style="flex:1; display:flex; gap:0.5rem; align-items:center;">
+                    <div style="flex:1; display:flex; gap:0.5rem; align-items:center; margin-left: 2rem;">
                         <input type="text" id="system-project-root" class="search-input"
                             style="padding:0.4rem; font-size:0.85rem; font-family:monospace;"
                             placeholder="Project path...">
@@ -352,15 +397,7 @@
                     <span class="settings-label">Version</span>
                     <span class="settings-value" id="system-version">Loading...</span>
                 </div>
-                <div class="settings-row">
-                    <span class="settings-label">Skills Directory</span>
-                    <div style="flex:1; display:flex; gap:0.5rem; align-items:center;">
-                        <input type="text" id="system-skills-dir" class="search-input"
-                            style="padding:0.4rem; font-size:0.85rem;" placeholder="Path to skills...">
-                        <button class="btn btn-primary" onclick="saveSkillsDir()"
-                            style="padding:0.4rem 0.8rem; font-size:0.8rem;">Save</button>
-                    </div>
-                </div>
+
             </div>
 
             <!-- Data Management -->
@@ -437,13 +474,17 @@
                     <input type="text" id="install-skill-name" class="search-input"
                         placeholder="e.g. browser-use or anthropics/browser-use">
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Target Agent</label>
+                    <select id="install-skill-agent" class="form-select">
+                        <option value="">Default / All</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('install-skill-modal')"
                     data-i18n="btn_cancel">Cancel</button>
-                <button class="btn btn-primary"
-                    onclick="installSkill(document.getElementById('install-skill-name').value); closeModal('install-skill-modal')"
-                    data-i18n="btn_install">Install</button>
+                <button class="btn btn-primary" onclick="performInstall()" data-i18n="btn_install">Install</button>
             </div>
         </div>
     </div>

@@ -27,35 +27,25 @@ import (
 var webFS embed.FS
 
 // Server represents the HTTP server
+// Server represents the HTTP server
 type Server struct {
-	port   int
-	server *http.Server
-	mu     sync.Mutex
+	port    int
+	server  *http.Server
+	mu      sync.Mutex
+	version string
 }
 
 // New creates a new Server instance
-func New(port int) *Server {
-	return &Server{port: port}
+func New(port int, version string) *Server {
+	return &Server{
+		port:    port,
+		version: version,
+	}
 }
 
 // Start starts the HTTP server
 func (s *Server) Start() error {
-	mux := http.NewServeMux()
-
-	// API routes
-	mux.HandleFunc("/api/skills", s.handleSkills)
-	mux.HandleFunc("/api/skills/search", s.handleSkillSearch)
-	mux.HandleFunc("/api/skills/install", s.handleSkillInstall)
-	mux.HandleFunc("/api/skills/uninstall", s.handleSkillUninstall)
-	mux.HandleFunc("/api/repos", s.handleRepos)
-	mux.HandleFunc("/api/repos/add", s.handleRepoAdd)
-	mux.HandleFunc("/api/repos/remove", s.handleRepoRemove)
-	mux.HandleFunc("/api/repos/sync", s.handleRepoSync)
-	mux.HandleFunc("/api/config", s.handleConfig)
-	mux.HandleFunc("/api/config/update", s.handleConfigUpdate)
-	mux.HandleFunc("/api/cache/clear", s.handleCacheClear)
-	mux.HandleFunc("/api/stats", s.handleStats)
-	mux.HandleFunc("/api/skills/readme", s.handleSkillReadme)
+	mux := s.setupRoutes()
 
 	// Static file serving
 	webContent, err := fs.Sub(webFS, "web")
@@ -76,6 +66,33 @@ func (s *Server) Start() error {
 
 	ui.Info(fmt.Sprintf("Starting server on http://127.0.0.1:%d", s.port))
 	return server.ListenAndServe()
+}
+
+// setupRoutes returns the API mux
+func (s *Server) setupRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	// API routes
+	mux.HandleFunc("/api/skills", s.handleSkills)
+	mux.HandleFunc("/api/skills/search", s.handleSkillSearch)
+	mux.HandleFunc("/api/skills/install", s.handleSkillInstall)
+	mux.HandleFunc("/api/skills/uninstall", s.handleSkillUninstall)
+	mux.HandleFunc("/api/repos", s.handleRepos)
+	mux.HandleFunc("/api/repos/add", s.handleRepoAdd)
+	mux.HandleFunc("/api/repos/remove", s.handleRepoRemove)
+	mux.HandleFunc("/api/repos/sync", s.handleRepoSync)
+	mux.HandleFunc("/api/config", s.handleConfig)
+	mux.HandleFunc("/api/config/update", s.handleConfigUpdate)
+	mux.HandleFunc("/api/cache/clear", s.handleCacheClear)
+	mux.HandleFunc("/api/stats", s.handleStats)
+	mux.HandleFunc("/api/skills/readme", s.handleSkillReadme)
+
+	return mux
+}
+
+// Handler returns the HTTP handler for the server (exported for Wails integration)
+func (s *Server) Handler() http.Handler {
+	return s.setupRoutes()
 }
 
 // Stop gracefully stops the server
@@ -332,6 +349,38 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 	// Convert map to slice
 	skills := make([]SkillInfo, 0, len(skillMap))
 	for _, info := range skillMap {
+		// Normalize Repo Name to match configured aliases
+		// If info.Repo matches a configured repo URL or Name, use the Name.
+		if info.Repo != "" {
+			for _, repo := range cfg.Repos {
+				// Check specific name match
+				if strings.EqualFold(info.Repo, repo.Name) {
+					info.Repo = repo.Name
+					break
+				}
+				// Check URL match
+				// Repo URL might be "https://github.com/owner/repo" or "owner/repo"
+				// info.Repo (deduced) is usually "owner/repo"
+
+				// Normalize repo.URL to owner/repo for comparison if possible
+				repoURL := repo.URL
+				if strings.HasPrefix(repoURL, "https://github.com/") {
+					repoURL = strings.TrimPrefix(repoURL, "https://github.com/")
+					repoURL = strings.TrimSuffix(repoURL, ".git")
+				}
+				// Also strip /tree/... if present
+				if idx := strings.Index(repoURL, "/tree/"); idx != -1 {
+					repoURL = repoURL[:idx]
+				}
+
+				// Check matches
+				if strings.EqualFold(info.Repo, repoURL) {
+					info.Repo = repo.Name
+					break
+				}
+			}
+		}
+
 		// Only include skills that are either in config OR installed in at least one agent
 		// Actually, if it's in config but directory not found, it might be "broken" or uninstalled properly
 		// But let's show everything we know about.
@@ -343,12 +392,14 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 
 // SearchResult represents a search result
 type SearchResult struct {
-	Name        string `json:"name"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description"`
-	Stars       int    `json:"stars"`
-	URL         string `json:"url"`
-	Source      string `json:"source"`
+	Name        string   `json:"name"`
+	FullName    string   `json:"full_name"`
+	Description string   `json:"description"`
+	Stars       int      `json:"stars"`
+	URL         string   `json:"url"`
+	Source      string   `json:"source"`
+	RepoName    string   `json:"repo,omitempty"`
+	Agents      []string `json:"agents,omitempty"`
 }
 
 func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
@@ -357,17 +408,15 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If query is empty, we search for the default topic to show "Available" skills
 	query := r.URL.Query().Get("q")
+	repoFilter := r.URL.Query().Get("repo")
 	topic := "agent-skill"
 
 	results := make([]SearchResult, 0)
 
 	// 1. Search Local/Configured Repos via Cache
-	// This ensures we show skills from repos the user has explicitly added/configured
 	reposCache, err := cache.NewReposCache()
 	if err == nil {
-		// Load index to access Repo metadata (Stars, URL)
 		repoInfos, _ := reposCache.LoadIndex()
 		repoMap := make(map[string]cache.RepoInfo)
 		for _, info := range repoInfos {
@@ -378,42 +427,37 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			for _, skill := range skills {
 				repo := repoMap[skill.RepoName]
-				// Determine source URL - try to link to the skill folder if possible, else repo URL
 				skillURL := repo.URL
 				if skillURL != "" && !strings.HasSuffix(skillURL, ".git") {
-					// Minimal attempt to deep link (works for GitHub)
 					skillURL = fmt.Sprintf("%s/tree/HEAD/%s", strings.TrimSuffix(skillURL, "/"), skill.Path)
+				}
+
+				if repoFilter != "" && !strings.EqualFold(skill.RepoName, repoFilter) {
+					continue
 				}
 
 				results = append(results, SearchResult{
 					Name:        skill.Name,
-					FullName:    skill.Name, // Use simple name for installation as it's a known skill
+					FullName:    skill.Name,
 					Description: skill.Description,
 					Stars:       repo.Stars,
 					URL:         skillURL,
 					Source:      "repo",
+					RepoName:    skill.RepoName,
 				})
 			}
 		} else {
-			// Log error but continue
 			fmt.Printf("Error searching local cache: %v\n", err)
 		}
 	}
 
-	// 2. Search GitHub (always append GitHub results for discovery)
+	// 2. Search GitHub
 	if query == "" {
-		// Just search for the topic itself if no query
 		query = ""
 	}
 
-	// Only search GitHub if we have a query or if we want to show trending
-	// To avoid API rate limits, maybe only search if we have a query or if local results are empty?
-	// But user expects discovery. Let's keep existing behavior but be resilient.
-
-	// Default topic search
 	ghRepos, err := github.SearchTopic(topic, query)
 	if err != nil {
-		// If GitHub fails but we have local results, return what we have
 		if len(results) > 0 {
 			jsonResponse(w, results)
 			return
@@ -423,17 +467,21 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, repo := range ghRepos {
-		// Check for duplicates (if a repo is already in our configured list, maybe skip?)
-		// But here we are listing Repos vs Skills.
-		// A GitHub result is a Repo. A Local result is a Skill.
-		// It's okay to show both.
 		results = append(results, SearchResult{
 			Name:        repo.Name,
-			FullName:    repo.FullName,
+			FullName:    repo.FullName, // e.g. owner/repo
 			Description: repo.Description,
 			Stars:       repo.StargazersCount,
 			URL:         repo.HTMLURL,
 			Source:      "github",
+			// For GitHub results, we don't have a local "RepoName" alias.
+			// We could try to match against config, but for discovery it's fine to leave empty or use FullName?
+			// app.js filters use state.repos (configured). If this result is NOT configured, it won't appear in filter dropdown anyway.
+			// But if we want it to show up as "anthropics" if configured:
+			// Let's leave it empty for now or use FullName as fallback if we want to filter search results by unconfigured repos?
+			// The user issue is about dropdown mismatch.
+			// If we leave it empty, it won't pollute the dropdown.
+			RepoName: repo.FullName,
 		})
 	}
 
@@ -532,7 +580,7 @@ type RepoInfo struct {
 	Name  string `json:"name"`
 	Type  string `json:"type"`
 	URL   string `json:"url"`
-	Stars int    `json:"stars,omitempty"`
+	Stars int    `json:"stars"`
 }
 
 func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
@@ -678,22 +726,36 @@ func (s *Server) handleRepoSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse optional body for specific repo name
+	var req struct {
+		Name string `json:"name"`
+	}
+	// Ignore decode error as body might be empty (sync all)
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
 	// Execute repo sync command
 	exe, err := os.Executable()
 	if err != nil {
 		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
 		return
 	}
-	cmd := exec.Command(exe, "repo", "sync")
+
+	args := []string{"repo", "sync"}
+	if req.Name != "" {
+		args = append(args, req.Name)
+	}
+
+	cmd := exec.Command(exe, args...)
 	output, _ := cmd.CombinedOutput() // Ignore error for output return
 
-	// Even if it failed, we return the output so user can see what happened
-	// But we return 200 OK because the API call itself worked (it executed the command)
-	// Optionally we could return 500 if exit code != 0, but output is useful.
+	msg := "Repositories synced"
+	if req.Name != "" {
+		msg = fmt.Sprintf("Repository '%s' synced", req.Name)
+	}
 
 	jsonResponse(w, map[string]string{
 		"status":  "success",
-		"message": "Repositories synced",
+		"message": msg,
 		"output":  string(output),
 	})
 }
@@ -729,7 +791,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info := ConfigInfo{
-		Version:     cfg.Version,
+		Version:     s.version,
 		SkillsDir:   cfg.GetSkillsDir(),
 		Agents:      config.GetSupportedAgentNames(),
 		ToolTargets: cfg.GetToolTargets(),
@@ -825,6 +887,14 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		// We successfully switched context. Verification of initialized state will happen on next config fetch.
 		updated = true
+
+		// Update persistent global config
+		if globalCfg, err := config.LoadGlobalConfig(); err == nil {
+			globalCfg.LastProjectRoot = req.ProjectRoot
+			if err := globalCfg.SaveGlobal(); err != nil {
+				fmt.Printf("Failed to save global config: %v\n", err)
+			}
+		}
 	}
 
 	// Handle skills_dir update

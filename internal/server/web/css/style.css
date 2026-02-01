@@ -578,7 +578,16 @@ input:checked+.slider:before {
 .table-container {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  overflow-x: auto;
 }
+
+.url-cell {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
 th {
   background-color: var(--bg-secondary);
@@ -1373,3 +1382,18 @@ a:hover {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+/* Animation for refresh icons */
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spin-anim { animation: spin 1s linear infinite; }
+
+/* App-like selection behavior */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea, p, h1, h2, h3, h4, h5, h6, table, .selectable, .code-block {
+  -webkit-user-select: text;
+  user-select: text;
+}
+

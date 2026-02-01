@@ -95,3 +95,105 @@ func TestParseBrowserURL(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRepoURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantOwner string
+		wantRepo  string
+		wantErr   bool
+	}{
+		{
+			name:      "simple owner/repo",
+			input:     "owner/repo",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "https url",
+			input:     "https://github.com/owner/repo",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "https url with .git",
+			input:     "https://github.com/owner/repo.git",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "git ssh url",
+			input:     "git@github.com:owner/repo.git",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "trailing slash",
+			input:     "https://github.com/owner/repo/",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "url with subpath",
+			input:     "https://github.com/owner/repo/tree/main",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "url with deep link",
+			input:     "https://github.com/owner/repo/blob/master/README.md",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "short format with subpath",
+			input:     "owner/repo/path/to/skill",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:      "whitespace",
+			input:     "  owner/repo  ",
+			wantOwner: "owner",
+			wantRepo:  "repo",
+			wantErr:   false,
+		},
+		{
+			name:    "invalid format",
+			input:   "repoonly",
+			wantErr: true,
+		},
+		{
+			name:    "invalid https",
+			input:   "https://google.com",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOwner, gotRepo, err := ParseRepoURL(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseRepoURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if gotOwner != tt.wantOwner {
+					t.Errorf("ParseRepoURL() owner = %v, want %v", gotOwner, tt.wantOwner)
+				}
+				if gotRepo != tt.wantRepo {
+					t.Errorf("ParseRepoURL() repo = %v, want %v", gotRepo, tt.wantRepo)
+				}
+			}
+		})
+	}
+}

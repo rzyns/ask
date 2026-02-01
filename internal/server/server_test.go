@@ -9,7 +9,7 @@ import (
 
 func TestNew(t *testing.T) {
 	port := 8080
-	s := New(port)
+	s := New(port, "test-version")
 	if s == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -19,7 +19,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestServer_StartStop(t *testing.T) {
-	s := New(0) // 0 to pick a random available port
+	s := New(0, "test-version") // 0 to pick a random available port
 
 	// Start server in a goroutine
 	go func() {

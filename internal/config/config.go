@@ -77,12 +77,13 @@ type SkillInfo struct {
 
 // Config represents the structure of ask.yaml
 type Config struct {
-	Version     string       `yaml:"version"`
-	SkillsDir   string       `yaml:"skills_dir,omitempty"`   // Skills installation directory (default: .agent/skills)
-	ToolTargets []ToolTarget `yaml:"tool_targets,omitempty"` // Target AI tools for skill installation
-	Skills      []string     `yaml:"skills,omitempty"`       // Legacy: simple list of skill names
-	SkillsInfo  []SkillInfo  `yaml:"skills_info,omitempty"`  // New: skills with metadata
-	Repos       []Repo       `yaml:"repos,omitempty"`
+	Version         string       `yaml:"version"`
+	SkillsDir       string       `yaml:"skills_dir,omitempty"`   // Skills installation directory (default: .agent/skills)
+	ToolTargets     []ToolTarget `yaml:"tool_targets,omitempty"` // Target AI tools for skill installation
+	Skills          []string     `yaml:"skills,omitempty"`       // Legacy: simple list of skill names
+	SkillsInfo      []SkillInfo  `yaml:"skills_info,omitempty"`  // New: skills with metadata
+	Repos           []Repo       `yaml:"repos,omitempty"`
+	LastProjectRoot string       `yaml:"last_project_root,omitempty"` // Last used project root (global only)
 }
 
 // DefaultSkillsDir is the default directory to install skills

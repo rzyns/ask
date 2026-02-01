@@ -15,8 +15,10 @@ let state = {
     skillTab: 'installed', // installed | available
     settings: {
         theme: localStorage.getItem('ask-theme') || 'dark',
-        language: localStorage.getItem('ask-lang') || 'en'
-    }
+        language: localStorage.getItem('ask-lang') || 'en',
+        refreshInterval: parseInt(localStorage.getItem('ask-refresh-interval') || '300000') // Default 5 min
+    },
+    autoRefreshTimer: null
 };
 
 // Translations
@@ -47,6 +49,7 @@ const translations = {
         settings_desc: "Configure web interface preferences.",
         setting_theme: "Theme",
         setting_language: "Language",
+        setting_refresh_interval: "Auto-Refresh Interval",
         modal_add_repo_title: "Add Repository",
         modal_repo_label: "Repository URL or Owner/Repo",
         btn_cancel: "Cancel",
@@ -84,6 +87,7 @@ const translations = {
         settings_desc: "配置 Web 界面偏好。",
         setting_theme: "主题",
         setting_language: "语言",
+        setting_refresh_interval: "自动刷新间隔",
         modal_add_repo_title: "添加仓库",
         modal_repo_label: "仓库地址 (URL 或 Owner/Repo)",
         btn_cancel: "取消",
@@ -205,35 +209,7 @@ async function saveProjectRoot() {
     }
 }
 
-// Save Skills Directory
-async function saveSkillsDir() {
-    const input = document.getElementById('system-skills-dir');
-    if (!input) return;
 
-    const newDir = input.value.trim();
-    if (!newDir) {
-        showToast('Directory path cannot be empty', 'error');
-        return;
-    }
-
-    try {
-        const res = await fetch('/api/config/update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ skills_dir: newDir })
-        });
-
-        if (res.ok) {
-            showToast('Skills directory updated successfully');
-            await fetchConfig(); // Reload config
-        } else {
-            showToast('Failed to update directory', 'error');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error saving settings', 'error');
-    }
-}
 
 async function fetchConfig() {
     try {
@@ -250,11 +226,7 @@ async function fetchConfig() {
             sysRootEl.value = state.config.project_root || '';
         }
 
-        const sysDirEl = document.getElementById('system-skills-dir');
-        if (sysDirEl) {
-            // Hide skills dir as per user request
-            sysDirEl.closest('.settings-row').style.display = 'none';
-        }
+
 
         // Render agents if we are in settings view or just ready for it
         if (state.view === 'settings') renderAgentSettings();
@@ -393,32 +365,64 @@ function renderFilters() {
 
     if (!agentSelect || !repoSelect) return;
 
-    // Collect unique agents and repos
+    // Collect unique agents
     const agents = new Set();
+    // Repos: use configured repos + any seen in skills
     const repos = new Set();
+
+    // Normalization Map: "owner/repo" -> "Configured Name"
+    const repoAliasMap = new Map();
+
+    if (state.repos) {
+        state.repos.forEach(r => {
+            repos.add(r.name);
+
+            // Map the name itself
+            repoAliasMap.set(r.name.toLowerCase(), r.name);
+
+            // Map the URL derivatives
+            if (r.url) {
+                let url = r.url.toLowerCase();
+                // strip https://github.com/
+                url = url.replace('https://github.com/', '').replace('http://github.com/', '');
+                // strip .git
+                url = url.replace(/\.git$/, '');
+                // strip trailing slash
+                url = url.replace(/\/$/, '');
+
+                repoAliasMap.set(url, r.name);
+            }
+        });
+    }
 
     if (state.skills) {
         state.skills.forEach(skill => {
             if (skill.agents) skill.agents.forEach(a => agents.add(a));
-            if (skill.repo) repos.add(skill.repo);
+
+            if (skill.repo) {
+                let rName = skill.repo;
+                // Try to normalize
+                const lower = rName.toLowerCase();
+                if (repoAliasMap.has(lower)) {
+                    rName = repoAliasMap.get(lower);
+                    // Update the skill object itself for consistency in list view filtering too
+                    skill.repo = rName;
+                }
+                repos.add(rName);
+            }
         });
     }
 
-    // Show/Hide filters if we have content
+    // Show/Hide filters
     const filtersDiv = document.getElementById('skill-filters');
     if (filtersDiv) {
-        if (agents.size > 0 || repos.size > 0) {
-            filtersDiv.style.display = 'flex';
-        } else {
-            filtersDiv.style.display = 'none';
-        }
+        filtersDiv.style.display = 'flex';
     }
 
     // Populate Agents
     const currentAgent = agentSelect.value;
     agentSelect.innerHTML = '<option value="">All Agents</option>';
 
-    // Use agents derived from actual skills (reverted to behavior of showing only relevant agents)
     Array.from(agents).sort().forEach(agent => {
         const opt = document.createElement('option');
         opt.value = agent;
@@ -427,9 +431,7 @@ function renderFilters() {
     });
 
     agentSelect.value = currentAgent;
-
-    if (agents.size > 0) agentSelect.style.display = 'block';
-    else agentSelect.style.display = 'none';
+    agentSelect.style.display = agents.size > 0 ? 'block' : 'none';
 
     // Populate Repos
     const currentRepo = repoSelect.value;
@@ -441,14 +443,21 @@ function renderFilters() {
         repoSelect.appendChild(opt);
     });
     repoSelect.value = currentRepo;
-    if (repos.size > 0) repoSelect.style.display = 'block';
-    else repoSelect.style.display = 'none';
+    repoSelect.style.display = repos.size > 0 ? 'block' : 'none';
 }
 
+// ... existing applyFilters ...
 function applyFilters() {
     const agentFilter = document.getElementById('filter-agent') ? document.getElementById('filter-agent').value : '';
     const repoFilter = document.getElementById('filter-repo') ? document.getElementById('filter-repo').value : '';
     const query = state.searchQuery.toLowerCase();
+
+    if (state.skillTab === 'available') {
+        const searchInput = document.getElementById('skill-search');
+        const q = searchInput ? searchInput.value : '';
+        searchSkills(q, repoFilter); // This handles API call
+        return;
+    }
 
     let filtered = state.skills || [];
 
@@ -471,6 +480,43 @@ function applyFilters() {
     renderSkillsList(filtered);
 }
 
+// ... existing code ...
+
+async function viewRepoSkills(repoName) {
+    if (!repoName) return;
+
+    // Manual navigation to avoid default 'Installed' tab reset in navigate('skills')
+    state.view = 'skills';
+    state.skillTab = 'available';
+    localStorage.setItem('ask-current-view', 'skills');
+
+    // Update Nav UI
+    navItems.forEach(el => {
+        const itemDataset = el.dataset.view || el.closest('.nav-item').dataset.view;
+        if (itemDataset === 'skills') {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+
+    render(); // Shows view-skills
+    updateTabs(); // Highlights 'Available' tab
+
+    // Populate filters (using state.repos)
+    renderFilters();
+
+    // Set filter and search
+    // We set the value BEFORE search so UI looks correct, but wait, searchSkills call will do the work.
+    const repoSelect = document.getElementById('filter-repo');
+    if (repoSelect) repoSelect.value = repoName;
+
+    const searchInput = document.getElementById('skill-search');
+    if (searchInput) searchInput.value = '';
+
+    await searchSkills('', repoName);
+}
+
 function refreshSkills() {
     // If in available tab, search again with current query
     if (state.skillTab === 'available') {
@@ -482,8 +528,8 @@ function refreshSkills() {
     }
 }
 
-async function searchSkills(query) {
-    if (state.skillTab !== 'available' && query) {
+async function searchSkills(query, repoFilter = '') {
+    if (state.skillTab !== 'available' && (query || repoFilter)) {
         // Switch to available if searching
         switchSkillTab('available', false);
     }
@@ -493,7 +539,12 @@ async function searchSkills(query) {
 
     // If query is empty and we are in available tab, this will trigger default search
     try {
-        const res = await fetch(`/api/skills/search?q=${encodeURIComponent(query)}`);
+        let url = `/api/skills/search?q=${encodeURIComponent(query)}`;
+        if (repoFilter) {
+            url += `&repo=${encodeURIComponent(repoFilter)}`;
+        }
+
+        const res = await fetch(url);
         const results = await res.json();
         renderSearchResults(results);
     } catch (err) {
@@ -552,19 +603,79 @@ async function fetchRepos() {
     }
 }
 
-async function installSkill(name) {
-    if (!name) return;
-    showToast(`Installing ${name}...`, 'info');
+// Replaces direct installSkill with a modal opener
+async function openInstallModal(name) {
+    // Ensure we have config to list agents
+    if (!state.config || !state.config.tool_targets) {
+        await fetchConfig();
+    }
+
+    const nameInput = document.getElementById('install-skill-name');
+    if (nameInput) nameInput.value = name || '';
+
+    const agentSelect = document.getElementById('install-skill-agent');
+    if (agentSelect) {
+        agentSelect.innerHTML = '';
+
+        let firstEnabled = null;
+        let defaultOption = document.createElement('option');
+        defaultOption.value = "";
+        defaultOption.textContent = "Default (Auto Detect)";
+        agentSelect.appendChild(defaultOption);
+
+        if (state.config.tool_targets) {
+            state.config.tool_targets.forEach(agent => {
+                if (agent.enabled) { // Only show enabled agents
+                    const opt = document.createElement('option');
+                    opt.value = agent.name;
+                    // Show path hint if available? agent.skills_dir
+                    const pathHint = agent.skills_dir ? ` (${agent.skills_dir})` : '';
+                    opt.textContent = `${agent.name}${pathHint}`;
+                    agentSelect.appendChild(opt);
+
+                    if (!firstEnabled) firstEnabled = agent.name;
+                }
+            });
+
+            // Default option "" is already selected by default (first option)
+        }
+    }
+
+    openModal('install-skill-modal');
+}
+
+async function performInstall() {
+    const nameInput = document.getElementById('install-skill-name');
+    const agentSelect = document.getElementById('install-skill-agent');
+
+    const name = nameInput ? nameInput.value : '';
+    const agent = agentSelect ? agentSelect.value : '';
+
+    if (!name) {
+        showToast('Please enter a skill name', 'error');
+        return;
+    }
+
+    // Close modal immediately or wait? BETTER to close, show toast.
+    closeModal('install-skill-modal');
+
+    // Legacy `installSkill` logic adapted
+    showToast(`Installing ${name}${agent ? ' to ' + agent : ''}...`, 'info');
     try {
+        const body = { name };
+        if (agent) body.agent = agent;
+
         const res = await fetch('/api/skills/install', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
+            body: JSON.stringify(body)
         });
         const data = await res.json();
         if (data.status === 'success') {
             showToast('Skill installed successfully', 'success');
             navigate('skills');
+            // Force refresh of installed skills
+            fetchSkills();
         } else {
             throw new Error(data.error);
         }
@@ -572,6 +683,12 @@ async function installSkill(name) {
         showToast(err.message || 'Installation failed', 'error');
     }
 }
+
+// Kept as alias if needed, but redirects to openInstallModal for consistency
+// Or if called programmatically without UI, it might fail? 
+// The UI buttons now call openInstallModal or performInstall.
+// Renaming old installSkill to openInstallModal where used.
+
 
 async function uninstallSkill(name) {
     const confirmed = await showConfirm(
@@ -645,12 +762,23 @@ async function removeRepo(name) {
 }
 
 async function syncRepos() {
-    showToast('Syncing repositories...', 'info');
+    // Legacy sync all
+    syncRepo('');
+}
+
+async function syncRepo(name) {
+    const label = name ? name : 'all repositories';
+    showToast(`Syncing ${label}...`, 'info');
     try {
-        const res = await fetch('/api/repos/sync', { method: 'POST' });
+        const body = name ? { name: name } : {};
+        const res = await fetch('/api/repos/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
         const data = await res.json();
         if (data.status === 'success') {
-            showToast('Repositories synced', 'success');
+            showToast(`${label} synced`, 'success');
             fetchRepos();
         } else {
             throw new Error(data.error);
@@ -883,10 +1011,10 @@ function renderSearchResults(results) {
         </div>
       </div>
       <div class="skill-description">${item.description || ''}</div>
-      <div class="skill-actions">
+        <div class="skill-actions">
         ${isInstalled ?
                 `<button class="btn btn-secondary" disabled>Installed</button>` :
-                `<button class="btn btn-primary" onclick="installSkill('${item.full_name}')">Install</button>`
+                `<button class="btn btn-primary" onclick="openInstallModal('${item.full_name}')">Install</button>`
             }
         <a href="${item.url}" target="_blank" class="btn btn-secondary">View</a>
       </div>
@@ -930,16 +1058,45 @@ function renderReposList() {
             <strong>${repo.name}</strong>
         </div>
       </td>
-      <td>${repo.url}</td>
+      <td class="url-cell">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+            <a href="${repo.url.startsWith('http') ? repo.url : 'https://github.com/' + repo.url}" target="_blank" class="repo-link" title="${repo.url}">
+                ${repo.url} ↗
+            </a>
+        </div>
+      </td>
       <td>${repo.stars !== undefined ? repo.stars : '-'}</td>
       <td>
-        <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
-                onclick="removeRepo('${repo.name}')">Remove</button>
+        <div class="repo-actions" style="display:flex; gap:0.5rem;">
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
+                    onclick="syncRepo('${repo.name}')" title="Sync this repository">Sync</button>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
+                    onclick="viewRepoSkills('${repo.name}')" title="View skills in this repository">Skills</button>
+            <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
+                    onclick="removeRepo('${repo.name}')" title="Remove repository">Remove</button>
+        </div>
       </td>
     `;
         tbody.appendChild(tr);
     });
 }
+
+async function viewRepoSkills(repoName) {
+    if (!repoName) return;
+    navigate('skills');
+
+    // Switch to Available tab which uses search
+    // We pass repoName as filter
+    state.skillTab = 'available';
+    updateTabs();
+
+    const searchInput = document.getElementById('skill-search');
+    if (searchInput) searchInput.value = ''; // Clear text search
+
+    await searchSkills('', repoName);
+}
+
+// ... syncRepos function update below ...
 
 // Settings Actions
 async function clearCache() {
@@ -1061,13 +1218,7 @@ function toggleView(mode, skipRender = false) {
         }
     }
 
-    if (!skipRender && state.view === 'skills') {
-        renderSkillsList(state.skills);
-        // Note: if searching, this might reset to all skills if we don't track search results separately.
-        // Ideally we should re-render whatever is current. 
-        // Simplification: if in search, we might need to re-run renderSearchResults or keep track of current list.
-        // For now, let's just assume standard list re-render is fine or we can just toggle class without full re-render.
-
+    if (state.view === 'skills') {
         const container = document.getElementById('skills-list');
         if (container) {
             if (mode === 'list') container.classList.add('list-view');
@@ -1178,12 +1329,128 @@ document.addEventListener('DOMContentLoaded', () => {
     // Apply Language
     changeLanguage(state.settings.language);
 
+    // Initialize Refresh Interval UI
+    const refreshSelect = document.getElementById('refresh-interval-select');
+    if (refreshSelect) {
+        refreshSelect.value = state.settings.refreshInterval;
+    }
+    setupAutoRefresh();
+
     // Close modal on overlay click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                overlay.classList.remove('active');
+                // Special handling for confirm modal to ensure promise resolves
+                if (overlay.id === 'confirm-modal') {
+                    closeConfirmModal(false);
+                } else {
+                    overlay.classList.remove('active');
+                }
             }
         });
     });
 });
+
+// Refresh Logic
+async function refreshDashboard() {
+    const btn = document.querySelector('#view-dashboard button[title*="Refresh"] svg');
+    if (btn) btn.classList.add('spin-anim'); // Add simple CSS animation if defined, or just use visual cues
+
+    await Promise.all([
+        fetchStats(),
+        // fetchSkills() // fetchStats updates stats, skills list is loaded by fetchSkills.
+        // Although fetchStats doesn't return recent skills. fetchSkills does. 
+        // renderDashboard calls fetchSkills internally? No. 
+        // renderDashboard uses data from state.stats. 
+        // We might want to re-fetch recent skills specifically?
+        // Let's just re-fetch config and stats.
+        fetchConfig()
+    ]);
+
+    // Recent skills are populated by fetchSkills() usually? 
+    // Actually renderDashboard logic: 
+    // It calls `displayRecentSkills(state.skills)` 
+    // So we need to update state.skills.
+    await fetchSkills();
+
+    if (btn) setTimeout(() => btn.classList.remove('spin-anim'), 500);
+    showToast('Dashboard Refreshed', 'success');
+}
+
+async function refreshRepos() {
+    const btn = document.querySelector('#view-repos button[title*="Refresh"] svg');
+    if (btn) btn.classList.add('spin-anim');
+    await fetchRepos(); // This should re-read config/cache
+    // Also re-render list
+    renderReposList();
+    if (btn) setTimeout(() => btn.classList.remove('spin-anim'), 500);
+    showToast('Repositories Refreshed', 'success');
+}
+
+async function refreshAgents() {
+    const btn = document.querySelector('#view-agents button[title*="Refresh"] svg');
+    if (btn) btn.classList.add('spin-anim');
+    await fetchConfig();
+    renderAgentSettings();
+    if (btn) setTimeout(() => btn.classList.remove('spin-anim'), 500);
+    showToast('Agents Refreshed', 'success');
+}
+
+// Reuse existing refreshSkills but add toast
+const originalRefreshSkills = window.refreshSkills || null;
+// Wait, refreshSkills is already defined in app.js? (Searched for it, saw it in button onclick).
+// It was likely defined as: function refreshSkills() { fetchSkills(); }
+// I should verify. I'll define it or overwrite it if needed.
+// Actually, I don't see `refreshSkills` function definition in my `view_file` output (lines 1150-1342).
+// It must be earlier.
+// I'll make sure it's available or redefine it properly.
+
+window.refreshSkills = async function () {
+    const btn = document.querySelector('#refresh-btn svg');
+    if (btn) btn.classList.add('spin-anim');
+    await fetchSkills();
+    if (btn) setTimeout(() => btn.classList.remove('spin-anim'), 500);
+    showToast('Skills Refreshed', 'success');
+};
+
+
+function changeRefreshInterval(val) {
+    const interval = parseInt(val);
+    state.settings.refreshInterval = interval;
+    localStorage.setItem('ask-refresh-interval', interval);
+    setupAutoRefresh();
+    showToast(`Auto-Refresh set to ${interval ? (interval / 60000) + 'm' : 'Off'}`);
+}
+
+function setupAutoRefresh() {
+    if (state.autoRefreshTimer) {
+        clearInterval(state.autoRefreshTimer);
+        state.autoRefreshTimer = null;
+    }
+
+    if (state.settings.refreshInterval > 0) {
+        state.autoRefreshTimer = setInterval(() => {
+            // Refresh based on active view
+            switch (state.view) {
+                case 'dashboard':
+                    refreshDashboard(); // This is silent refresh (maybe suppress toast?)
+                    // modify manual refresh to show toast, auto maybe not?
+                    // For now let it show toast or suppress it. The user didn't specify.
+                    // Usually auto-refresh is silent.
+                    break;
+                case 'skills':
+                    fetchSkills();
+                    break;
+                case 'repos':
+                    fetchRepos();
+                    renderReposList();
+                    break;
+                case 'agents':
+                    fetchConfig();
+                    renderAgentSettings();
+                    break;
+            }
+        }, state.settings.refreshInterval);
+    }
+}
+

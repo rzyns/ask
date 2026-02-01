@@ -1,6 +1,7 @@
 package github
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -41,4 +42,45 @@ func ParseBrowserURL(url string) (repoURL, branch, subDir, skillName string, ok 
 	}
 
 	return repoURL, branch, subDir, skillName, true
+}
+
+// ParseRepoURL parses a GitHub repository URL to extract owner and repo name
+// Supports formats:
+// - owner/repo
+// - https://github.com/owner/repo
+// - https://github.com/owner/repo.git
+// - git@github.com:owner/repo.git
+func ParseRepoURL(url string) (owner, repo string, err error) {
+	url = strings.TrimSpace(url)
+	url = strings.TrimSuffix(url, "/")
+	url = strings.TrimSuffix(url, ".git")
+
+	// Handle git@github.com:owner/repo
+	if strings.HasPrefix(url, "git@") {
+		parts := strings.Split(url, ":")
+		if len(parts) != 2 {
+			return "", "", fmt.Errorf("invalid git url: %s", url)
+		}
+		url = parts[1]
+	}
+
+	// Handle https://github.com/owner/repo
+	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
+		// Just strip protocol and domain
+		parts := strings.Split(url, "github.com/")
+		if len(parts) == 2 {
+			url = parts[1]
+		} else {
+			// If we couldn't strip github.com from an http(s) URL, it's not a valid GitHub repo URL for us
+			return "", "", fmt.Errorf("invalid repo URL (must be github.com): %s", url)
+		}
+	}
+
+	// Split owner/repo
+	parts := strings.Split(url, "/")
+	if len(parts) >= 2 {
+		return parts[0], parts[1], nil
+	}
+
+	return "", "", fmt.Errorf("invalid repo format (expected owner/repo): %s", url)
 }
