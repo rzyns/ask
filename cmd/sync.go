@@ -92,9 +92,9 @@ If no repo name is specified, syncs all configured repositories.`,
 				successCount++
 
 				// Fetch star count from GitHub API
-				parts := strings.Split(repo.URL, "/")
-				if len(parts) >= 2 {
-					repoDetails, err := github.FetchRepoDetails(parts[0], parts[1])
+				owner, repo, err := github.ParseRepoURL(repo.URL)
+				if err == nil {
+					repoDetails, err := github.FetchRepoDetails(owner, repo)
 					if err == nil {
 						starCounts[repoName] = repoDetails.StargazersCount
 					}

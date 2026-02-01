@@ -62,7 +62,7 @@ func runServe(_ *cobra.Command, args []string) {
 		fmt.Printf("📂 Working directory changed to: %s\n", targetDir)
 	}
 
-	srv := server.New(servePort)
+	srv := server.New(servePort, Version)
 
 	// Setup graceful shutdown
 	done := make(chan bool, 1)

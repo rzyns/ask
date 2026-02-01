@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-02-01
+
+### Fixed
+- **Monorepo Support**: Fixed `ask repo sync` failing to retrieve star counts for repositories configured with subpaths (e.g., `owner/repo/path/to/skills`).
+- **URL Parsing**: Improved robustness of GitHub URL parsing for various formats.
+- **Build**: Fixed compilation error in `server` package initialization.
+- **Web UI**: Updated server initialization to include version information.
+
 ## [1.3.3] - 2026-01-30
 
 ### Fixed

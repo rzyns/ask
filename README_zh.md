@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/lbjlaq/Antigravity-Manager?style=flat-square&color=blue" alt="Release"></a>
+  <a href="https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.4.0"><img src="https://img.shields.io/github/v/release/lbjlaq/Antigravity-Manager?style=flat-square&color=blue" alt="Release"></a>
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
@@ -97,10 +97,11 @@ brew install --cask yeasy/tap/ask-desktop  # 桌面应用 (仅 macOS)
 git clone https://github.com/yeasy/ask.git
 cd ask
 make build && mv ask /usr/local/bin/
+make build-desktop # 构建桌面应用
 ```
 
 **二进制 / 手动安装 (Windows / Linux):**
-请前往 [Releases](https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3) 页面下载对应系统的预编译二进制文件。
+请前往 [Releases](https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.4.0) 页面下载对应系统的预编译二进制文件。
 
 
 

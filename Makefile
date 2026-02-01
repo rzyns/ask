@@ -5,6 +5,17 @@ all: test build
 build:
 	go build -o $(BINARY_NAME) main.go
 
+build-desktop: check-wails
+	@echo "Building desktop application..."
+	wails build
+
+install-wails:
+	@echo "Installing Wails..."
+	go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+check-wails:
+	@which wails > /dev/null || (echo "Wails not found. Please run 'make install-wails'" && exit 1)
+
 test:
 	go test -v ./...
 

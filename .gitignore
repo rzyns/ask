@@ -41,3 +41,9 @@ SPEC.md
 # Wails build directory
 build/
 frontend/dist/
+
+# Logs
+*.log
+ask.log
+server.log
+server_debug.log

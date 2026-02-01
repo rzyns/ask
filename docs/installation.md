@@ -75,20 +75,79 @@ Expand-Archive -Path "ask.zip" -DestinationPath "C:\tools\ask"
 
 ## Build from Source
 
-If you have Go 1.24+ installed:
+### Prerequisites
+
+- **Go**: Version 1.24 or higher.
+- **Wails**: Required for building the desktop application.
+- **Node.js**: Required for building the frontend components.
+
+### 1. Build CLI Tool
+
+To build the command-line interface (CLI) tool:
 
 ```bash
+# Clone the repository
 git clone https://github.com/yeasy/ask.git
 cd ask
+
+# Install dependencies and build
 make build
+
+# Move binary to path (macOS/Linux)
 sudo mv ask /usr/local/bin/
 ```
 
-Or using `go install`:
+Or install directly using `go install`:
 
 ```bash
 go install github.com/yeasy/ask@latest
 ```
+
+### 2. Build Desktop Application
+
+The desktop application is built using [Wails](https://wails.io).
+
+#### Step 1: Install Wails
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+```
+
+#### Step 2: Build App
+
+Run the following command in the project root:
+
+```bash
+make build-desktop
+```
+
+This will generate the application in the `build/bin/` directory.
+
+#### Platform Specifics
+
+**macOS:**
+- The output will be `build/bin/ask-desktop.app`.
+- If you encounter an "unidentified developer" warning, go to **System Settings > Privacy & Security** and allow the app to run.
+- To build a `.dmg` (requires `create-dmg`):
+  ```bash
+  wails build -platform darwin/universal
+  ```
+
+**Windows:**
+- The output will be `build/bin/ask-desktop.exe`.
+- Ensure you have the WebView2 runtime installed (standard on Windows 10/11).
+
+**Linux:**
+- The output will be `build/bin/ask-desktop`.
+- You may need to install GTK3 and WebKit2GTK development headers:
+  ```bash
+  # Debian/Ubuntu
+  sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev
+  
+  # Fedora
+  sudo dnf install gtk3-devel webkit2gtk3-devel
+  ```
+
 
 ---
 

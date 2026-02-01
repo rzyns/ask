@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/lbjlaq/Antigravity-Manager?style=flat-square&color=blue" alt="Release"></a>
+  <a href="https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.4.0"><img src="https://img.shields.io/github/v/release/lbjlaq/Antigravity-Manager?style=flat-square&color=blue" alt="Release"></a>
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
   <a href="https://goreportcard.com/report/github.com/yeasy/ask"><img src="https://goreportcard.com/badge/github.com/yeasy/ask?style=flat-square" alt="Go Report Card"></a>
@@ -99,7 +99,7 @@ go install github.com/yeasy/ask@latest
 ```
 
 **Binary / Manual Install (Windows / Linux / Desktop):**
-Download the latest pre-compiled binary or Desktop App for your system from [Releases](https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.3.3).
+Download the latest pre-compiled binary or Desktop App for your system from [Releases](https://github.com/lbjlaq/Antigravity-Manager/releases/tag/v1.4.0).
 
 
 ### 2. Initialize
