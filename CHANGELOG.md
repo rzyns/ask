@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1] - 2026-02-02
+
+### Fixed
+- **Documentation**: Fixed incorrect release badge and download links in README.md and README_zh.md (was pointing to wrong repository).
+- **CI**: Fixed Codecov upload condition in test.yml (go-version 1.22 → 1.24).
+- **Documentation**: Fixed malformed YAML frontmatter example in SPEC.md.
+
 ## [1.4.0] - 2026-02-01
 
 ### Fixed
@@ -236,7 +243,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration file support (`ask.yaml`)
 - Default repositories: Community, Anthropic, MCP-Servers, Scientific, Superpowers
 
-[Unreleased]: https://github.com/yeasy/ask/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/yeasy/ask/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/yeasy/ask/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/yeasy/ask/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/yeasy/ask/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/yeasy/ask/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/yeasy/ask/compare/v1.1.3...v1.3.1
