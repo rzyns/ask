@@ -339,15 +339,38 @@ func Install(input string, opts InstallOptions) error {
 	var skillDescription string
 	if skill.FindSkillMD(tempSkillPath) {
 		meta, err := skill.ParseSkillMD(tempSkillPath)
-		if err == nil && meta != nil && meta.Description != "" {
-			skillDescription = meta.Description
+		if err == nil && meta != nil {
+			if meta.Description != "" {
+				skillDescription = meta.Description
+			}
+			// If SKILL.md defines a name, use it as the directory name
+			// This is important for root-level skills where the repo name might differ
+			if meta.Name != "" {
+				// Sanitize name to be safe file path
+				safeName := strings.ReplaceAll(meta.Name, "/", "-")
+				safeName = strings.ReplaceAll(safeName, "\\", "-")
+				safeName = strings.ReplaceAll(safeName, " ", "-")
+				if safeName != "" {
+					skillName = safeName
+				}
+			}
 		}
 	}
 	if skillDescription == "" {
 		skillDescription = "Skill installed from " + originalInput
 	}
 
-	// Validating skill.md name matches (optional, but good practice)
+	// Environment setup
+	// Check for .env.example and create .env if it doesn't exist
+	envExamplePath := filepath.Join(tempSkillPath, ".env.example")
+	envPath := filepath.Join(tempSkillPath, ".env")
+	if _, err := os.Stat(envExamplePath); err == nil {
+		if _, err := os.Stat(envPath); os.IsNotExist(err) {
+			if err := filesystem.CopyFile(envExamplePath, envPath); err == nil {
+				fmt.Printf("Created .env from .env.example\n")
+			}
+		}
+	}
 
 	// Central storage
 	centralDir := config.DefaultSkillsDir

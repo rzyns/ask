@@ -89,7 +89,48 @@ func ScanSkills(baseDir, subPath, owner, repoName string) ([]github.Repository, 
 		baseSearchPath = filepath.Join(baseDir, subPath)
 	}
 
-	// Helper function for recursion
+	// Helper to create a repository entry from a skill path
+	createSkillRepo := func(fullPath string) (github.Repository, bool) {
+		if !skill.FindSkillMD(fullPath) {
+			return github.Repository{}, false
+		}
+
+		var desc string
+		if meta, err := skill.ParseSkillMD(fullPath); err == nil && meta != nil {
+			desc = meta.Description
+		}
+
+		// Rel path from baseDir (root of repo)
+		relPathFromRoot, _ := filepath.Rel(baseDir, fullPath)
+		if relPathFromRoot == "." {
+			relPathFromRoot = ""
+		}
+
+		installArg := fmt.Sprintf("%s/%s", owner, repoName)
+		if relPathFromRoot != "" {
+			installArg = fmt.Sprintf("%s/%s/%s", owner, repoName, relPathFromRoot)
+		}
+
+		// Skill name is the directory name
+		name := filepath.Base(fullPath)
+		// If base path is root, name might be repoName
+		if fullPath == baseDir {
+			name = repoName
+		}
+
+		return github.Repository{
+			Name:        name,
+			Description: desc,
+			HTMLURL:     installArg,
+		}, true
+	}
+
+	// 1. Check if the root search path itself is a skill
+	if repo, ok := createSkillRepo(baseSearchPath); ok {
+		return []github.Repository{repo}, nil
+	}
+
+	// 2. If not, scan subdirectories recursively
 	var findSkillsRecursive func(currentPath string, depth int) ([]github.Repository, error)
 	findSkillsRecursive = func(currentPath string, depth int) ([]github.Repository, error) {
 		if depth > 2 { // Max recursion depth
@@ -102,13 +143,6 @@ func ScanSkills(baseDir, subPath, owner, repoName string) ([]github.Repository, 
 		}
 
 		var foundSkills []github.Repository
-
-		// First checks: is this directory ITSELF a skill?
-		// Note: The original logic looked for SKILL.md inside subdirectories of the distinct path.
-		// Use standard approach:
-		// 1. If currentPath has SKILL.md, it IS a skill (unless it's the root repo dir? maybe allowed).
-		// 2. Iterate entries. If entry is dir, check if it's a skill.
-		// Actually, let's look at how FindSkillMD works. It checks for SKILL.md in the given path.
 
 		for _, entry := range entries {
 			if !entry.IsDir() {
@@ -124,30 +158,10 @@ func ScanSkills(baseDir, subPath, owner, repoName string) ([]github.Repository, 
 
 			fullPath := filepath.Join(currentPath, entry.Name())
 
-			if skill.FindSkillMD(fullPath) {
-				// Found a skill!
-				var desc string
-				if meta, err := skill.ParseSkillMD(fullPath); err == nil && meta != nil {
-					desc = meta.Description
-				}
-
-				// Calculate relative path from the base search path (subPath) to this skill
-				// installArg should be: owner/repo/subPath/relPathToSkill
-				// If subPath was empty, it's owner/repo/relPathToSkill
-
-				// Rel path from baseDir (root of repo)
-				relPathFromRoot, _ := filepath.Rel(baseDir, fullPath)
-
-				installArg := fmt.Sprintf("%s/%s/%s", owner, repoName, relPathFromRoot)
-
-				foundSkills = append(foundSkills, github.Repository{
-					Name:        entry.Name(),
-					Description: desc,
-					HTMLURL:     installArg,
-				})
+			if repo, ok := createSkillRepo(fullPath); ok {
+				foundSkills = append(foundSkills, repo)
 			} else {
 				// Not a skill, recurse if depth allows
-				// E.g. .curated -> recurse to find skills inside
 				nestedSkills, err := findSkillsRecursive(fullPath, depth+1)
 				if err == nil {
 					foundSkills = append(foundSkills, nestedSkills...)
