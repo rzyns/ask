@@ -119,6 +119,9 @@ ask search mcp
 ask install anthropics/mcp-builder
 ask install superpowers
 
+# Install a skill from a root-level repository
+ask install op7418/Youtube-clipper-skill
+
 # Install specific version
 ask install mcp-builder@v1.0.0
 

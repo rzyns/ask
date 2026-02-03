@@ -121,6 +121,9 @@ ask search mcp
 ask install anthropics/mcp-builder
 ask add superpowers
 
+# 安装根目录类型的 Skill (如 Youtube Clipper)
+ask install op7418/Youtube-clipper-skill
+
 # 安装指定版本
 ask install mcp-builder@v1.0.0
 
