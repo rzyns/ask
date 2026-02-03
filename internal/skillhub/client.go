@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/yeasy/ask/internal/config"
 )
 
 // SearchURL is the endpoint for quick search
@@ -55,6 +57,10 @@ func (c *Client) Search(query string) ([]Skill, error) {
 		query = "agent" // default search term if none provided?
 	}
 
+	if config.OfflineMode {
+		return nil, fmt.Errorf("search is not available in offline mode")
+	}
+
 	u, err := url.Parse(SearchURL)
 	if err != nil {
 		return nil, err
@@ -84,6 +90,9 @@ func (c *Client) Search(query string) ([]Skill, error) {
 
 // Resolve fetches the GitHub URL for a given skill slug
 func (c *Client) Resolve(slug string) (string, error) {
+	if config.OfflineMode {
+		return "", fmt.Errorf("skill resolution is not available in offline mode")
+	}
 	skillURL := fmt.Sprintf("https://www.skillhub.club/skills/%s", slug)
 	resp, err := c.HTTPClient.Get(skillURL)
 	if err != nil {

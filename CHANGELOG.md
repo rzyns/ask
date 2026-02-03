@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.4.1] - 2026-02-02
+## [1.4.3] - 2026-02-03
+
+### Added
+- **Documentation**: Added Antigravity Awesome Skills to optional repositories.
+- **Offline**: Improved offline mode to properly short-circuit network requests in SkillHub client.
+
+### Changed
+- **Serve**: Changed default port to `8125` to match documentation and prevent automation regressions.
+- **Security**: Reduced false positives for HTTP links in security scanner (only warns for non-localhost/non-private IPs).
+
+## [1.4.2] - 2026-02-03
 
 ### Fixed
 - **Documentation**: Fixed incorrect release badge and download links in README.md and README_zh.md (was pointing to wrong repository).

@@ -132,8 +132,9 @@ var defaultRules = []Rule{
 		ID:          "NET-HTTP",
 		Description: "Insecure HTTP URL detected",
 		Severity:    SeverityInfo,
-		Regex:       regexp.MustCompile(`http://[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}`),
-		Entropy:     0,
+		// Exclude common license and harmless URLs to reduce noise (filtered in scanFile)
+		Regex:   regexp.MustCompile(`http://[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}`),
+		Entropy: 0,
 	},
 	{
 		ID:          "NET-IP-ADDR",
@@ -261,6 +262,25 @@ func scanFile(path, rootPath string) ([]Finding, error) {
 					entropy := CalculateEntropy(checkStr)
 					if entropy < rule.Entropy {
 						continue // Skip low entropy matches
+					}
+				}
+
+				// Special handling for NET-HTTP rule to implement exclusions (since Go regex doesn't support lookarounds)
+				if rule.ID == "NET-HTTP" {
+					lowerMatch := strings.ToLower(fullMatch)
+					// domains to exclude
+					exclusions := []string{
+						"apache.org", "creativecommons.org", "opensource.org", "github.com", "w3.org",
+					}
+					excluded := false
+					for _, domain := range exclusions {
+						if strings.Contains(lowerMatch, domain) {
+							excluded = true
+							break
+						}
+					}
+					if excluded || strings.Contains(lowerMatch, "license") {
+						continue
 					}
 				}
 

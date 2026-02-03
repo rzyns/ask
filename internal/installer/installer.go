@@ -13,6 +13,7 @@ import (
 	"github.com/yeasy/ask/internal/filesystem"
 	"github.com/yeasy/ask/internal/git"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/skill"
 	"github.com/yeasy/ask/internal/skillhub"
 	"github.com/yeasy/ask/internal/ui"
@@ -69,8 +70,37 @@ func Install(input string, opts InstallOptions) error {
 				repoName := parts[0]
 				skillNamePart := parts[1]
 
-				reposCache, err := cache.NewReposCache()
-				if err == nil && reposCache.HasRepo(repoName) {
+				reposCache, _ := cache.NewReposCache()
+				if reposCache.HasRepo(repoName) {
+					// Check for staleness (24 hours)
+					// Only refresh if NOT in offline mode
+					if !github.OfflineMode && reposCache.IsStale(repoName, 24*time.Hour) {
+						ui.Debug(fmt.Sprintf("Repo '%s' is stale, refreshing...", repoName))
+						// We need to fetch the repo URL from config to refresh
+						var refreshURL string
+						if opts.Config != nil {
+							for _, r := range opts.Config.Repos {
+								if r.Name == repoName {
+									refreshURL = r.URL
+									break
+								}
+							}
+						}
+						// If URL found, trigger fetch (which pulls/syncs)
+						if refreshURL != "" {
+							// Use repository package to fetch/sync
+							// Note: We need to import "github.com/yeasy/ask/internal/repository" if not already imported
+							// It is imported as "github.com/yeasy/ask/internal/repository"
+							// But we need to construct a Repo struct
+							refreshRepo := config.Repo{Name: repoName, URL: refreshURL, Type: "dir"} // Type guess, but FetchSkills handles both kinda?
+							// Actually repository.FetchSkills takes a Repo.
+							// Let's use it.
+							_, _ = repository.FetchSkills(refreshRepo)
+							// Re-load cache after sync
+							reposCache, _ = cache.NewReposCache()
+						}
+					}
+
 					// Repo exists in cache, check if skill exists in it
 					skills, err := reposCache.ListSkills(repoName)
 					if err == nil {

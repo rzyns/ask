@@ -61,7 +61,7 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 }
 
 // Version is the current version of the application
-const Version = "1.4.2"
+const Version = "1.4.3"
 
 // Top-level aliases (Docker-style)
 var installRootCmd = &cobra.Command{
@@ -160,6 +160,7 @@ func initConfig() {
 	if vid := rootCmd.PersistentFlags().Lookup("offline"); vid != nil && vid.Changed {
 		if val, _ := rootCmd.PersistentFlags().GetBool("offline"); val {
 			github.SetOffline(true)
+			config.SetOffline(true)
 		}
 	}
 	if cfgFile != "" {

@@ -184,6 +184,7 @@ ASK 默认内置了以下受信源：
 | **NotebookLM** | `ask repo add PleasePrompto/notebooklm-skill` | 自动上传到NotebookLM |
 | **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | 流程图自动生成 |
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | 动态PPT生成 |
+| **Antigravity** | `ask repo add sickn33/antigravity-awesome-skills` | 600+ 个 Claude Code & Cursor 智能体技能合集 |
 
 
 ## 🏗️ 架构与布局

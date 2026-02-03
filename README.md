@@ -189,6 +189,7 @@ For specific needs, you can add these additional sources:
 | **NotebookLM** | `ask repo add PleasePrompto/notebooklm-skill` | Auto-upload to NotebookLM |
 | **AI DrawIO** | `ask repo add GBSOSS/ai-drawio` | Flowchart & diagram generation |
 | **PPT Skills** | `ask repo add op7418/NanoBanana-PPT-Skills` | Dynamic PPT generation |
+| **Antigravity** | `ask repo add sickn33/antigravity-awesome-skills` | Collection of 600+ skills for Claude Code & Cursor |
 
 
 ## 🏗️ Architecture & Layout

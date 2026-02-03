@@ -36,7 +36,7 @@ vet:
 	go vet ./...
 
 lint:
-	golangci-lint run
+	golangci-lint run ./...
 
 install:
 	go install

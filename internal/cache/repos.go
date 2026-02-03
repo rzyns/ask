@@ -61,6 +61,20 @@ func (c *ReposCache) HasRepo(repoName string) bool {
 	return err == nil
 }
 
+// IsStale checks if a repository's cache is older than the ttl
+func (c *ReposCache) IsStale(repoName string, ttl time.Duration) bool {
+	infos, err := c.LoadIndex()
+	if err != nil {
+		return true
+	}
+	for _, info := range infos {
+		if info.Name == repoName {
+			return time.Since(info.LastSyncedAt) > ttl
+		}
+	}
+	return true
+}
+
 // CloneOrPull clones a repo if not exists, or pulls if exists
 func (c *ReposCache) CloneOrPull(repoURL, repoName string) error {
 	repoPath := filepath.Join(c.baseDir, sanitizeRepoName(repoName))

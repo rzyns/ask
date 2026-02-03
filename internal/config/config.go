@@ -9,6 +9,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// OfflineMode indicates if the application is running in offline mode
+var OfflineMode bool
+
+// SetOffline sets the offline mode
+func SetOffline(offline bool) {
+	OfflineMode = offline
+}
+
 // Repo represents a skill repository
 type Repo struct {
 	Name string `yaml:"name"`
@@ -36,30 +44,33 @@ func DefaultToolTargets() []ToolTarget {
 	// Add DETECTED agents only, not all possible ones.
 	// This prevents showing clutter like "clawdbot" when not applicable.
 	// We use the current working directory to detect.
-	if cwd, err := os.Getwd(); err == nil {
 
-		// DetectExistingToolDirs returns ToolTarget structs created from DefaultToolTargets logic which was cyclical.
-		// We need a helper that creates targets from detected dirs WITHOUT calling DefaultToolTargets.
-		// Let's implement detection logic directly here or fix DetectExistingToolDirs.
+	if !OfflineMode {
+		if cwd, err := os.Getwd(); err == nil {
 
-		// Implementation of direct detection to avoid cycle:
-		for _, name := range GetSupportedAgentNames() {
-			if agentType, ok := ResolveAgentType(name); ok {
-				config := SupportedAgents[agentType]
-				// Check if project dir exists
-				// config.ProjectDir is like ".claude/skills"
-				// We check if ".claude" exists
-				agentRootDir := filepath.Dir(config.ProjectDir)
-				if agentRootDir == "." {
-					agentRootDir = config.ProjectDir
-				}
-				if _, err := os.Stat(filepath.Join(cwd, agentRootDir)); err == nil {
-					// Found!
-					targets = append(targets, ToolTarget{
-						Name:      name,
-						SkillsDir: config.ProjectDir,
-						Enabled:   true,
-					})
+			// DetectExistingToolDirs returns ToolTarget structs created from DefaultToolTargets logic which was cyclical.
+			// We need a helper that creates targets from detected dirs WITHOUT calling DefaultToolTargets.
+			// Let's implement detection logic directly here or fix DetectExistingToolDirs.
+
+			// Implementation of direct detection to avoid cycle:
+			for _, name := range GetSupportedAgentNames() {
+				if agentType, ok := ResolveAgentType(name); ok {
+					config := SupportedAgents[agentType]
+					// Check if project dir exists
+					// config.ProjectDir is like ".claude/skills"
+					// We check if ".claude" exists
+					agentRootDir := filepath.Dir(config.ProjectDir)
+					if agentRootDir == "." {
+						agentRootDir = config.ProjectDir
+					}
+					if _, err := os.Stat(filepath.Join(cwd, agentRootDir)); err == nil {
+						// Found!
+						targets = append(targets, ToolTarget{
+							Name:      name,
+							SkillsDir: config.ProjectDir,
+							Enabled:   true,
+						})
+					}
 				}
 			}
 		}

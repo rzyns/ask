@@ -111,6 +111,6 @@ func runServe(_ *cobra.Command, args []string) {
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	serveCmd.Flags().IntVarP(&servePort, "port", "p", 8080, "Port to run the server on")
+	serveCmd.Flags().IntVarP(&servePort, "port", "p", 8125, "Port to run the server on")
 	serveCmd.Flags().BoolVar(&noOpen, "no-open", false, "Don't open browser automatically")
 }
