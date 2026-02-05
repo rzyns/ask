@@ -279,6 +279,25 @@ Time-based caching for search results.
 - **Key**: Search query hash
 - **Invalidation**: Time-based expiry
 
+#### Server (`internal/server/`)
+
+Embedded HTTP server for the Web UI and Desktop application.
+
+**Structure**:
+- `server.go`: Server lifecycle and routing
+- `handlers_skill.go`: Skill management API
+- `handlers_repo.go`: Repository management API
+- `handlers_system.go`: System configuration API
+
+#### Service (`internal/service/`)
+
+Background process management for the server.
+
+**Features**:
+- PID file management
+- Process status checking
+- Service lifecycle control
+
 ## Data Flow
 
 ### Skill Installation Flow

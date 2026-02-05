@@ -183,6 +183,25 @@ dependencies:
 - **TTL**: 1小时 (可配置)
 - **存储**: 内存 (可持久化)
 
+#### 服务器 (`internal/server/`)
+
+用于 Web UI 和桌面应用的嵌入式 HTTP 服务器。
+
+**结构**:
+- `server.go`: 服务器生命周期和路由
+- `handlers_skill.go`: 技能管理 API
+- `handlers_repo.go`: 仓库管理 API
+- `handlers_system.go`: 系统配置 API
+
+#### 服务管理 (`internal/service/`)
+
+服务器的后台进程管理。
+
+**特性**:
+- PID 文件管理
+- 进程状态检查
+- 服务生命周期控制
+
 ## 数据流
 
 ### 技能安装流程

@@ -203,7 +203,9 @@ ask/
 │   ├── github/           # GitHub API 客户端
 │   ├── git/              # Git 操作
 │   ├── skill/            # SKILL.md 解析
-│   └── deps/             # 依赖解析
+│   ├── deps/             # 依赖解析
+│   ├── server/           # HTTP 服务器
+│   └── service/          # 进程管理
 ├── assets/               # 静态资源（logo等）
 ├── .github/workflows/    # CI/CD
 ├── Makefile
