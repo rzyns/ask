@@ -259,36 +259,6 @@ async function toggleAgent(agentName, enabled) {
 }
 
 
-
-// Render Functions
-function render() {
-    // Hide all views
-    document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
-
-    // Show current view
-    const viewEl = document.getElementById(`view-${state.view}`);
-    if (viewEl) {
-        viewEl.style.display = 'block';
-        // View specific updates
-        if (state.view === 'dashboard') renderDashboard();
-        if (state.view === 'skills') {
-            toggleView(state.viewMode, true);
-        }
-        if (state.view === 'agents' || state.view === 'settings') {
-            renderAgentSettings();
-        }
-    }
-
-    // ... Settings UI State ...
-    const themeSelect = document.getElementById('theme-select');
-    if (themeSelect) themeSelect.value = state.settings.theme;
-
-    const langSelect = document.getElementById('lang-select');
-    if (langSelect) langSelect.value = state.settings.language;
-
-    updateTranslations();
-}
-
 function renderAgentSettings() {
     const container = document.getElementById('agent-settings-list');
     if (!container) return;
@@ -822,7 +792,7 @@ function render() {
         if (state.view === 'skills') {
             toggleView(state.viewMode, true);
         }
-        if (state.view === 'settings') {
+        if (state.view === 'settings' || state.view === 'agents') {
             renderAgentSettings();
         }
     }
@@ -931,19 +901,21 @@ function renderSkillsList(skills) {
 
     skills.forEach(skill => {
         const iconUrl = getIcon(skill);
+        const safeName = escapeHtml(skill.name);
+        const safeDesc = escapeHtml(skill.description || 'No description available');
 
         // Badges HTML
         let badgesHtml = '';
         if (skill.repo) {
-            badgesHtml += `<span class="skill-version" style="background-color:var(--bg-hover); color:var(--text-secondary); border:1px solid var(--border-color)">${skill.repo}</span>`;
+            badgesHtml += `<span class="skill-version" style="background-color:var(--bg-hover); color:var(--text-secondary); border:1px solid var(--border-color)">${escapeHtml(skill.repo)}</span>`;
         }
         if (skill.agents && skill.agents.length > 0) {
             skill.agents.forEach(agent => {
-                badgesHtml += `<span class="skill-version" style="background-color:var(--accent-dim); color:var(--accent-color)">${agent}</span>`;
+                badgesHtml += `<span class="skill-version" style="background-color:var(--accent-dim); color:var(--accent-color)">${escapeHtml(agent)}</span>`;
             });
         }
         if (skill.version) {
-            badgesHtml += `<span class="skill-version">v${skill.version}</span>`;
+            badgesHtml += `<span class="skill-version">v${escapeHtml(skill.version)}</span>`;
         }
 
 
@@ -954,19 +926,19 @@ function renderSkillsList(skills) {
         <div class="skill-title-group">
             <img src="${iconUrl}" class="skill-icon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'">
             <div>
-                <div class="skill-name">${skill.name}</div>
+                <div class="skill-name">${safeName}</div>
                 <div class="skill-meta" style="flex-wrap:wrap; gap:0.3rem;">
                 ${badgesHtml}
                 </div>
             </div>
         </div>
       </div>
-      <div class="skill-description">${skill.description || 'No description available'}</div>
+      <div class="skill-description">${safeDesc}</div>
       <div class="skill-actions">
-        <button class="btn btn-danger" onclick="uninstallSkill('${skill.name}')">
+        <button class="btn btn-danger" onclick="uninstallSkill('${safeName}')">
           Uninstall
         </button>
-        <button class="btn btn-secondary" onclick="viewSkillGuide('${skill.name}')">Info</button>
+        <button class="btn btn-secondary" onclick="viewSkillGuide('${safeName}')">Info</button>
       </div>
     `;
         container.appendChild(card);
@@ -995,6 +967,10 @@ function renderSearchResults(results) {
         // Check if installed
         const isInstalled = state.skills.some(s => s.name === item.name);
         const iconUrl = getIcon(item);
+        const safeName = escapeHtml(item.name);
+        const safeDesc = escapeHtml(item.description || '');
+        const safeFullName = escapeHtml(item.full_name);
+        const safeUrl = escapeHtml(item.url); // Though usually URL is safe-ish if protocol checked? escapeHtml makes it safe for attribute.
 
         const card = document.createElement('div');
         card.className = 'skill-card';
@@ -1003,20 +979,20 @@ function renderSearchResults(results) {
         <div class="skill-title-group">
             <img src="${iconUrl}" class="skill-icon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'">
             <div>
-                <div class="skill-name">${item.name}</div>
+                <div class="skill-name">${safeName}</div>
                 <div class="skill-meta">
                 <span style="color:var(--warning-color)">★ ${item.stars}</span>
                 </div>
             </div>
         </div>
       </div>
-      <div class="skill-description">${item.description || ''}</div>
+      <div class="skill-description">${safeDesc}</div>
         <div class="skill-actions">
         ${isInstalled ?
                 `<button class="btn btn-secondary" disabled>Installed</button>` :
-                `<button class="btn btn-primary" onclick="openInstallModal('${item.full_name}')">Install</button>`
+                `<button class="btn btn-primary" onclick="openInstallModal('${safeFullName}')">Install</button>`
             }
-        <a href="${item.url}" target="_blank" class="btn btn-secondary">View</a>
+        <a href="${safeUrl}" target="_blank" class="btn btn-secondary">View</a>
       </div>
     `;
         container.appendChild(card);
@@ -1126,6 +1102,16 @@ async function resetWebPreferences() {
 }
 
 // UI Helpers
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 function getIcon(item) {
     if (!item) return 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>';
 
@@ -1227,6 +1213,349 @@ function toggleView(mode, skipRender = false) {
     }
 }
 
+// -- SkillsLM: Scan & Import --
+
+async function openScanModal() {
+    const pathInput = document.getElementById('scan-path');
+    if (pathInput && !pathInput.value) {
+        // Try to pre-fill with a default? or leave empty
+        // Maybe ~/.ask/skills if we knew the home dir?
+    }
+    document.getElementById('scan-results-area').style.display = 'none';
+    document.getElementById('scan-results-list').innerHTML = '';
+    document.getElementById('btn-import-selected').disabled = true;
+
+    openModal('scan-skill-modal');
+}
+
+let scannedSkills = [];
+
+async function performScan() {
+    const pathInput = document.getElementById('scan-path');
+    const path = pathInput.value.trim();
+    if (!path) {
+        showToast('Please enter a directory path', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('scan-btn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+
+    const listEl = document.getElementById('scan-results-list');
+    listEl.innerHTML = '<div style="padding:1rem; text-align:center;">Scanning...</div>';
+    document.getElementById('scan-results-area').style.display = 'block';
+
+    try {
+        const res = await fetch('/api/skills/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path })
+        });
+
+        if (!res.ok) throw new Error("Scan failed");
+
+        scannedSkills = await res.json();
+        renderScanResults(scannedSkills);
+
+    } catch (err) {
+        showToast(err.message, 'error');
+        listEl.innerHTML = `<div style="padding:1rem; color:var(--danger-color)">Error: ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Scan';
+    }
+}
+
+function renderScanResults(skills) {
+    const listEl = document.getElementById('scan-results-list');
+    listEl.innerHTML = '';
+
+    if (!skills || skills.length === 0) {
+        listEl.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary)">No skills found (look for SKILL.md)</div>';
+        return;
+    }
+
+    skills.forEach((skill, idx) => {
+        const item = document.createElement('div');
+        item.className = 'scan-result-item';
+
+        // Name from meta or folder name
+        let name = skill.meta ? skill.meta.name : '';
+        if (!name) {
+            // fallback to basename
+            // We assume skill.path is full path
+            const parts = skill.path.split(/[/\\]/);
+            name = parts[parts.length - 1];
+        }
+
+        item.innerHTML = `
+            <div class="scan-result-check">
+                <input type="checkbox" class="scan-check" data-idx="${idx}" onchange="updateImportButton()">
+            </div>
+            <div class="scan-result-info">
+                <div class="scan-result-name">${name}</div>
+                <div class="scan-result-path">${skill.path}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted)">${skill.meta ? (skill.meta.description || 'No description') : 'No metadata'}</div>
+            </div>
+        `;
+        listEl.appendChild(item);
+    });
+}
+
+function selectAllScanResults(checked) {
+    // Toggle all logic... actually let's just create a toggle
+    const checks = document.querySelectorAll('.scan-check');
+    let allChecked = true;
+    // Check if any is unchecked
+    checks.forEach(c => { if (!c.checked) allChecked = false; });
+
+    // logic: if all checked, uncheck all. else check all.
+    // The param `checked` from button click implies "select all" usually means check all.
+    // Let's implement simpler: click select all -> check all.
+    checks.forEach(c => c.checked = true);
+    updateImportButton();
+}
+
+function updateImportButton() {
+    const anyChecked = document.querySelector('.scan-check:checked');
+    document.getElementById('btn-import-selected').disabled = !anyChecked;
+}
+
+async function importSelectedSkills() {
+    const checks = document.querySelectorAll('.scan-check:checked');
+    if (checks.length === 0) return;
+
+    const btn = document.getElementById('btn-import-selected');
+    btn.disabled = true;
+    btn.textContent = `Importing (${checks.length})...`;
+
+    let successCount = 0;
+
+    for (const check of checks) {
+        const idx = parseInt(check.dataset.idx);
+        const skill = scannedSkills[idx];
+
+        try {
+            const res = await fetch('/api/skills/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ src_path: skill.path })
+            });
+            if (res.ok) successCount++;
+        } catch (err) {
+            console.error("Import failed for", skill.path, err);
+        }
+    }
+
+    showToast(`Imported ${successCount} skills`, 'success');
+    btn.textContent = 'Import Selected';
+    closeModal('scan-skill-modal');
+    fetchSkills(); // Refresh list
+}
+
+// -- SkillsLM: Detail View & Files --
+
+async function openDetailModal(name) {
+    // Replaces viewSkillGuide
+    const titleEl = document.getElementById('detail-modal-title');
+    titleEl.textContent = `Skill: ${name}`;
+    titleEl.dataset.skill = name; // Store for tab switching
+
+    // Reset tabs
+    document.querySelectorAll('.tab-btn[data-detail-tab]').forEach(b => {
+        b.classList.remove('active');
+        if (b.dataset.detailTab === 'info') b.classList.add('active');
+    });
+    document.getElementById('detail-tab-info').style.display = 'block';
+    document.getElementById('detail-tab-files').style.display = 'none';
+
+    // Reset Content
+    document.getElementById('detail-content').textContent = 'Loading...';
+    document.getElementById('file-tree-root').innerHTML = 'Loading...';
+    document.getElementById('file-content-code').textContent = '';
+
+    openModal('skill-detail-modal');
+
+    // Fetch Info (README)
+    try {
+        const res = await fetch(`/api/skills/readme?name=${encodeURIComponent(name)}`);
+        const data = await res.json();
+        const contentEl = document.getElementById('detail-content');
+        if (data.status === 'success') {
+            // Simple naive markdown link converter for display
+            let html = escapeHtml(data.content || '')
+                .replace(/# (.*)/g, '<h1>$1</h1>')
+                .replace(/## (.*)/g, '<h2>$1</h2>')
+                .replace(/### (.*)/g, '<h3>$1</h3>')
+                .replace(/\*\*(.*)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]*)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+            contentEl.innerHTML = html;
+        } else {
+            contentEl.textContent = 'No README information available.';
+        }
+    } catch (err) {
+        document.getElementById('detail-content').textContent = 'Failed to load info.';
+    }
+
+    // Render Sync Badges
+    renderSyncBadges(name);
+}
+
+// Alias for old calls in HTML
+const viewSkillGuide = openDetailModal;
+
+function switchDetailTab(tab) {
+    document.querySelectorAll('.tab-btn[data-detail-tab]').forEach(b => {
+        if (b.dataset.detailTab === tab) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+
+    if (tab === 'info') {
+        document.getElementById('detail-tab-info').style.display = 'block';
+        document.getElementById('detail-tab-files').style.display = 'none';
+    } else {
+        document.getElementById('detail-tab-info').style.display = 'none';
+        document.getElementById('detail-tab-files').style.display = 'flex';
+        // Load files if first time
+        const skillName = document.getElementById('detail-modal-title').dataset.skill;
+        fetchSkillFiles(skillName);
+    }
+}
+
+async function fetchSkillFiles(skillName) {
+    const rootEl = document.getElementById('file-tree-root');
+    // Prevent reload if already loaded? slightly tricky to detect, just reload for now
+
+    try {
+        const res = await fetch(`/api/skills/files?skill=${encodeURIComponent(skillName)}`);
+        if (!res.ok) throw new Error("Failed to load files");
+
+        const rootNode = await res.json();
+        rootEl.innerHTML = '';
+        renderFileNode(rootNode, rootEl, skillName);
+
+    } catch (err) {
+        rootEl.innerHTML = `<div style="color:var(--error-color); padding:1rem">Failed to load files: ${err.message}</div>`;
+    }
+}
+
+function renderFileNode(node, container, skillName) {
+    const el = document.createElement('div');
+    const isDir = node.type === 'dir';
+    const icon = isDir ? '📁' : '📄';
+
+    el.innerHTML = `
+        <div class="file-tree-item" onclick="handleFileClick(this, '${skillName}', '${node.path}', ${isDir})">
+            <span class="file-icon">${icon}</span>
+            <span>${node.name}</span>
+        </div>
+    `;
+    container.appendChild(el);
+
+    if (isDir && node.children) {
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'file-tree-children';
+        // Open by default? maybe only root
+        childrenContainer.style.display = 'block';
+
+        node.children.forEach(child => {
+            renderFileNode(child, childrenContainer, skillName);
+        });
+        el.appendChild(childrenContainer);
+    }
+}
+
+async function handleFileClick(el, skillName, path, isDir) {
+    // Highlight
+    document.querySelectorAll('.file-tree-item').forEach(e => e.classList.remove('active'));
+    el.querySelector('.file-tree-item').classList.add('active');
+
+    if (!isDir) {
+        // Fetch Content
+        const codeEl = document.getElementById('file-content-code');
+        codeEl.textContent = 'Loading...';
+        document.getElementById('file-content-header').textContent = path;
+
+        try {
+            const res = await fetch(`/api/skills/files?skill=${encodeURIComponent(skillName)}&mode=content&path=${encodeURIComponent(path)}`);
+            const data = await res.json();
+            codeEl.textContent = data.content || '(Empty)';
+        } catch (err) {
+            codeEl.textContent = 'Error loading file content.';
+        }
+    } else {
+        // Toggle dir (if we implemented closing)
+    }
+}
+
+function renderSyncBadges(skillName) {
+    const container = document.getElementById('detail-sync-status');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Find the skill object to see current agents
+    const skill = state.skills.find(s => s.name === skillName);
+    const installedAgents = skill ? (skill.agents || []) : [];
+
+    // List all configured agents
+    const allAgents = state.config.tool_targets || [];
+
+    allAgents.forEach(agent => {
+        if (!agent.enabled) return;
+
+        const isInstalled = installedAgents.includes(agent.name);
+        const badge = document.createElement('div');
+        badge.className = `sync-badge ${isInstalled ? 'active' : ''}`;
+        badge.innerHTML = `
+            <span>${agent.name}</span>
+            <span>${isInstalled ? '✓' : '○'}</span>
+        `;
+        // Make clickable to toggle sync?
+        badge.style.cursor = 'pointer';
+        badge.onclick = () => toggleSkillSync(skillName, agent.name, !isInstalled);
+
+        container.appendChild(badge);
+    });
+}
+
+async function toggleSkillSync(skillName, agentName, install) {
+    showToast(`${install ? 'Installing' : 'Uninstalling'} for ${agentName}...`, 'info');
+
+    // We reuse install/uninstall endpoints but with agent param
+    try {
+        const endpoint = install ? '/api/skills/install' : '/api/skills/uninstall';
+        // Note: uninstall API in server.go currently does --all, it doesn't support specific agent yet?
+        // Let's check server.go handleSkillUninstall
+        // It calls `skill uninstall --all req.Name`. It does NOT accept agent param.
+        // So for now, we can only INSTALL per agent. Uninstalling per agent needs backend support.
+        // If install=false, we might fail or remove global?
+
+        if (!install) {
+            showToast("Uninstall per agent not supported yet (Uninstalls everywhere)", "warning");
+            // Fallback to uninstall all?
+            return;
+        }
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: skillName, agent: agentName })
+        });
+
+        if (res.ok) {
+            showToast(`Synced ${skillName} to ${agentName}`, 'success');
+            // Update state
+            fetchSkills().then(() => renderSyncBadges(skillName));
+        } else {
+            throw new Error('Sync failed');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -1242,11 +1571,19 @@ function showToast(message, type = 'info') {
 }
 
 function openModal(id) {
-    document.getElementById(id).classList.add('active');
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add('active');
+        state.activeModal = id;
+    }
 }
 
 function closeModal(id) {
-    document.getElementById(id).classList.remove('active');
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.remove('active');
+        state.activeModal = null;
+    }
 }
 
 // Clear search input
