@@ -157,6 +157,20 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 		Findings:  []Finding{},
 	}
 
+	// Validate SKILL.md format per Agent Skills specification
+	dirName := filepath.Base(skillPath)
+	validationErrors := ValidateMeta(meta, dirName)
+	for _, ve := range validationErrors {
+		result.Findings = append(result.Findings, Finding{
+			RuleID:      "SKILL-FORMAT-" + strings.ToUpper(ve.Field),
+			Severity:    ve.Severity,
+			Description: ve.Message,
+			File:        "SKILL.md",
+			Line:        0,
+			Match:       ve.Field,
+		})
+	}
+
 	// Walk through the skill directory
 	err = filepath.Walk(skillPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

@@ -11,12 +11,16 @@ import (
 
 // Meta represents metadata parsed from SKILL.md
 type Meta struct {
-	Name         string   `yaml:"name"`
-	Description  string   `yaml:"description"`
-	Version      string   `yaml:"version"`
-	Author       string   `yaml:"author"`
-	Dependencies []string `yaml:"dependencies"`
-	Tags         []string `yaml:"tags"`
+	Name          string            `yaml:"name"`
+	Description   string            `yaml:"description"`
+	Version       string            `yaml:"version"`
+	Author        string            `yaml:"author"`
+	Dependencies  []string          `yaml:"dependencies"`
+	Tags          []string          `yaml:"tags"`
+	License       string            `yaml:"license"`
+	Compatibility string            `yaml:"compatibility"`
+	Metadata      map[string]string `yaml:"metadata"`
+	AllowedTools  []string          `yaml:"allowed-tools"`
 }
 
 // ParseSkillMD parses a SKILL.md file and extracts frontmatter metadata

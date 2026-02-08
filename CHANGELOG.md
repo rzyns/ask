@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 
 
+## [1.6.0] - 2026-02-07
+
+### Added
+- **Internationalization**: Added complete Chinese documentation for all `docs/` files (e.g., `README_zh.md`, `commands_zh.md`).
+- **Prompt Integration**: New `ask skill prompt` command to generate XML skill listings for Agentic AI prompts (following [Agent Skills Spec](https://agentskills.io/specification)).
+- **Validation**: Enhanced `SKILL.md` validation logic to rigidly enforce spec compliance (names, descriptions).
+
+### Fixed
+- **Cleanup**: Removed unused `formatPathForPrompt` function in `cmd/prompt.go`.
+
 ## [1.5.1] - 2026-02-04
 
 ### Changed

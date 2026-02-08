@@ -148,7 +148,8 @@ ask serve
 | `ask skill uninstall <name>` | Remove a skill |
 | `ask skill update` | Update skills to latest version |
 | `ask skill outdated` | Check for newer versions |
-| `ask skill check <path>` | Security scan (Secrets, Dangerous Commands) |
+| `ask skill check <path>` | Security scan + SKILL.md format validation |
+| `ask skill prompt [paths]` | Generate XML for agent system prompts |
 
 ### Repository Management
 | Command | Description |

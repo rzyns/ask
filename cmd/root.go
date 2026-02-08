@@ -61,7 +61,7 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 }
 
 // Version is the current version of the application
-const Version = "1.5.1"
+const Version = "1.6.0"
 
 // Top-level aliases (Docker-style)
 var installRootCmd = &cobra.Command{
@@ -152,7 +152,7 @@ func init() {
 	// It's likely defined in list.go.
 	// We should probably just copy flags setup here.
 	uninstallRootCmd.Flags().AddFlagSet(uninstallCmd.Flags())
-	checkRootCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Write report to file (supports .md, .html/.htm, .json)")
+	checkRootCmd.Flags().AddFlagSet(checkCmd.Flags())
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -202,6 +202,115 @@ dependencies:
 - 进程状态检查
 - 服务生命周期控制
 
+## 数据与操作生命周期
+
+下图展示了 ASK 的完整数据与操作生命周期，包括各命令对配置文件、技能存储路径的读写操作，以及与云端数据源的交互关系。
+
+```mermaid
+flowchart TB
+    %% 节点样式定义
+    classDef cmdGroup fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef configNode fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17
+    classDef storageNode fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef cloudNode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    classDef outputNode fill:#e0f7fa,stroke:#006064,stroke-width:2px,color:#006064
+
+    %% --- 顶层：目标环境 (Agent Environment) ---
+    subgraph Env [Agent 运行环境]
+        direction LR
+        skills_dir[".agent/skills/\n~/.ask/skills/\nAgent专用目录"]:::storageNode
+        report[安全报告 HTML]:::outputNode
+        template[SKILL.md 模板]:::outputNode
+    end
+
+    %% --- 底层：操作与资源来源 ---
+    subgraph Sources [操作与资源层]
+        direction LR
+        
+        %% 左下：CLI 命令
+        subgraph Commands [CLI 操作入口]
+            direction TB
+            
+            subgraph WriteCmds [修改类]
+                direction TB
+                install[ask skill install]
+                uninstall[ask skill uninstall]
+                update[ask skill update]
+            end
+
+            subgraph ReadCmds [查询类]
+                direction TB
+                search[ask skill search]
+                list[ask skill list]
+                info[ask skill info]
+                outdated[ask skill outdated]
+                check[ask check]
+            end
+
+            subgraph ConfigCmds [配置类]
+                direction TB
+                init[ask init]
+                repo[ask repo add/rm]
+                create[ask skill create]
+            end
+        end
+
+        %% 中下：配置与缓存
+        subgraph Core [配置核心]
+            direction TB
+            ask_yaml(ask.yaml / config.yaml):::configNode
+            ask_lock(ask.lock):::configNode
+            cache[(搜索缓存)]:::configNode
+        end
+
+        %% 右下：云端资源
+        subgraph Cloud [云端生态]
+            direction TB
+            github[GitHub API]:::cloudNode
+            git_repo[GitHub 仓库]:::cloudNode
+        end
+    end
+
+    %% --- 连线逻辑 (自底向上) ---
+
+    %% 1. 内部交互 (底层横向)
+    %% 配置读写
+    init & repo --> ask_yaml
+    install & uninstall & update --> ask_yaml & ask_lock
+    outdated --> ask_lock
+
+    %% 搜索与缓存
+    search <--> cache
+    search <--> github
+    
+    %% 2. 跨层交互 (向上流动)
+    %% 技能获取 (连接云端和本地)
+    install & update <--> git_repo
+    install & update --下载--> skills_dir
+    search -.-> git_repo
+    outdated -.-> git_repo
+
+    %% 技能管理 (直接操作本地)
+    uninstall --删除--> skills_dir
+    list & info & check --读取--> skills_dir
+    
+    %% 产物生成
+    check --> report
+    create --> template
+
+    %% 样式应用
+    class install,uninstall,update,search,list,info,outdated,check,init,repo,create cmdGroup
+```
+
+**图例说明**：
+- **深蓝 (命令)**: 位于左下，操作发起点
+- **浅黄 (核心)**: 位于中下，配置与缓存层
+- **浅紫 (云端)**: 位于右下，远程资源层
+- **浅绿 (环境)**: 位于顶层，目标运行环境（Agent 技能目录）
+- **浅蓝 (产物)**: 位于顶层，生成的文件
+- **实线箭头**: 默认操作流/强依赖（自底向上）
+- **虚线箭头**: 辅助信息流/弱依赖
+
 ## 数据流
 
 ### 技能安装流程
