@@ -1,15 +1,19 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/ui"
+	"golang.org/x/sync/errgroup"
 )
 
 // syncCmd represents the sync command
@@ -70,39 +74,90 @@ If no repo name is specified, syncs all configured repositories.`,
 			return
 		}
 
-		fmt.Printf("Syncing %d repositories to ~/.ask/repos/...\n\n", len(targetRepos))
+		fmt.Printf("Syncing %d repositories to ~/.ask/repos/...\n", len(targetRepos))
 
-		successCount := 0
-		starCounts := make(map[string]int)
-		repoURLs := make(map[string]string)
+		// Create progress bar
+		bar := ui.NewProgressBar(len(targetRepos), "Syncing repositories")
+
+		// Use errgroup for parallel syncing with limit
+		ctx := context.Background()
+		g, ctx := errgroup.WithContext(ctx)
+		g.SetLimit(5) // Limit concurrency to 5
+
+		var (
+			mu           sync.Mutex
+			successCount int
+			starCounts   = make(map[string]int)
+			repoURLs     = make(map[string]string)
+			errors       []string
+		)
+
 		for _, repo := range targetRepos {
-			repoURL := buildRepoURL(repo.URL)
-			repoName := repo.Name
-			if repoName == "" {
-				repoName = buildRepoName(repo.URL)
-			}
+			repo := repo // Capture loop variable
+			g.Go(func() error {
+				repoURL := buildRepoURL(repo.URL)
+				repoName := repo.Name
+				if repoName == "" {
+					repoName = buildRepoName(repo.URL)
+				}
 
-			repoURLs[repoName] = repoURL
+				// Create context with timeout for each repo sync
+				// Note: using errgroup context as parent to support cancellation if needed
+				repoCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
 
-			err := reposCache.CloneOrPull(repoURL, repoName)
-			if err != nil {
-				ui.Warn(fmt.Sprintf("  ✗ Failed to sync %s: %v", repo.Name, err))
-			} else {
-				ui.Debug(fmt.Sprintf("  ✓ Synced %s", repo.Name))
+				err := reposCache.CloneOrPull(repoCtx, repoURL, repoName)
+
+				// Update progress bar
+				if err := bar.Add(1); err != nil {
+					// Logic error in progress bar, just log debug
+					ui.Debug(fmt.Sprintf("Failed to update progress bar: %v", err))
+				}
+				ui.UpdateDescription(bar, fmt.Sprintf("Synced %s", repo.Name))
+
+				mu.Lock()
+				defer mu.Unlock()
+
+				repoURLs[repoName] = repoURL
+
+				if err != nil {
+					if repoCtx.Err() == context.DeadlineExceeded {
+						errors = append(errors, fmt.Sprintf("✗ Failed to sync %s: operation timed out", repo.Name))
+					} else {
+						errors = append(errors, fmt.Sprintf("✗ Failed to sync %s: %v", repo.Name, err))
+					}
+					return nil // Don't return error to errgroup to continue other syncs
+				}
+
 				successCount++
 
 				// Fetch star count from GitHub API
-				owner, repo, err := github.ParseRepoURL(repo.URL)
+				// This is also done inside the goroutine to parallelize it
+				owner, repoPath, err := github.ParseRepoURL(repo.URL)
 				if err == nil {
-					repoDetails, err := github.FetchRepoDetails(owner, repo)
+					repoDetails, err := github.FetchRepoDetails(owner, repoPath)
 					if err == nil {
 						starCounts[repoName] = repoDetails.StargazersCount
 					}
 				}
-			}
+
+				return nil
+			})
 		}
 
-		fmt.Printf("\nSynced %d/%d repositories.\n", successCount, len(targetRepos))
+		// Wait for all goroutines to finish
+		if err := g.Wait(); err != nil {
+			fmt.Printf("Error during sync: %v\n", err)
+		}
+
+		fmt.Println() // Newline after progress bar
+
+		// Print any errors that occurred
+		for _, errMsg := range errors {
+			ui.Warn(errMsg)
+		}
+
+		fmt.Printf("Synced %d/%d repositories.\n", successCount, len(targetRepos))
 
 		// Save index with star counts and URLs
 		if err := reposCache.SaveIndexWithStars(starCounts, repoURLs); err != nil {

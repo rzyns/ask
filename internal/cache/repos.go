@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -76,24 +77,26 @@ func (c *ReposCache) IsStale(repoName string, ttl time.Duration) bool {
 }
 
 // CloneOrPull clones a repo if not exists, or pulls if exists
-func (c *ReposCache) CloneOrPull(repoURL, repoName string) error {
+func (c *ReposCache) CloneOrPull(ctx context.Context, repoURL, repoName string) error {
 	repoPath := filepath.Join(c.baseDir, sanitizeRepoName(repoName))
 
 	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
 		// Clone with depth=1 for speed
-		fmt.Printf("  Cloning %s...\n", repoName)
-		cmd := exec.Command("git", "clone", "--depth=1", repoURL, repoPath)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", repoURL, repoPath)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("git clone failed: %v\nOutput: %s", err, string(output))
+		}
+		return nil
 	}
 
 	// Pull latest
-	fmt.Printf("  Updating %s...\n", repoName)
-	cmd := exec.Command("git", "-C", repoPath, "pull", "--ff-only")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "pull", "--ff-only")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git pull failed: %v\nOutput: %s", err, string(output))
+	}
+	return nil
 }
 
 // ListSkills lists all skills in a cached repo
