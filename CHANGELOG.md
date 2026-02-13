@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 
 
-## [1.6.3] - 2026-02-12
+## [1.6.4] - 2026-02-12
 
 ### Added
 - **Skill Restoration**: `ask skill install` (without arguments) now restores skills from `ask.lock` or `ask.yaml` in the current directory.
