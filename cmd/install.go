@@ -22,12 +22,17 @@ var installCmd = &cobra.Command{
 You can provide full git URLs or GitHub shorthands (owner/repo).
 You can also specify versions: owner/repo@v1.0.0
 
+If no arguments are provided, it will attempt to restore skills from ask.lock or ask.yaml in the current directory.
+
 Use --agent (-a) to specify target agents (claude, cursor, codex, opencode).
 Multiple agents can be specified by repeating the flag.
 If no agent is specified, skills are installed to .agent/skills/ by default.`,
 	Example: `  # Install from GitHub shorthand
   ask skill install anthropics/pdf
   
+  # Restore skills from ask.lock or ask.yaml
+  ask skill install
+
   # Install to specific agents
   ask skill install pdf --agent claude --agent cursor
   ask skill install pdf -a claude -a cursor
@@ -49,7 +54,7 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
   
   # Install from full URL
   ask skill install https://github.com/browser-use/browser-use.git`,
-	Args: cobra.MinimumNArgs(1),
+	Args: cobra.MinimumNArgs(0), // Allow 0 args to support restoring from lock/yaml
 	Run:  runInstall,
 }
 
@@ -96,6 +101,66 @@ func runInstall(cmd *cobra.Command, args []string) {
 			agents = append(agents, arg)
 		} else {
 			skillArgs = append(skillArgs, arg)
+		}
+	}
+
+	// If no skills specified, try to restore from lock file or config file
+	if len(skillArgs) == 0 {
+		// Only try restore if not in global mode (unless we want to support global restore later)
+		// For now, let's support restore in local context primarily
+
+		// 1. Try ask.lock first
+		lockFile, err := config.LoadLockFile()
+		if err == nil && len(lockFile.Skills) > 0 {
+			fmt.Printf("Restoring %d skills from ask.lock...\n", len(lockFile.Skills))
+			for _, s := range lockFile.Skills {
+				// Use the URL from lock file as it contains the specific version/commit info if available
+				// Or construct it from Name/Source?
+				// The lock file stores: Name, URL, Version, Commit.
+				// We should ideally use the URL or Name@Version if possible.
+				// For now, using Name should trigger resolution, but might not be exact version
+				// if we don't handle version pinning in install logic yet.
+				// But wait, the lock file URL is what we want to re-install.
+				if s.URL != "" {
+					skillArgs = append(skillArgs, s.URL)
+				} else {
+					skillArgs = append(skillArgs, s.Name)
+				}
+			}
+		} else {
+			// 2. Try ask.yaml
+			cfg, err := config.LoadConfig()
+			if err == nil {
+				count := 0
+				// Add from new skills_info
+				for _, s := range cfg.SkillsInfo {
+					skillArgs = append(skillArgs, s.Name)
+					count++
+				}
+				// Add from legacy skills list if not duplicate
+				for _, s := range cfg.Skills {
+					exists := false
+					for _, existing := range skillArgs {
+						if existing == s {
+							exists = true
+							break
+						}
+					}
+					if !exists {
+						skillArgs = append(skillArgs, s)
+						count++
+					}
+				}
+
+				if count > 0 {
+					fmt.Printf("Restoring %d skills from ask.yaml...\n", count)
+				}
+			}
+		}
+
+		if len(skillArgs) == 0 {
+			fmt.Println("No skills specified and no ask.lock or ask.yaml found with skills.")
+			os.Exit(1)
 		}
 	}
 

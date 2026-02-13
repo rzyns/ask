@@ -60,10 +60,10 @@ func TestInstallFlags(t *testing.T) {
 }
 
 func TestInstallValidation(t *testing.T) {
-	// Verify Args validation (Minimum 1 arg)
+	// Verify Args validation (Minimum 0 args)
 	err := installCmd.Args(installCmd, []string{})
-	if err == nil {
-		t.Error("installCmd should return error for 0 args")
+	if err != nil {
+		t.Errorf("installCmd should accept 0 args, got error: %v", err)
 	}
 
 	err = installCmd.Args(installCmd, []string{"some-skill"})

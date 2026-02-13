@@ -61,7 +61,7 @@ Codex, etc.) with a familiar CLI experience, just like Homebrew or npm.`,
 }
 
 // Version is the current version of the application
-const Version = "1.6.0"
+const Version = "1.6.3"
 
 // Top-level aliases (Docker-style)
 var installRootCmd = &cobra.Command{
@@ -105,6 +105,22 @@ var checkRootCmd = &cobra.Command{
 	Run:   runCheck,
 }
 
+var syncRootCmd = &cobra.Command{
+	Use:     "sync [repo-name]",
+	Short:   "Sync skill repositories (alias for 'repo sync')",
+	Long:    "Clone or update skill repositories to local cache.\nThis is a shortcut for 'ask repo sync'.",
+	Example: syncCmd.Example,
+	Run:     syncCmd.Run,
+}
+
+var updateRootCmd = &cobra.Command{
+	Use:     "update [skill-name]",
+	Short:   "Update installed skills (alias for 'skill update')",
+	Long:    "Update one or all installed skills to their latest versions.\nThis is a shortcut for 'ask skill update'.",
+	Example: updateCmd.Example,
+	Run:     updateCmd.Run,
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -145,6 +161,9 @@ func init() {
 
 	rootCmd.AddCommand(uninstallRootCmd)
 	rootCmd.AddCommand(checkRootCmd)
+	rootCmd.AddCommand(syncRootCmd)
+	rootCmd.AddCommand(updateRootCmd)
+
 	// No specific flags to register for uninstall root shim as it uses uninstallCmd.Run directly?
 	// Actually uninstallCmd.Run uses flags so we should share flags definition or re-register.
 	// Since uninstallCmd is in another file, we can't easily reuse 'registerUninstallFlags' unless we export it.
@@ -153,6 +172,8 @@ func init() {
 	// We should probably just copy flags setup here.
 	uninstallRootCmd.Flags().AddFlagSet(uninstallCmd.Flags())
 	checkRootCmd.Flags().AddFlagSet(checkCmd.Flags())
+	// syncCmd doesn't have specific flags, but it might in future.
+	syncRootCmd.ValidArgsFunction = completeRepoNames
 }
 
 // initConfig reads in config file and ENV variables if set.

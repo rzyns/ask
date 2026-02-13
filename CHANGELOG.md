@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 
 
+
+## [1.6.3] - 2026-02-12
+
+### Added
+- **Skill Restoration**: `ask skill install` (without arguments) now restores skills from `ask.lock` or `ask.yaml` in the current directory.
+
+## [1.6.2] - 2026-02-09
+
+### Added
+- **Alias**: Added `ask update` as a top-level alias for `ask skill update` for convenience.
+
+## [1.6.1] - 2026-02-09
+
+### Changed
+- **Performance**: Optimized `ask repo sync` with parallel processing (5x concurrency) and unified progress bar.
+- **Git**: Improved git operation handling to prevent output interleaving during concurrent syncs.
+
 ## [1.6.0] - 2026-02-07
 
 ### Added

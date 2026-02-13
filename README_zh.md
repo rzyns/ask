@@ -136,6 +136,9 @@ ask check anthropics/mcp-builder -o report.html
 
 # 启动 Web 管理界面
 ask serve
+
+# 从 ask.lock 或 ask.yaml 还原安装技能（不带参数运行）
+ask install
 ```
 
 ## 📋 命令参考

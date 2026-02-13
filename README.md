@@ -133,6 +133,9 @@ ask install mcp-builder --agent claude cursor
 ask check .
 ask check anthropics/mcp-builder -o report.html
 
+# Restore skills from ask.lock or ask.yaml (if no arguments provided)
+ask install
+
 # Start Web UI
 ask serve
 ```
