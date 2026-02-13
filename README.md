@@ -138,6 +138,11 @@ ask install
 
 # Start Web UI
 ask serve
+
+# Install skills from a specific repository
+ask skill install --repo anthropics pdf
+# Install all skills from a specific repository
+ask skill install --repo anthropics
 ```
 
 ## 📋 Commands

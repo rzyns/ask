@@ -139,6 +139,11 @@ ask serve
 
 # 从 ask.lock 或 ask.yaml 还原安装技能（不带参数运行）
 ask install
+
+# 从指定仓库安装技能
+ask skill install --repo anthropics pdf
+# 安装指定仓库下的所有技能
+ask skill install --repo anthropics
 ```
 
 ## 📋 命令参考

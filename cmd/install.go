@@ -104,8 +104,9 @@ func runInstall(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// If no skills specified, try to restore from lock file or config file
-	if len(skillArgs) == 0 {
+	// If no skills specified and no repo flag, try to restore from lock file or config file
+	repoFlag, _ := cmd.Flags().GetString("repo")
+	if len(skillArgs) == 0 && repoFlag == "" {
 		// Only try restore if not in global mode (unless we want to support global restore later)
 		// For now, let's support restore in local context primarily
 
@@ -172,59 +173,125 @@ func runInstall(cmd *cobra.Command, args []string) {
 	}
 
 	var expandedArgs []string
-	for _, input := range skillArgs {
-		if len(input) > maxInputLength {
-			fmt.Printf("Error: Input '%s...' is too long (max %d chars)\n", input[:20], maxInputLength)
-			failed = append(failed, input)
-			continue
-		}
+	// Check for repo flag
+	repoName, _ := cmd.Flags().GetString("repo")
 
-		// Check if input matches a configured repository name
+	// If repo flag is set, fetch skills from that repo
+	if repoName != "" {
+		// Find the repo in config
 		var targetRepo *config.Repo
 		for i := range cfg.Repos {
-			r := &cfg.Repos[i]
-			if r.Name == input {
-				targetRepo = r
+			if cfg.Repos[i].Name == repoName {
+				targetRepo = &cfg.Repos[i]
 				break
-			}
-			if strings.Contains(r.URL, input) {
-				if strings.HasPrefix(r.URL, input) || strings.Contains(r.URL, "/"+input) {
-					targetRepo = r
-					break
-				}
 			}
 		}
 
-		if targetRepo != nil {
-			fmt.Printf("Fetching skills from repo '%s'...\n", input)
+		if targetRepo == nil {
+			fmt.Printf("Error: Repository '%s' not found in configuration. Use 'ask repo list' to see available repositories.\n", repoName)
+			os.Exit(1)
+		}
 
-			var repos []github.Repository
-			var err error
+		fmt.Printf("Fetching skills from repo '%s'...\n", repoName)
 
-			if targetRepo.Type == "dir" {
-				repos, err = repository.FetchSkillsViaGit(*targetRepo)
-			}
+		var repos []github.Repository
+		var err error
 
-			if err != nil || targetRepo.Type != "dir" {
-				repos, err = repository.FetchSkills(*targetRepo)
-				if err != nil {
-					fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
-					failed = append(failed, input)
-					continue
+		if targetRepo.Type == "dir" {
+			repos, err = repository.FetchSkillsViaGit(*targetRepo)
+		} else {
+			repos, err = repository.FetchSkills(*targetRepo)
+		}
+
+		if err != nil {
+			fmt.Printf("Failed to fetch skills from repo '%s': %v\n", repoName, err)
+			os.Exit(1)
+		}
+
+		if len(repos) == 0 {
+			fmt.Printf("No skills found in repo '%s'\n", repoName)
+			os.Exit(0)
+		}
+
+		// Filter skills if args provided
+		if len(skillArgs) > 0 {
+			for _, wanted := range skillArgs {
+				found := false
+				for _, r := range repos {
+					if r.Name == wanted {
+						expandedArgs = append(expandedArgs, r.HTMLURL)
+						found = true
+						break
+					}
+				}
+				if !found {
+					fmt.Printf("Warning: Skill '%s' not found in repo '%s'\n", wanted, repoName)
+					failed = append(failed, wanted)
 				}
 			}
-
-			if len(repos) == 0 {
-				fmt.Printf("No skills found in repo '%s'\n", input)
-				continue
-			}
-
-			fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
+		} else {
+			// Install all skills from repo
+			fmt.Printf("Found %d skills in repo '%s'. Queueing all for installation...\n", len(repos), repoName)
 			for _, r := range repos {
 				expandedArgs = append(expandedArgs, r.HTMLURL)
 			}
-		} else {
-			expandedArgs = append(expandedArgs, input)
+		}
+	} else {
+		// Existing logic for mixed args (repo matched or skill matched)
+		for _, input := range skillArgs {
+			if len(input) > maxInputLength {
+				fmt.Printf("Error: Input '%s...' is too long (max %d chars)\n", input[:20], maxInputLength)
+				failed = append(failed, input)
+				continue
+			}
+
+			// Check if input matches a configured repository name
+			var targetRepo *config.Repo
+			for i := range cfg.Repos {
+				r := &cfg.Repos[i]
+				if r.Name == input {
+					targetRepo = r
+					break
+				}
+				if strings.Contains(r.URL, input) {
+					if strings.HasPrefix(r.URL, input) || strings.Contains(r.URL, "/"+input) {
+						targetRepo = r
+						break
+					}
+				}
+			}
+
+			if targetRepo != nil {
+				fmt.Printf("Fetching skills from repo '%s'...\n", input)
+
+				var repos []github.Repository
+				var err error
+
+				if targetRepo.Type == "dir" {
+					repos, err = repository.FetchSkillsViaGit(*targetRepo)
+				}
+
+				if err != nil || targetRepo.Type != "dir" {
+					repos, err = repository.FetchSkills(*targetRepo)
+					if err != nil {
+						fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
+						failed = append(failed, input)
+						continue
+					}
+				}
+
+				if len(repos) == 0 {
+					fmt.Printf("No skills found in repo '%s'\n", input)
+					continue
+				}
+
+				fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
+				for _, r := range repos {
+					expandedArgs = append(expandedArgs, r.HTMLURL)
+				}
+			} else {
+				expandedArgs = append(expandedArgs, input)
+			}
 		}
 	}
 
@@ -284,6 +351,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 
 func registerInstallFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceP("agent", "a", []string{}, "Target agent(s) to install for (e.g. claude, cursor)")
+	cmd.Flags().StringP("repo", "r", "", "Install skill(s) from a specific repository")
 }
 
 func init() {
