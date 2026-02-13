@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [1.7.0] - 2026-02-12
+
+### Added
+- **Repository Filter**: Added `--repo` flag to `ask skill install` to filter skills by repository or install all skills from a specific repository.
+
 ## [1.6.5] - 2026-02-12
 
 ### Added
