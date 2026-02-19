@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [1.7.1] - 2026-02-19
+
+### Fixed
+- **Linting**: Fixed string formatting in `internal/skill/report.go` to use `fmt.Fprintf` instead of `WriteString(fmt.Sprintf(...))`.
+- **Stability**: Resolved potential nil pointer deference (`SA5011`) issues in `cmd/install.go` and `cmd/repo.go`.
+
 
 ## [1.7.0] - 2026-02-12
 

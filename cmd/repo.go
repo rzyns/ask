@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/cache"
@@ -15,6 +17,16 @@ import (
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/ui"
 )
+
+var (
+	githubAPIBaseURL = "https://api.github.com"
+	githubHTTPClient = &http.Client{Timeout: 10 * time.Second}
+)
+
+type githubRepoContent struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
 
 // repoCmd represents the repo command
 var repoCmd = &cobra.Command{
@@ -268,6 +280,7 @@ Examples:
 				fmt.Printf("Did you mean to add it? Run: ask repo add %s\n", repoName)
 			}
 			os.Exit(1)
+			return
 		}
 
 		ui.Debug(fmt.Sprintf("Fetching skills from '%s'...", repoName))
@@ -314,15 +327,103 @@ Examples:
 	},
 }
 
+func githubAPIURL(path string) string {
+	return strings.TrimRight(githubAPIBaseURL, "/") + path
+}
+
+func fetchRepoContents(owner, repo, path string) ([]githubRepoContent, error) {
+	apiPath := fmt.Sprintf("/repos/%s/%s/contents", url.PathEscape(owner), url.PathEscape(repo))
+	if path != "" {
+		segments := strings.Split(strings.Trim(path, "/"), "/")
+		escapedSegments := make([]string, 0, len(segments))
+		for _, segment := range segments {
+			if segment == "" {
+				continue
+			}
+			escapedSegments = append(escapedSegments, url.PathEscape(segment))
+		}
+		if len(escapedSegments) > 0 {
+			apiPath += "/" + strings.Join(escapedSegments, "/")
+		}
+	}
+
+	req, err := http.NewRequest(http.MethodGet, githubAPIURL(apiPath), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "ask-cli")
+
+	resp, err := githubHTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var contents []githubRepoContent
+	if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
+		return nil, err
+	}
+
+	return contents, nil
+}
+
+func hasSkillManifest(contents []githubRepoContent) bool {
+	for _, item := range contents {
+		if item.Type == "file" && strings.EqualFold(item.Name, "SKILL.md") {
+			return true
+		}
+	}
+	return false
+}
+
+func directoryLooksLikeSkills(owner, repo, basePath string, contents []githubRepoContent) bool {
+	if hasSkillManifest(contents) {
+		return true
+	}
+
+	for _, item := range contents {
+		if item.Type != "dir" {
+			continue
+		}
+		childPath := item.Name
+		if basePath != "" {
+			childPath = basePath + "/" + item.Name
+		}
+		childContents, err := fetchRepoContents(owner, repo, childPath)
+		if err != nil {
+			continue
+		}
+		if hasSkillManifest(childContents) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // validateSkillsRepo checks if a GitHub repo is a valid skills repository
 func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 	// First, check if the repo exists
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
-	resp, err := http.Get(url)
-	if err != nil || resp.StatusCode != 200 {
+	req, err := http.NewRequest(http.MethodGet, githubAPIURL(fmt.Sprintf("/repos/%s/%s", url.PathEscape(owner), url.PathEscape(repo))), nil)
+	if err != nil {
 		return false, "", ""
 	}
-	func() { _ = resp.Body.Close() }()
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "ask-cli")
+
+	resp, err := githubHTTPClient.Do(req)
+	if err != nil {
+		return false, "", ""
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return false, "", ""
+	}
 
 	// Check for common skills directory patterns
 	pathsToCheck := []string{}
@@ -333,48 +434,16 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 	}
 
 	for _, p := range pathsToCheck {
-		contentsURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents", owner, repo)
-		if p != "" {
-			contentsURL = fmt.Sprintf("%s/%s", contentsURL, p)
-		}
-
-		resp, err := http.Get(contentsURL)
-		if err != nil || resp.StatusCode != 200 {
+		contents, err := fetchRepoContents(owner, repo, p)
+		if err != nil {
 			continue
 		}
-		defer func() { _ = resp.Body.Close() }()
-
-		var contents []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
-			continue
-		}
-
-		// Check if this looks like a skills directory
-		hasSkills := false
-		for _, item := range contents {
-			// Look for SKILL.md files or directories that could be skills
-			if item.Type == "dir" {
-				// Could be a skill directory
-				hasSkills = true
-				break
-			}
-			if item.Name == "SKILL.md" {
-				hasSkills = true
-				break
-			}
-		}
-
-		if hasSkills {
+		if directoryLooksLikeSkills(owner, repo, p, contents) {
 			return true, "dir", p
 		}
 	}
 
-	// If no skills found in subdirs, check if repo itself has topic
-	// For topic-based repos like those tagged with agent-skill
-	return true, "dir", ""
+	return false, "", ""
 }
 
 // repoRemoveCmd represents the repo remove command

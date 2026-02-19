@@ -26,16 +26,16 @@ func GenerateReport(result *CheckResult, format string) (string, error) {
 func generateMarkdown(result *CheckResult) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# Security Report: %s\n\n", result.SkillName))
-	sb.WriteString(fmt.Sprintf("**Date:** %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
+	fmt.Fprintf(&sb, "# Security Report: %s\n\n", result.SkillName)
+	fmt.Fprintf(&sb, "**Date:** %s\n\n", time.Now().Format("2006-01-02 15:04:05"))
 
 	criticals, warnings, infos := countSeverities(result.Findings)
 	sb.WriteString("## Summary\n\n")
 	sb.WriteString("| Severity | Count |\n")
 	sb.WriteString("| :--- | :--- |\n")
-	sb.WriteString(fmt.Sprintf("| 🔴 Critical | %d |\n", criticals))
-	sb.WriteString(fmt.Sprintf("| 🟡 Warning | %d |\n", warnings))
-	sb.WriteString(fmt.Sprintf("| 🔵 Info | %d |\n", infos))
+	fmt.Fprintf(&sb, "| 🔴 Critical | %d |\n", criticals)
+	fmt.Fprintf(&sb, "| 🟡 Warning | %d |\n", warnings)
+	fmt.Fprintf(&sb, "| 🔵 Info | %d |\n", infos)
 	sb.WriteString("\n")
 
 	if len(result.Findings) == 0 {
@@ -55,9 +55,9 @@ func generateMarkdown(result *CheckResult) string {
 			icon = "🔵"
 		}
 
-		sb.WriteString(fmt.Sprintf("### %s %s\n", icon, f.Description))
-		sb.WriteString(fmt.Sprintf("- **Rule ID:** `%s`\n", f.RuleID))
-		sb.WriteString(fmt.Sprintf("- **Location:** `%s:%d`\n", f.File, f.Line))
+		fmt.Fprintf(&sb, "### %s %s\n", icon, f.Description)
+		fmt.Fprintf(&sb, "- **Rule ID:** `%s`\n", f.RuleID)
+		fmt.Fprintf(&sb, "- **Location:** `%s:%d`\n", f.File, f.Line)
 		sb.WriteString("```\n")
 		sb.WriteString(f.Match)
 		sb.WriteString("\n```\n\n")

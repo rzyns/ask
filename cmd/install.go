@@ -190,6 +190,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		if targetRepo == nil {
 			fmt.Printf("Error: Repository '%s' not found in configuration. Use 'ask repo list' to see available repositories.\n", repoName)
 			os.Exit(1)
+			return
 		}
 
 		fmt.Printf("Fetching skills from repo '%s'...\n", repoName)
