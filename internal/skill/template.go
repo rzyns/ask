@@ -95,9 +95,7 @@ func CreateSkillTemplate(name, destDir string) error {
 	}
 
 	// 3. Create example script
-	scriptContent := `#!/bin/bash
-echo "Hello from {{.Name}} skill!"
-`
+	scriptContent := fmt.Sprintf("#!/bin/bash\necho \"Hello from %s skill!\"\n", name)
 	scriptFile := filepath.Join(skillDir, "scripts", "hello.sh")
 	if err := os.WriteFile(scriptFile, []byte(scriptContent), 0755); err != nil {
 		return fmt.Errorf("failed to create example script: %w", err)

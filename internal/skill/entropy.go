@@ -2,6 +2,7 @@ package skill
 
 import (
 	"math"
+	"unicode/utf8"
 )
 
 // CalculateEntropy calculates the Shannon entropy of a string.
@@ -17,7 +18,7 @@ func CalculateEntropy(s string) float64 {
 	}
 
 	var entropy float64
-	length := float64(len(s))
+	length := float64(utf8.RuneCountInString(s))
 
 	for _, count := range freq {
 		p := count / length

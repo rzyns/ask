@@ -79,9 +79,9 @@ func (l *LockFile) RemoveEntry(name string) {
 
 // GetEntry gets a lock entry by name
 func (l *LockFile) GetEntry(name string) *LockEntry {
-	for _, e := range l.Skills {
-		if e.Name == name {
-			return &e
+	for i := range l.Skills {
+		if l.Skills[i].Name == name {
+			return &l.Skills[i]
 		}
 	}
 	return nil

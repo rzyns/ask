@@ -348,7 +348,7 @@ func (s *Server) handleSkillInstall(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req InstallRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -391,7 +391,7 @@ func (s *Server) handleSkillUninstall(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req struct {
 		Name string `json:"name"`
@@ -431,7 +431,7 @@ func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req struct {
 		Path string `json:"path"`
@@ -474,7 +474,7 @@ func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req struct {
 		SrcPath string `json:"src_path"`
@@ -487,6 +487,11 @@ func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
 
 	if req.SrcPath == "" {
 		jsonError(w, "Source path is required", http.StatusBadRequest)
+		return
+	}
+
+	if strings.HasPrefix(req.SrcPath, "-") {
+		jsonError(w, "Invalid source path", http.StatusBadRequest)
 		return
 	}
 
@@ -537,6 +542,11 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 
 	if skillName == "" {
 		jsonError(w, "Skill name is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := validateSkillName(skillName); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

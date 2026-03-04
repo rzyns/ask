@@ -104,7 +104,7 @@ func (c *Client) Resolve(slug string) (string, error) {
 		return "", fmt.Errorf("failed to fetch skill page: %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
 	if err != nil {
 		return "", err
 	}

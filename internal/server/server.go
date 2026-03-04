@@ -25,6 +25,7 @@ type Server struct {
 	port    int
 	server  *http.Server
 	mu      sync.Mutex
+	cwdMu   sync.Mutex // protects os.Chdir to prevent concurrent directory changes
 	version string
 }
 
@@ -115,7 +116,7 @@ func OpenBrowser(url string) error {
 	case "linux":
 		cmd = exec.Command("xdg-open", url)
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", url)
+		cmd = exec.Command("cmd", "/c", "start", "", url)
 	default:
 		return fmt.Errorf("unsupported platform")
 	}
@@ -148,9 +149,13 @@ func corsMiddleware(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 		allowed := false
 		if origin != "" {
-			// Allow localhost/127.0.0.1
-			if strings.HasPrefix(origin, "http://localhost") ||
-				strings.HasPrefix(origin, "http://127.0.0.1") ||
+			// Allow localhost/127.0.0.1 (strict prefix to prevent localhost.evil.com)
+			if strings.HasPrefix(origin, "http://localhost:") ||
+				strings.HasPrefix(origin, "http://localhost/") ||
+				origin == "http://localhost" ||
+				strings.HasPrefix(origin, "http://127.0.0.1:") ||
+				strings.HasPrefix(origin, "http://127.0.0.1/") ||
+				origin == "http://127.0.0.1" ||
 				strings.HasPrefix(origin, "app://") { // Allow wails/electron type apps if needed
 				allowed = true
 			}
@@ -178,9 +183,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 const maxRequestBodySize = 1 << 20 // 1MB
 
 // limitRequestBody is a helper to limit request body size for POST handlers
-func limitRequestBody(r *http.Request) {
+func limitRequestBody(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
-		r.Body = http.MaxBytesReader(nil, r.Body, maxRequestBodySize)
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 	}
 }
 

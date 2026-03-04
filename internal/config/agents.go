@@ -2,6 +2,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -219,7 +220,7 @@ func ResolveAgentType(name string) (AgentType, bool) {
 func GetAgentSkillsDir(agent AgentType, global bool) (string, error) {
 	config, ok := SupportedAgents[agent]
 	if !ok {
-		return "", nil
+		return "", fmt.Errorf("unsupported agent type: %s", string(agent))
 	}
 
 	if global {

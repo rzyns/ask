@@ -4,6 +4,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -261,7 +262,7 @@ func fetchSkillDescription(owner, repo, skillPath string) string {
 
 	// Read the content (limit to 4KB to avoid huge files)
 	buf := make([]byte, 4096)
-	n, _ := resp.Body.Read(buf)
+	n, _ := io.ReadAtLeast(resp.Body, buf, 1)
 	content := string(buf[:n])
 
 	// Parse description from SKILL.md (check both frontmatter and first paragraph)
@@ -351,10 +352,11 @@ func trimQuotes(s string) string {
 }
 
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // FetchRepoDetails fetches details of a GitHub repository including star count

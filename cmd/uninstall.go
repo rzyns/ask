@@ -52,6 +52,13 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 
 		targetName := filepath.Base(skillName)
 
+		// Validate skill name to prevent path traversal
+		if targetName == "." || targetName == ".." || targetName == "" ||
+			strings.ContainsAny(targetName, `/\`) {
+			fmt.Printf("Error: Invalid skill name '%s'\n", skillName)
+			os.Exit(1)
+		}
+
 		// Determine target directories
 		var targetDirs []string
 		var scopeLabel string
@@ -148,9 +155,11 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 			}
 
 			// Update lock file
-			lockFile, _ := config.LoadLockFileByScope(global)
-			lockFile.RemoveEntry(targetName)
-			_ = lockFile.SaveByScope(global)
+			lockFile, err := config.LoadLockFileByScope(global)
+			if err == nil && lockFile != nil {
+				lockFile.RemoveEntry(targetName)
+				_ = lockFile.SaveByScope(global)
+			}
 		}
 
 		if removedCount > 0 {

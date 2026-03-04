@@ -140,7 +140,7 @@ func copyDir(src, dst string) error {
 	})
 }
 
-func copyFile(src, dst string) error {
+func copyFile(src, dst string) (retErr error) {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -151,13 +151,14 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = out.Close() }()
+	defer func() {
+		if cerr := out.Close(); retErr == nil {
+			retErr = cerr
+		}
+	}()
 
 	_, err = io.Copy(out, in)
-	if err != nil {
-		return err
-	}
-	return out.Close()
+	return err
 }
 
 // GetLatestTag returns the latest tag for a repository in the given path

@@ -42,13 +42,29 @@ Use --global to update global skills.`,
 			os.Exit(1)
 		}
 
-		if len(cfg.Skills) == 0 {
+		if len(cfg.Skills) == 0 && len(cfg.SkillsInfo) == 0 {
 			scopeLabel := "project"
 			if global {
 				scopeLabel = "global"
 			}
 			fmt.Printf("No %s skills installed.\n", scopeLabel)
 			return
+		}
+
+		// Build combined deduplicated skills list
+		allSkills := make([]string, 0, len(cfg.Skills)+len(cfg.SkillsInfo))
+		seen := make(map[string]bool)
+		for _, s := range cfg.Skills {
+			if !seen[s] {
+				seen[s] = true
+				allSkills = append(allSkills, s)
+			}
+		}
+		for _, si := range cfg.SkillsInfo {
+			if !seen[si.Name] {
+				seen[si.Name] = true
+				allSkills = append(allSkills, si.Name)
+			}
 		}
 
 		// Determine which skills to update
@@ -64,13 +80,21 @@ Use --global to update global skills.`,
 				}
 			}
 			if !found {
+				for _, si := range cfg.SkillsInfo {
+					if si.Name == skillName {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
 				fmt.Printf("Skill '%s' is not installed.\n", skillName)
 				os.Exit(1)
 			}
 			skillsToUpdate = []string{skillName}
 		} else {
 			// Update all skills
-			skillsToUpdate = cfg.Skills
+			skillsToUpdate = allSkills
 		}
 
 		skillsDir := config.GetSkillsDirByScope(global)

@@ -78,7 +78,7 @@ func (s *Server) handleRepoAdd(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req struct {
 		URL  string `json:"url"`
@@ -91,6 +91,11 @@ func (s *Server) handleRepoAdd(w http.ResponseWriter, r *http.Request) {
 
 	if req.URL == "" {
 		jsonError(w, "Repository URL is required", http.StatusBadRequest)
+		return
+	}
+
+	if strings.HasPrefix(req.URL, "-") {
+		jsonError(w, "Invalid repository URL", http.StatusBadRequest)
 		return
 	}
 
@@ -124,7 +129,7 @@ func (s *Server) handleRepoRemove(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req struct {
 		Name string `json:"name"`
@@ -164,7 +169,7 @@ func (s *Server) handleRepoSync(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	// Parse optional body for specific repo name
 	var req struct {
@@ -182,13 +187,18 @@ func (s *Server) handleRepoSync(w http.ResponseWriter, r *http.Request) {
 
 	args := []string{"repo", "sync"}
 	if req.Name != "" {
+		if strings.HasPrefix(req.Name, "-") {
+			jsonError(w, "Invalid repository name", http.StatusBadRequest)
+			return
+		}
 		args = append(args, req.Name)
 	}
 
 	cmd := exec.Command(exe, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Repo sync error: %v, output: %s\n", err, string(output))
+		jsonError(w, fmt.Sprintf("Sync failed: %s", string(output)), http.StatusInternalServerError)
+		return
 	}
 
 	msg := "Repositories synced"

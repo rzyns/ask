@@ -3,6 +3,36 @@
 All notable changes to this project will be documented in this file.
 
 
+## [1.7.4] - 2026-03-04
+
+### Fixed
+- **Security**: Fixed path traversal vulnerability where `"."` as skill name could delete entire skills directory.
+- **Security**: Fixed CORS origin validation accepting `localhost.evil.com` by enforcing strict prefix matching.
+- **Security**: Fixed argument injection in server handlers (`handleRepoAdd`, `handleSkillImport`, `handleRepoSync`) by rejecting inputs starting with `-`.
+- **Security**: Added `validateSkillName` check in `handleSkillFiles` to prevent directory traversal via skill name parameter.
+- **Security**: Fixed `limitRequestBody` passing `nil` ResponseWriter to `http.MaxBytesReader`, preventing proper connection signaling.
+- **Crash**: Fixed nil pointer dereference in `SaveIndexWithStars` when `os.Stat` fails on a cached repo directory.
+- **Crash**: Fixed nil pointer dereference in `installer.Install` when `cache.NewReposCache()` fails.
+- **Crash**: Fixed nil pointer dereference in `uninstall` and `outdated` commands when lock file fails to parse.
+- **Commands**: Fixed `update` and `outdated` commands ignoring skills stored in `SkillsInfo` (only checking legacy `Skills` list).
+- **Windows**: Fixed `OpenBrowser` command injection via URLs containing `&` by adding empty title argument to `start`.
+- **Windows**: Fixed `sanitizeRepoName` not sanitizing backslashes or `..`, enabling path traversal on Windows.
+- **Entropy**: Fixed `CalculateEntropy` using byte length instead of rune count, producing incorrect values for multi-byte UTF-8 strings.
+- **Template**: Fixed `CreateSkillTemplate` writing literal `{{.Name}}` in generated script instead of the actual skill name.
+- **Config**: Fixed `GetSkillInfo` and `LockFile.GetEntry` returning pointer to loop variable copy instead of actual slice element.
+- **Config**: Fixed `GetAgentSkillsDir` returning `("", nil)` for unknown agent types instead of a proper error.
+- **Server**: Fixed `handleRepoSync` reporting success even when the sync command fails.
+- **Server**: Added mutex protection for `os.Chdir` in `handleConfigUpdate` to prevent race conditions between concurrent requests.
+- **Resource Leak**: Fixed background `repo sync` process in `search.go` not calling `cmd.Wait()`, leaking goroutines.
+- **Resource Leak**: Fixed log file handle never closed in `service.go` after starting background service.
+- **GitHub**: Fixed `fetchSkillDescription` using single `Read` call that may return partial data; now uses `io.ReadAtLeast`.
+- **GitHub**: Fixed `truncate` function slicing by byte index, potentially producing invalid UTF-8.
+- **SkillHub**: Fixed unbounded `io.ReadAll` in `Resolve` that could cause OOM; now limited to 10MB.
+- **Files**: Fixed `CopyFile` and `git.copyFile` not checking close errors on destination file; now uses named return with deferred close.
+- **Code**: Removed redundant duplicate `if len(errors) > 0` check in `search.go`.
+- **Cache**: Fixed `GetReposCacheDir` silently returning relative path when `os.UserHomeDir()` fails.
+- **Install**: Fixed `installer.Install` not validating agent type, silently using empty directory for unknown agents.
+
 ## [1.7.3] - 2026-03-04
 
 ### Fixed

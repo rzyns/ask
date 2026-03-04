@@ -51,7 +51,10 @@ func NewReposCache() (*ReposCache, error) {
 
 // GetReposCacheDir returns the repos cache directory path
 func GetReposCacheDir() string {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".ask", "repos")
+	}
 	return filepath.Join(homeDir, ".ask", "repos")
 }
 
@@ -191,7 +194,10 @@ func (c *ReposCache) GetCachedRepos() []string {
 
 // sanitizeRepoName converts owner/repo to owner-repo for filesystem
 func sanitizeRepoName(name string) string {
-	return strings.ReplaceAll(name, "/", "-")
+	name = strings.ReplaceAll(name, "/", "-")
+	name = strings.ReplaceAll(name, "\\", "-")
+	name = strings.ReplaceAll(name, "..", "_")
+	return name
 }
 
 // extractDescription reads SKILL.md and extracts description from frontmatter
@@ -252,7 +258,10 @@ func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int, urls map[stri
 	var repoInfos []RepoInfo
 	for _, repo := range repos {
 		repoPath := filepath.Join(c.baseDir, repo)
-		info, _ := os.Stat(repoPath)
+		info, err := os.Stat(repoPath)
+		if err != nil {
+			continue
+		}
 
 		// Use new star count if provided, otherwise use existing
 		// Logic: if provided in map, it means we just synced it (successfully or attempted)

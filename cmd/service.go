@@ -112,6 +112,8 @@ func runServiceStart(_ *cobra.Command, _ []string) {
 		ui.Error("Failed to start service: " + err.Error())
 		return
 	}
+	// Close the log file in the parent process now that the child has inherited the fd
+	_ = logFile.Close()
 
 	if err := mgr.WritePID(bgCmd.Process.Pid); err != nil {
 		ui.Error("Failed to write PID file: " + err.Error())

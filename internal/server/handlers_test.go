@@ -136,7 +136,8 @@ func TestLimitRequestBody(t *testing.T) {
 	largeBody := strings.Repeat("x", 2<<20) // 2MB, larger than 1MB limit
 	req := httptest.NewRequest("POST", "/api/test", bytes.NewBufferString(largeBody))
 
-	limitRequestBody(req)
+	w := httptest.NewRecorder()
+	limitRequestBody(w, req)
 
 	// Try to read the body - should fail after limit
 	buf := make([]byte, 2<<20)

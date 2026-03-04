@@ -43,7 +43,7 @@ func CopyDir(source string, destination string) error {
 }
 
 // CopyFile copies a single file from src to dst.
-func CopyFile(src, dst string) error {
+func CopyFile(src, dst string) (retErr error) {
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -54,7 +54,11 @@ func CopyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = destFile.Close() }()
+	defer func() {
+		if cerr := destFile.Close(); retErr == nil {
+			retErr = cerr
+		}
+	}()
 
 	if _, err := io.Copy(destFile, sourceFile); err != nil {
 		return err

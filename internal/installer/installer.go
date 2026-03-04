@@ -70,8 +70,8 @@ func Install(input string, opts InstallOptions) error {
 				repoName := parts[0]
 				skillNamePart := parts[1]
 
-				reposCache, _ := cache.NewReposCache()
-				if reposCache.HasRepo(repoName) {
+				reposCache, cacheErr := cache.NewReposCache()
+				if cacheErr == nil && reposCache != nil && reposCache.HasRepo(repoName) {
 					// Check for staleness (24 hours)
 					// Only refresh if NOT in offline mode
 					if !config.OfflineMode && reposCache.IsStale(repoName, 24*time.Hour) {
@@ -97,7 +97,7 @@ func Install(input string, opts InstallOptions) error {
 							// Let's use it.
 							_, _ = repository.FetchSkills(refreshRepo)
 							// Re-load cache after sync
-							reposCache, _ = cache.NewReposCache()
+							reposCache, _ = cache.NewReposCache() //nolint:errcheck
 						}
 					}
 
@@ -280,10 +280,16 @@ func Install(input string, opts InstallOptions) error {
 
 	if len(opts.Agents) > 0 {
 		for _, agentName := range opts.Agents {
-			agentType, _ := config.ResolveAgentType(agentName)
+			agentType, ok := config.ResolveAgentType(agentName)
+			if !ok {
+				return fmt.Errorf("unknown agent: %s", agentName)
+			}
 			dir, err := config.GetAgentSkillsDir(agentType, opts.Global)
 			if err != nil {
 				return fmt.Errorf("failed to get skills dir for agent %s: %w", agentName, err)
+			}
+			if dir == "" {
+				return fmt.Errorf("no skills directory configured for agent %s", agentName)
 			}
 			targetDirs = append(targetDirs, dir)
 		}
@@ -481,7 +487,10 @@ func Install(input string, opts InstallOptions) error {
 		}
 
 		// Update lock file
-		lockFile, _ := config.LoadLockFileByScope(opts.Global)
+		lockFile, lockErr := config.LoadLockFileByScope(opts.Global)
+		if lockErr != nil || lockFile == nil {
+			lockFile = &config.LockFile{Version: 1, Skills: []config.LockEntry{}}
+		}
 		lockEntry := config.LockEntry{
 			Name:        skillName,
 			URL:         skillInfo.URL,

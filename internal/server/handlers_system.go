@@ -89,7 +89,7 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	limitRequestBody(r)
+	limitRequestBody(w, r)
 
 	var req struct {
 		Agent       string `json:"agent"`
@@ -118,6 +118,14 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Handle project_root update first, as it changes the context for everything else
 	if req.ProjectRoot != "" {
+		// Validate the path exists before changing
+		if info, err := os.Stat(req.ProjectRoot); err != nil || !info.IsDir() {
+			jsonError(w, "Invalid project root: not a valid directory", http.StatusBadRequest)
+			return
+		}
+		// Lock CWD changes to prevent concurrent handlers from seeing wrong directory
+		s.cwdMu.Lock()
+		defer s.cwdMu.Unlock()
 		if err := os.Chdir(req.ProjectRoot); err != nil {
 			jsonError(w, "Failed to change directory: "+err.Error(), http.StatusBadRequest)
 			return

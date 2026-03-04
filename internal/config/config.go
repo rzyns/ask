@@ -306,9 +306,9 @@ func (c *Config) AddSkillInfo(info SkillInfo) {
 
 // GetSkillInfo returns skill info by name
 func (c *Config) GetSkillInfo(name string) *SkillInfo {
-	for _, s := range c.SkillsInfo {
-		if s.Name == name {
-			return &s
+	for i := range c.SkillsInfo {
+		if c.SkillsInfo[i].Name == name {
+			return &c.SkillsInfo[i]
 		}
 	}
 	return nil

@@ -109,6 +109,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 						// Fire and forget
 						cmd := exec.Command(exe, "repo", "sync")
 						_ = cmd.Start()
+						go func() { _ = cmd.Wait() }()
 					}
 				}
 			}
@@ -210,11 +211,9 @@ func runSearch(cmd *cobra.Command, args []string) {
 
 	fmt.Println()
 	if len(errors) > 0 {
-		if len(errors) > 0 {
-			ui.Warn("Some sources failed to load:")
-			for _, errMsg := range errors {
-				ui.Warn(fmt.Sprintf("  - %s", errMsg))
-			}
+		ui.Warn("Some sources failed to load:")
+		for _, errMsg := range errors {
+			ui.Warn(fmt.Sprintf("  - %s", errMsg))
 		}
 	}
 

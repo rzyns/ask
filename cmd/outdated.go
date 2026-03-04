@@ -35,7 +35,7 @@ Use --global to check global skills.`,
 			os.Exit(1)
 		}
 
-		if len(cfg.Skills) == 0 {
+		if len(cfg.Skills) == 0 && len(cfg.SkillsInfo) == 0 {
 			scopeLabel := "project"
 			if global {
 				scopeLabel = "global"
@@ -44,7 +44,26 @@ Use --global to check global skills.`,
 			return
 		}
 
-		lockFile, _ := config.LoadLockFileByScope(global)
+		// Build combined deduplicated skills list
+		allSkills := make([]string, 0, len(cfg.Skills)+len(cfg.SkillsInfo))
+		seen := make(map[string]bool)
+		for _, s := range cfg.Skills {
+			if !seen[s] {
+				seen[s] = true
+				allSkills = append(allSkills, s)
+			}
+		}
+		for _, si := range cfg.SkillsInfo {
+			if !seen[si.Name] {
+				seen[si.Name] = true
+				allSkills = append(allSkills, si.Name)
+			}
+		}
+
+		lockFile, err := config.LoadLockFileByScope(global)
+		if err != nil || lockFile == nil {
+			lockFile = &config.LockFile{Version: 1, Skills: []config.LockEntry{}}
+		}
 
 		scopeLabel := "project"
 		if global {
@@ -59,7 +78,7 @@ Use --global to check global skills.`,
 		outdatedCount := 0
 		skillsDir := config.GetSkillsDirByScope(global)
 
-		for _, skillName := range cfg.Skills {
+		for _, skillName := range allSkills {
 			skillPath := filepath.Join(skillsDir, skillName)
 
 			// Check if it's a git repository
