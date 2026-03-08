@@ -101,7 +101,10 @@ func ScanSkills(baseDir, subPath, owner, repoName string) ([]github.Repository, 
 		}
 
 		// Rel path from baseDir (root of repo)
-		relPathFromRoot, _ := filepath.Rel(baseDir, fullPath)
+		relPathFromRoot, err := filepath.Rel(baseDir, fullPath)
+		if err != nil {
+			relPathFromRoot = ""
+		}
 		if relPathFromRoot == "." {
 			relPathFromRoot = ""
 		}

@@ -278,7 +278,6 @@ Examples:
 				fmt.Printf("Did you mean to add it? Run: ask repo add %s\n", repoName)
 			}
 			os.Exit(1)
-			return
 		}
 
 		ui.Debug(fmt.Sprintf("Fetching skills from '%s'...", repoName))

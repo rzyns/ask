@@ -114,8 +114,7 @@ Use --global to check global skills.`,
 				lockedVersion = lockEntry.Version
 			}
 
-			// Compare
-			// Compare
+			// Compare local vs remote commit
 			if !config.OfflineMode {
 				status = "✓ Up to date"
 				if currentCommit != remoteCommit && remoteCommit != "" {

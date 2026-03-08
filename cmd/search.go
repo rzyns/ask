@@ -106,10 +106,11 @@ func runSearch(cmd *cobra.Command, args []string) {
 					ui.Debug("Cache is stale, updating in background...")
 					exe, err := os.Executable()
 					if err == nil {
-						// Fire and forget
+						// Background sync: start child process and wait to prevent zombie
 						cmd := exec.Command(exe, "repo", "sync")
-						_ = cmd.Start()
-						go func() { _ = cmd.Wait() }()
+						if err := cmd.Start(); err == nil {
+							go func() { _ = cmd.Wait() }()
+						}
 					}
 				}
 			}

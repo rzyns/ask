@@ -187,8 +187,10 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 	// Fetch repo details for stars
 	repoDetails, err := FetchRepoDetails(owner, repo)
 	stars := 0
-	if err == nil {
+	cloneURL := ""
+	if err == nil && repoDetails != nil {
 		stars = repoDetails.StargazersCount
+		cloneURL = repoDetails.CloneURL
 	}
 
 	var skills []Repository
@@ -210,7 +212,7 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 				Description:     desc,
 				HTMLURL:         item.HTMLURL,
 				StargazersCount: stars,
-				CloneURL:        repoDetails.CloneURL,
+				CloneURL:        cloneURL,
 			})
 		}
 	}
@@ -262,7 +264,10 @@ func fetchSkillDescription(owner, repo, skillPath string) string {
 
 	// Read the content (limit to 4KB to avoid huge files)
 	buf := make([]byte, 4096)
-	n, _ := io.ReadAtLeast(resp.Body, buf, 1)
+	n, err := io.ReadAtLeast(resp.Body, buf, 1)
+	if err != nil && n == 0 {
+		return ""
+	}
 	content := string(buf[:n])
 
 	// Parse description from SKILL.md (check both frontmatter and first paragraph)

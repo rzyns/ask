@@ -289,7 +289,10 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 				repo := repoMap[skill.RepoName]
 				skillURL := repo.URL
 				if skillURL != "" && !strings.HasSuffix(skillURL, ".git") {
-					skillURL = fmt.Sprintf("%s/tree/HEAD/%s", strings.TrimSuffix(skillURL, "/"), skill.Path)
+					// Sanitize skill.Path to prevent path traversal in URL construction
+					cleanPath := filepath.Clean(skill.Path)
+					cleanPath = strings.TrimPrefix(cleanPath, "/")
+					skillURL = fmt.Sprintf("%s/tree/HEAD/%s", strings.TrimSuffix(skillURL, "/"), cleanPath)
 				}
 
 				if repoFilter != "" && !strings.EqualFold(skill.RepoName, repoFilter) {

@@ -303,7 +303,10 @@ func Install(input string, opts InstallOptions) error {
 			scopeLabel = "global"
 		} else {
 			if opts.Config != nil {
-				wd, _ := os.Getwd()
+				wd, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get working directory: %w", err)
+				}
 				targetDirs = opts.Config.GetActiveSkillsDirs(wd)
 				scopeLabel = "detected targets"
 			} else {
