@@ -20,11 +20,11 @@ func SetOffline(offline bool) {
 // Repo represents a skill repository
 type Repo struct {
 	Name    string `yaml:"name"`
-	Type    string `yaml:"type"`              // "topic", "dir", "registry", or "skillhub"
-	URL     string `yaml:"url"`               // GitHub topic or "owner/repo/path"
-	Token   string `yaml:"token,omitempty"`   // Per-repo auth token (private repos)
+	Type    string `yaml:"type"`               // "topic", "dir", "registry", or "skillhub"
+	URL     string `yaml:"url"`                // GitHub topic or "owner/repo/path"
+	Token   string `yaml:"token,omitempty"`    // Per-repo auth token (private repos)
 	BaseURL string `yaml:"base_url,omitempty"` // GitHub Enterprise base URL
-	Private bool   `yaml:"private,omitempty"` // Whether the repo is private
+	Private bool   `yaml:"private,omitempty"`  // Whether the repo is private
 }
 
 // ToolTarget represents a supported AI coding tool

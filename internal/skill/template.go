@@ -145,7 +145,7 @@ A skill for AI Agents to [describe what this skill does].
 
 ## Installation
 
-` + "`ask install <your-github-username>/%s`" + `
+`+"`ask install <your-github-username>/%s`"+`
 
 ## Usage
 
@@ -165,7 +165,7 @@ A skill for AI Agents to [describe what this skill does].
 
 ### Environment Variables
 
-See ` + "`.env.example`" + ` for required environment variables.
+See `+"`.env.example`"+` for required environment variables.
 
 ## Contributing
 

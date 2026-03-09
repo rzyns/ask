@@ -28,14 +28,14 @@ type AuditReport struct {
 
 // AuditSkillEntry represents one skill in the audit
 type AuditSkillEntry struct {
-	Name        string         `json:"name"`
-	URL         string         `json:"url,omitempty"`
-	Version     string         `json:"version,omitempty"`
-	Commit      string         `json:"commit,omitempty"`
-	InstalledAt string         `json:"installed_at,omitempty"`
-	Source      string         `json:"source,omitempty"`
+	Name        string          `json:"name"`
+	URL         string          `json:"url,omitempty"`
+	Version     string          `json:"version,omitempty"`
+	Commit      string          `json:"commit,omitempty"`
+	InstalledAt string          `json:"installed_at,omitempty"`
+	Source      string          `json:"source,omitempty"`
 	Findings    []skill.Finding `json:"findings,omitempty"`
-	Status      string         `json:"status"` // "clean", "warning", "critical"
+	Status      string          `json:"status"` // "clean", "warning", "critical"
 }
 
 var auditCmd = &cobra.Command{
@@ -159,9 +159,9 @@ func runAudit(cmd *cobra.Command, _ []string) {
 	case "html", "markdown", "md":
 		// Build markdown content
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("# Security Audit Report\n\n"))
+		sb.WriteString("# Security Audit Report\n\n")
 		sb.WriteString(fmt.Sprintf("Generated: %s | ASK v%s\n\n", report.GeneratedAt.Format(time.RFC3339), report.Version))
-		sb.WriteString(fmt.Sprintf("## Summary\n\n"))
+		sb.WriteString("## Summary\n\n")
 		sb.WriteString(fmt.Sprintf("- **Total skills**: %d\n", report.TotalSkills))
 		sb.WriteString(fmt.Sprintf("- **Critical**: %d\n", report.CriticalCount))
 		sb.WriteString(fmt.Sprintf("- **Warnings**: %d\n", report.WarningCount))
@@ -169,9 +169,10 @@ func runAudit(cmd *cobra.Command, _ []string) {
 		sb.WriteString("## Skills\n\n")
 		for _, s := range report.Skills {
 			status := "✓"
-			if s.Status == "critical" {
+			switch s.Status {
+			case "critical":
 				status = "✗"
-			} else if s.Status == "warning" {
+			case "warning":
 				status = "!"
 			}
 			sb.WriteString(fmt.Sprintf("### %s %s\n\n", status, s.Name))
@@ -225,9 +226,10 @@ func runAudit(cmd *cobra.Command, _ []string) {
 			fmt.Println()
 
 			for _, f := range s.Findings {
-				if f.Severity == skill.SeverityCritical {
+				switch f.Severity {
+				case skill.SeverityCritical:
 					fmt.Printf("    %s %s\n", color.RedString("[CRITICAL]"), f.Description)
-				} else if f.Severity == skill.SeverityWarning {
+				case skill.SeverityWarning:
 					fmt.Printf("    %s %s\n", color.YellowString("[WARNING]"), f.Description)
 				}
 			}

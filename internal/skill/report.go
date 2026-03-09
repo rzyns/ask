@@ -16,35 +16,42 @@ type SARIFReport struct {
 	Runs    []SARIFRun `json:"runs"`
 }
 
+// SARIFRun represents a single run in a SARIF report
 type SARIFRun struct {
 	Tool    SARIFTool     `json:"tool"`
 	Results []SARIFResult `json:"results"`
 }
 
+// SARIFTool represents the tool that produced the SARIF report
 type SARIFTool struct {
 	Driver SARIFDriver `json:"driver"`
 }
 
+// SARIFDriver represents the driver (scanner) information
 type SARIFDriver struct {
 	Name    string      `json:"name"`
 	Version string      `json:"version"`
 	Rules   []SARIFRule `json:"rules,omitempty"`
 }
 
+// SARIFRule represents a rule definition in the SARIF report
 type SARIFRule struct {
 	ID               string          `json:"id"`
 	ShortDescription SARIFMessage    `json:"shortDescription"`
 	DefaultConfig    SARIFRuleConfig `json:"defaultConfiguration"`
 }
 
+// SARIFRuleConfig represents the default configuration for a rule
 type SARIFRuleConfig struct {
 	Level string `json:"level"`
 }
 
+// SARIFMessage represents a text message in the SARIF report
 type SARIFMessage struct {
 	Text string `json:"text"`
 }
 
+// SARIFResult represents a single finding result
 type SARIFResult struct {
 	RuleID    string          `json:"ruleId"`
 	Level     string          `json:"level"`
@@ -52,19 +59,23 @@ type SARIFResult struct {
 	Locations []SARIFLocation `json:"locations,omitempty"`
 }
 
+// SARIFLocation represents the location of a finding
 type SARIFLocation struct {
 	PhysicalLocation SARIFPhysicalLocation `json:"physicalLocation"`
 }
 
+// SARIFPhysicalLocation represents the physical file location
 type SARIFPhysicalLocation struct {
 	ArtifactLocation SARIFArtifactLocation `json:"artifactLocation"`
 	Region           *SARIFRegion          `json:"region,omitempty"`
 }
 
+// SARIFArtifactLocation represents the artifact (file) URI
 type SARIFArtifactLocation struct {
 	URI string `json:"uri"`
 }
 
+// SARIFRegion represents a region within a file
 type SARIFRegion struct {
 	StartLine int `json:"startLine"`
 }

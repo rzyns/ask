@@ -125,9 +125,10 @@ func runTest(_ *cobra.Command, args []string) {
 		criticals := 0
 		warnings := 0
 		for _, f := range result.Findings {
-			if f.Severity == skill.SeverityCritical {
+			switch f.Severity {
+			case skill.SeverityCritical:
 				criticals++
-			} else if f.Severity == skill.SeverityWarning {
+			case skill.SeverityWarning:
 				warnings++
 			}
 		}

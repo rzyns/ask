@@ -23,7 +23,7 @@ team members and CI/CD pipelines.`,
 
   # Install from global lock file
   ask lock-install --global`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		global, _ := cmd.Flags().GetBool("global")
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 
