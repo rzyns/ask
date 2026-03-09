@@ -165,7 +165,7 @@ A skill for AI Agents to [describe what this skill does].
 
 ### Environment Variables
 
-See `.env.example` for required environment variables.
+See ` + "`.env.example`" + ` for required environment variables.
 
 ## Contributing
 
