@@ -28,10 +28,35 @@ If the current directory is not a skill, all installed skills across all agents 
 var outputFile string
 
 func init() {
-	checkCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Write report to file (supports .md, .html/.htm, .json)")
+	checkCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Write report to file (supports .md, .html/.htm, .json, .sarif)")
+	checkCmd.Flags().Bool("ci", false, "CI mode: exit with non-zero code on any findings at or above severity threshold")
+	checkCmd.Flags().String("severity", "warning", "Minimum severity to report: info, warning, critical")
+	checkCmd.Flags().String("format", "", "Output format: console (default), json, html, markdown, sarif")
 }
 
-func runCheck(_ *cobra.Command, args []string) {
+func filterBySeverity(result *skill.CheckResult, minSeverity string) *skill.CheckResult {
+	filtered := &skill.CheckResult{
+		SkillName:      result.SkillName,
+		ScannedModules: result.ScannedModules,
+	}
+	for _, f := range result.Findings {
+		switch minSeverity {
+		case "critical":
+			if f.Severity == skill.SeverityCritical {
+				filtered.Findings = append(filtered.Findings, f)
+			}
+		case "warning":
+			if f.Severity == skill.SeverityCritical || f.Severity == skill.SeverityWarning {
+				filtered.Findings = append(filtered.Findings, f)
+			}
+		default: // "info"
+			filtered.Findings = append(filtered.Findings, f)
+		}
+	}
+	return filtered
+}
+
+func runCheck(cmd *cobra.Command, args []string) {
 	var targetPath string
 	var err error
 
@@ -49,6 +74,11 @@ func runCheck(_ *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	}
+
+	// Get new flags
+	ciMode, _ := cmd.Flags().GetBool("ci")
+	severityFilter, _ := cmd.Flags().GetString("severity")
+	format, _ := cmd.Flags().GetString("format")
 
 	// Check if the target itself is a skill
 	if skill.FindSkillMD(targetPath) {
@@ -69,12 +99,38 @@ func runCheck(_ *cobra.Command, args []string) {
 			}
 		}
 
-		if outputFile != "" {
+		// Filter by severity
+		result = filterBySeverity(result, severityFilter)
+
+		// Handle output based on format
+		if format == "sarif" {
+			content, err := skill.GenerateSARIFReport(result, Version)
+			if err != nil {
+				fmt.Printf("Error generating SARIF report: %v\n", err)
+				os.Exit(1)
+			}
+			if outputFile != "" {
+				if err := os.WriteFile(outputFile, []byte(content), 0644); err != nil {
+					fmt.Printf("Error writing report: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Fprintf(os.Stderr, "SARIF report saved to %s\n", outputFile)
+			} else {
+				fmt.Println(content)
+			}
+		} else if outputFile != "" {
 			handleReport(result, outputFile)
 		} else {
 			printReport(result)
 		}
-		if hasCriticalIssues(result) {
+
+		// Handle CI mode
+		if ciMode && len(result.Findings) > 0 {
+			os.Exit(1)
+		}
+
+		// Default behavior: exit on critical issues
+		if !ciMode && hasCriticalIssues(result) {
 			os.Exit(1)
 		}
 		return

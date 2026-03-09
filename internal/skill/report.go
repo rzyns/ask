@@ -9,6 +9,141 @@ import (
 	"time"
 )
 
+// SARIFReport represents a SARIF v2.1.0 report
+type SARIFReport struct {
+	Schema  string     `json:"$schema"`
+	Version string     `json:"version"`
+	Runs    []SARIFRun `json:"runs"`
+}
+
+type SARIFRun struct {
+	Tool    SARIFTool     `json:"tool"`
+	Results []SARIFResult `json:"results"`
+}
+
+type SARIFTool struct {
+	Driver SARIFDriver `json:"driver"`
+}
+
+type SARIFDriver struct {
+	Name    string      `json:"name"`
+	Version string      `json:"version"`
+	Rules   []SARIFRule `json:"rules,omitempty"`
+}
+
+type SARIFRule struct {
+	ID               string          `json:"id"`
+	ShortDescription SARIFMessage    `json:"shortDescription"`
+	DefaultConfig    SARIFRuleConfig `json:"defaultConfiguration"`
+}
+
+type SARIFRuleConfig struct {
+	Level string `json:"level"`
+}
+
+type SARIFMessage struct {
+	Text string `json:"text"`
+}
+
+type SARIFResult struct {
+	RuleID    string          `json:"ruleId"`
+	Level     string          `json:"level"`
+	Message   SARIFMessage    `json:"message"`
+	Locations []SARIFLocation `json:"locations,omitempty"`
+}
+
+type SARIFLocation struct {
+	PhysicalLocation SARIFPhysicalLocation `json:"physicalLocation"`
+}
+
+type SARIFPhysicalLocation struct {
+	ArtifactLocation SARIFArtifactLocation `json:"artifactLocation"`
+	Region           *SARIFRegion          `json:"region,omitempty"`
+}
+
+type SARIFArtifactLocation struct {
+	URI string `json:"uri"`
+}
+
+type SARIFRegion struct {
+	StartLine int `json:"startLine"`
+}
+
+// GenerateSARIFReport generates a SARIF v2.1.0 formatted security report
+func GenerateSARIFReport(result *CheckResult, version string) (string, error) {
+	report := SARIFReport{
+		Schema:  "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+		Version: "2.1.0",
+		Runs: []SARIFRun{
+			{
+				Tool: SARIFTool{
+					Driver: SARIFDriver{
+						Name:    "ask-check",
+						Version: version,
+					},
+				},
+			},
+		},
+	}
+
+	// Build rules set
+	ruleSet := make(map[string]bool)
+	for _, f := range result.Findings {
+		if !ruleSet[f.RuleID] {
+			ruleSet[f.RuleID] = true
+			level := "note"
+			switch f.Severity {
+			case SeverityCritical:
+				level = "error"
+			case SeverityWarning:
+				level = "warning"
+			}
+			report.Runs[0].Tool.Driver.Rules = append(report.Runs[0].Tool.Driver.Rules, SARIFRule{
+				ID:               f.RuleID,
+				ShortDescription: SARIFMessage{Text: f.Description},
+				DefaultConfig:    SARIFRuleConfig{Level: level},
+			})
+		}
+	}
+
+	// Build results
+	for _, f := range result.Findings {
+		level := "note"
+		switch f.Severity {
+		case SeverityCritical:
+			level = "error"
+		case SeverityWarning:
+			level = "warning"
+		}
+
+		sarifResult := SARIFResult{
+			RuleID:  f.RuleID,
+			Level:   level,
+			Message: SARIFMessage{Text: f.Description + ": " + f.Match},
+		}
+
+		if f.File != "" {
+			loc := SARIFLocation{
+				PhysicalLocation: SARIFPhysicalLocation{
+					ArtifactLocation: SARIFArtifactLocation{URI: f.File},
+				},
+			}
+			if f.Line > 0 {
+				loc.PhysicalLocation.Region = &SARIFRegion{StartLine: f.Line}
+			}
+			sarifResult.Locations = append(sarifResult.Locations, loc)
+		}
+
+		report.Runs[0].Results = append(report.Runs[0].Results, sarifResult)
+	}
+
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // GenerateReport generates a report in the specified format ("md", "html", or "json")
 func GenerateReport(result *CheckResult, format string) (string, error) {
 	switch strings.ToLower(format) {
