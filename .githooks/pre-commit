@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Pre-commit hook for ASK project
+# Runs formatting check, linting, and tests before allowing commits.
+#
+# Install: git config core.hooksPath .githooks
+# Or:      cp .githooks/pre-commit .git/hooks/pre-commit
+
+set -e
+
+echo "=== Pre-commit checks ==="
+
+# 1. Check go fmt
+echo ""
+echo "[1/4] Checking formatting (go fmt)..."
+UNFORMATTED=$(gofmt -l . 2>&1 | grep -v vendor || true)
+if [ -n "$UNFORMATTED" ]; then
+    echo "FAIL: The following files are not formatted:"
+    echo "$UNFORMATTED"
+    echo ""
+    echo "Run 'go fmt ./...' to fix."
+    exit 1
+fi
+echo "  OK"
+
+# 2. Run go vet
+echo "[2/4] Running go vet..."
+go vet ./...
+echo "  OK"
+
+# 3. Run golangci-lint (if installed)
+echo "[3/4] Running golangci-lint..."
+if command -v golangci-lint &> /dev/null; then
+    golangci-lint run ./... --timeout=5m
+    echo "  OK"
+else
+    echo "  SKIP (golangci-lint not installed, run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)"
+fi
+
+# 4. Run tests
+echo "[4/4] Running tests..."
+go test ./...
+echo "  OK"
+
+echo ""
+echo "=== All pre-commit checks passed ==="

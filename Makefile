@@ -1,8 +1,12 @@
 BINARY_NAME=ask
 
-.PHONY: all build build-desktop install-wails check-wails test clean run deps fmt vet lint install coverage
+.PHONY: all build build-desktop install-wails check-wails test clean run deps fmt vet lint install coverage setup-hooks
 
 all: test build
+
+setup-hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/"
 
 build:
 	go build -o $(BINARY_NAME) main.go
