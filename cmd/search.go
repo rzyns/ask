@@ -64,6 +64,44 @@ func runSearch(cmd *cobra.Command, args []string) {
 		installedSkills[s.Name] = true
 	}
 
+	// When no keyword specified, show popular skills overview
+	if keyword == "" && !forceLocal && !forceRemote {
+		reposCache, err := cache.NewReposCache()
+		if err == nil {
+			skills, _ := reposCache.SearchSkills("")
+			if len(skills) > 0 {
+				fmt.Println("Popular Skills:")
+				fmt.Println()
+
+				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+				_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tDESCRIPTION")
+
+				count := 0
+				for _, s := range skills {
+					if count >= 20 {
+						break
+					}
+					installed := ""
+					if installedSkills[s.Name] {
+						installed = "✓"
+					}
+					desc := s.Description
+					if len(desc) > 50 {
+						desc = desc[:47] + "..."
+					}
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, s.RepoName, installed, desc)
+					count++
+				}
+				_ = w.Flush()
+
+				fmt.Printf("\nShowing %d of %d available skills.\n", count, len(skills))
+				fmt.Println("\nTip: ask search <keyword> to find specific skills")
+				fmt.Println("     ask install <name>   to install a skill")
+				return
+			}
+		}
+	}
+
 	var allRepos []github.Repository
 	var errors []string
 	var searchSource string
