@@ -14,9 +14,9 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	// We now have 4 default repos: anthropics, openai, ComposioHQ, vercel
-	if len(config.Repos) != 4 {
-		t.Errorf("Expected 4 default repos, got %d", len(config.Repos))
+	// We now have 5 default repos: featured, anthropics, openai, ComposioHQ, vercel
+	if len(config.Repos) != 5 {
+		t.Errorf("Expected 5 default repos, got %d", len(config.Repos))
 	}
 }
 
@@ -27,6 +27,7 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		repoType string
 		url      string
 	}{
+		"featured":   {repoType: "registry", url: "yeasy/awesome-agent-skills/registry/index.json"},
 		"anthropics": {repoType: "dir", url: "anthropics/skills/skills"},
 		"openai":     {repoType: "dir", url: "openai/skills/skills"},
 		"composio":   {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
