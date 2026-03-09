@@ -38,6 +38,8 @@ func FetchSkills(repo config.Repo) ([]github.Repository, error) {
 			return github.SearchDir(owner, name, path)
 		}
 		return nil, fmt.Errorf("invalid repository URL format: %s", repo.URL)
+	case "registry":
+		return FetchSkillsFromRegistry(repo.URL, "")
 	case "skillhub":
 		return FetchSkillsFromSkillHub("", "")
 	default:

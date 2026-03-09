@@ -187,6 +187,8 @@ func runSearch(cmd *cobra.Command, args []string) {
 						repos = filtered
 					}
 				}
+			case "registry":
+				repos, err = repository.FetchSkillsFromRegistry(r.URL, keyword)
 			case "skillhub":
 				repos, err = repository.FetchSkillsFromSkillHub(keyword, "")
 			}

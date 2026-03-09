@@ -19,9 +19,12 @@ func SetOffline(offline bool) {
 
 // Repo represents a skill repository
 type Repo struct {
-	Name string `yaml:"name"`
-	Type string `yaml:"type"` // "topic" or "dir"
-	URL  string `yaml:"url"`  // GitHub topic or "owner/repo/path"
+	Name    string `yaml:"name"`
+	Type    string `yaml:"type"`              // "topic", "dir", "registry", or "skillhub"
+	URL     string `yaml:"url"`               // GitHub topic or "owner/repo/path"
+	Token   string `yaml:"token,omitempty"`   // Per-repo auth token (private repos)
+	BaseURL string `yaml:"base_url,omitempty"` // GitHub Enterprise base URL
+	Private bool   `yaml:"private,omitempty"` // Whether the repo is private
 }
 
 // ToolTarget represents a supported AI coding tool
@@ -177,6 +180,11 @@ func DefaultConfig() Config {
 		Version: "1.2",
 		Skills:  []string{},
 		Repos: []Repo{
+			{
+				Name: "featured",
+				Type: "registry",
+				URL:  "yeasy/awesome-agent-skills/registry/index.json",
+			},
 			{
 				Name: "anthropics",
 				Type: "dir",
