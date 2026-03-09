@@ -43,13 +43,21 @@ This will generate a SKILL.md and necessary subdirectories (scripts, references,
 		fmt.Println("\nDirectory structure:")
 		fmt.Printf("  %s/\n", name)
 		fmt.Println("  ├── SKILL.md")
+		fmt.Println("  ├── prompts/")
 		fmt.Println("  ├── scripts/")
 		fmt.Println("  ├── references/")
-		fmt.Println("  └── assets/")
+		fmt.Println("  ├── assets/")
+		fmt.Println("  ├── README.md")
+		fmt.Println("  └── .env.example")
 		fmt.Println("\nNext steps:")
 		fmt.Printf("1. cd %s\n", name)
 		fmt.Println("2. Edit SKILL.md to describe your skill")
-		fmt.Println("3. Add scripts to the 'scripts' directory")
+		fmt.Println("3. Add prompts to the 'prompts' directory")
+		fmt.Println("4. Add scripts to the 'scripts' directory")
+		fmt.Println("5. Add a comprehensive README.md")
+		fmt.Println("6. Add .env.example with environment variables needed")
+		fmt.Println("7. Test your skill: ask skill test")
+		fmt.Println("8. Publish your skill: ask skill publish")
 	},
 }
 
