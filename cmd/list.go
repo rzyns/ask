@@ -222,12 +222,20 @@ func showSkills(scope string, global bool, jsonOutput bool) []SkillListItem {
 		if jsonOutput {
 			items = append(items, item)
 		} else {
-			fmt.Printf("  %s\n", skill.Name)
-			if skill.Description != "" {
-				fmt.Printf("    Description: %s\n", skill.Description)
+			// Check which agents have this skill
+			agents := detectSkillAgents(skill.Name)
+			agentStr := ""
+			if len(agents) > 0 {
+				agentStr = strings.Join(agents, ", ")
 			}
-			if skill.URL != "" {
-				fmt.Printf("    URL: %s\n", skill.URL)
+
+			fmt.Printf("  %-20s", skill.Name)
+			if agentStr != "" {
+				fmt.Printf("  [%s]", agentStr)
+			}
+			fmt.Println()
+			if skill.Description != "" {
+				fmt.Printf("    %s\n", skill.Description)
 			}
 			fmt.Println()
 		}
@@ -255,6 +263,29 @@ func registerListFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("all", false, "show both project and global skills")
 	cmd.Flags().StringSliceP("agent", "a", []string{}, "list skills for specific agent(s)")
 	cmd.Flags().Bool("json", false, "output results in JSON format")
+}
+
+// detectSkillAgents checks which agent directories contain a given skill
+func detectSkillAgents(skillName string) []string {
+	var agents []string
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+
+	for _, agentName := range config.GetSupportedAgentNames() {
+		agentType, ok := config.ResolveAgentType(agentName)
+		if !ok {
+			continue
+		}
+		agentCfg := config.SupportedAgents[agentType]
+		skillPath := filepath.Join(cwd, agentCfg.ProjectDir, skillName)
+		if _, err := os.Stat(skillPath); err == nil {
+			agents = append(agents, agentName)
+		}
+	}
+
+	return agents
 }
 
 func init() {
