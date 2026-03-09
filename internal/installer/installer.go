@@ -463,6 +463,21 @@ func Install(input string, opts InstallOptions) error {
 		}
 	}
 
+	// Show sync summary
+	if len(targetDirs) > 0 {
+		fmt.Printf("\n✓ Installed %s\n", skillName)
+		for _, dir := range targetDirs {
+			// Try to resolve agent name from directory path
+			agentName := resolveAgentFromDir(dir)
+			if agentName != "" {
+				fmt.Printf("  Synced to: %s (%s)\n", agentName, dir)
+			} else {
+				fmt.Printf("  Synced to: %s\n", dir)
+			}
+		}
+		fmt.Println()
+	}
+
 	// Update config
 	updatedCfg, err := config.LoadConfigByScope(opts.Global)
 	if err == nil {
@@ -514,4 +529,23 @@ func Install(input string, opts InstallOptions) error {
 	}
 
 	return nil
+}
+
+// resolveAgentFromDir tries to identify the agent name from a skills directory path
+func resolveAgentFromDir(dir string) string {
+	for _, agentName := range config.GetSupportedAgentNames() {
+		agentType, ok := config.ResolveAgentType(agentName)
+		if !ok {
+			continue
+		}
+		agentCfg := config.SupportedAgents[agentType]
+		if strings.HasSuffix(dir, agentCfg.ProjectDir) || strings.HasSuffix(dir, agentCfg.GlobalDir) {
+			return agentName
+		}
+	}
+	// Check default
+	if strings.HasSuffix(dir, config.DefaultSkillsDir) {
+		return "agent (default)"
+	}
+	return ""
 }
