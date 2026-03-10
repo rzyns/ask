@@ -106,19 +106,21 @@ func runList(cmd *cobra.Command, _ []string) {
 
 // SkillListItem represents a skill in the list output
 type SkillListItem struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	URL         string `json:"url,omitempty"`
-	Scope       string `json:"scope"`
-	Agent       string `json:"agent,omitempty"`
-	Path        string `json:"path,omitempty"`
+	Name        string   `json:"name"`
+	Version     string   `json:"version,omitempty"`
+	Description string   `json:"description,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	Scope       string   `json:"scope"`
+	Agent       string   `json:"agent,omitempty"`
+	Agents      []string `json:"agents,omitempty"`
+	Path        string   `json:"path,omitempty"`
 }
 
 func showAgentSkills(agentName, dir, scope string, jsonOutput bool) []SkillListItem {
 	var items []SkillListItem
 
 	if !jsonOutput {
-		fmt.Printf("%s Skills for %s (%s):\n", scope, agentName, dir)
+		fmt.Printf("%s Skills for %s (%s):\n\n", scope, agentName, dir)
 	}
 
 	entries, err := os.ReadDir(dir)
@@ -142,39 +144,74 @@ func showAgentSkills(agentName, dir, scope string, jsonOutput bool) []SkillListI
 		return nil
 	}
 
-	count := 0
+	type agentRow struct {
+		name    string
+		version string
+		desc    string
+	}
+	var rows []agentRow
+
 	for _, entry := range entries {
-		if entry.IsDir() {
-			item := SkillListItem{
-				Name:  entry.Name(),
-				Scope: scope,
-				Agent: agentName,
-				Path:  filepath.Join(dir, entry.Name()),
-			}
+		if !entry.IsDir() {
+			continue
+		}
+		skillPath := filepath.Join(dir, entry.Name())
+		item := SkillListItem{
+			Name:  entry.Name(),
+			Scope: scope,
+			Agent: agentName,
+			Path:  skillPath,
+		}
 
-			// Try to get description from SKILL.md
-			skillPath := filepath.Join(dir, entry.Name())
-			if skill.FindSkillMD(skillPath) {
-				if meta, err := skill.ParseSkillMD(skillPath); err == nil && meta != nil && meta.Description != "" {
-					item.Description = meta.Description
-				}
+		version := ""
+		desc := ""
+		if skill.FindSkillMD(skillPath) {
+			if meta, parseErr := skill.ParseSkillMD(skillPath); parseErr == nil && meta != nil {
+				desc = meta.Description
+				version = meta.Version
+				item.Description = desc
+				item.Version = version
 			}
+		}
 
-			if jsonOutput {
-				items = append(items, item)
-			} else {
-				fmt.Printf("  %s\n", entry.Name())
-				if item.Description != "" {
-					fmt.Printf("    Description: %s\n", item.Description)
-				}
-			}
-			count++
+		if jsonOutput {
+			items = append(items, item)
+		} else {
+			rows = append(rows, agentRow{name: entry.Name(), version: version, desc: desc})
 		}
 	}
 
 	if !jsonOutput {
-		if count == 0 {
+		if len(rows) == 0 {
 			fmt.Println("  (none)")
+		} else {
+			nameW, verW := 4, 7
+			for _, r := range rows {
+				if len(r.name) > nameW {
+					nameW = len(r.name)
+				}
+				if len(r.version) > verW {
+					verW = len(r.version)
+				}
+			}
+			header := fmt.Sprintf("  %-*s  %-*s  DESCRIPTION", nameW, "NAME", verW, "VERSION")
+			fmt.Println(header)
+			fmt.Println("  " + strings.Repeat("-", len(header)-2))
+			for _, r := range rows {
+				ver := r.version
+				if ver == "" {
+					ver = "-"
+				}
+				d := r.desc
+				if d == "" {
+					d = "-"
+				}
+				// Truncate description to keep output clean
+				if len(d) > 50 {
+					d = d[:47] + "..."
+				}
+				fmt.Printf("  %-*s  %-*s  %s\n", nameW, r.name, verW, ver, d)
+			}
 		}
 		fmt.Println()
 	}
@@ -204,58 +241,90 @@ func showSkills(scope string, global bool, jsonOutput bool) []SkillListItem {
 		return nil
 	}
 
+	// Collect all skill data first
+	type skillRow struct {
+		name    string
+		version string
+		agents  []string
+		item    SkillListItem
+	}
+	var rows []skillRow
+
+	// Load lock file for version info
+	lockFile, _ := config.LoadLockFile()
+	lockVersions := make(map[string]string)
+	if lockFile != nil {
+		for _, entry := range lockFile.Skills {
+			lockVersions[entry.Name] = entry.Version
+		}
+	}
+
+	shown := make(map[string]bool)
+	for _, s := range cfg.SkillsInfo {
+		shown[s.Name] = true
+		version := lockVersions[s.Name]
+		agentList := detectSkillAgents(s.Name)
+		item := SkillListItem{
+			Name:        s.Name,
+			Version:     version,
+			Description: s.Description,
+			URL:         s.URL,
+			Scope:       scope,
+			Agents:      agentList,
+		}
+		items = append(items, item)
+		rows = append(rows, skillRow{name: s.Name, version: version, agents: agentList, item: item})
+	}
+
+	for _, s := range cfg.Skills {
+		if !shown[s] {
+			version := lockVersions[s]
+			agentList := detectSkillAgents(s)
+			item := SkillListItem{
+				Name:    s,
+				Version: version,
+				Scope:   scope,
+				Agents:  agentList,
+			}
+			items = append(items, item)
+			rows = append(rows, skillRow{name: s, version: version, agents: agentList, item: item})
+		}
+	}
+
 	if !jsonOutput {
-		fmt.Printf("%s Skills:\n", scope)
+		fmt.Printf("%s Skills:\n\n", scope)
+
+		// Calculate column widths
+		nameW, verW := 4, 7 // minimum: "NAME", "VERSION"
+		for _, r := range rows {
+			if len(r.name) > nameW {
+				nameW = len(r.name)
+			}
+			if len(r.version) > verW {
+				verW = len(r.version)
+			}
+		}
+
+		// Print header
+		header := fmt.Sprintf("  %-*s  %-*s  AGENTS", nameW, "NAME", verW, "VERSION")
+		fmt.Println(header)
+		fmt.Println("  " + strings.Repeat("-", len(header)-2))
+
+		// Print rows
+		for _, r := range rows {
+			ver := r.version
+			if ver == "" {
+				ver = "-"
+			}
+			agentStr := "-"
+			if len(r.agents) > 0 {
+				agentStr = strings.Join(r.agents, ", ")
+			}
+			fmt.Printf("  %-*s  %-*s  %s\n", nameW, r.name, verW, ver, agentStr)
+		}
 		fmt.Println()
 	}
 
-	// Show skills with metadata first
-	shown := make(map[string]bool)
-	for _, skill := range cfg.SkillsInfo {
-		shown[skill.Name] = true
-		item := SkillListItem{
-			Name:        skill.Name,
-			Description: skill.Description,
-			URL:         skill.URL,
-			Scope:       scope,
-		}
-		if jsonOutput {
-			items = append(items, item)
-		} else {
-			// Check which agents have this skill
-			agents := detectSkillAgents(skill.Name)
-			agentStr := ""
-			if len(agents) > 0 {
-				agentStr = strings.Join(agents, ", ")
-			}
-
-			fmt.Printf("  %-20s", skill.Name)
-			if agentStr != "" {
-				fmt.Printf("  [%s]", agentStr)
-			}
-			fmt.Println()
-			if skill.Description != "" {
-				fmt.Printf("    %s\n", skill.Description)
-			}
-			fmt.Println()
-		}
-	}
-
-	// Show legacy skills without metadata
-	for _, skill := range cfg.Skills {
-		if !shown[skill] {
-			item := SkillListItem{
-				Name:  skill,
-				Scope: scope,
-			}
-			if jsonOutput {
-				items = append(items, item)
-			} else {
-				fmt.Printf("  %s\n", skill)
-				fmt.Println()
-			}
-		}
-	}
 	return items
 }
 

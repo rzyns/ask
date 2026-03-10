@@ -1,15 +1,13 @@
-# ASK: Agent Skills Kit for Enterprise AI
+# ASK: Agent Skills Kit
 
 <p align="center">
   <img src="assets/logo.png" alt="ASK Logo" width="150"/>
 </p>
 
-<p align="center">
-  <strong>The Missing Package Manager for Agent Skills</strong>
-</p>
+<h3 align="center">One command. Every agent.</h3>
 
 <p align="center">
-  Just ask, the agents are ready!
+  Install once — works with Claude, Cursor, Codex, Copilot, Windsurf, Gemini, and 12 more.
 </p>
 
 <p align="center">
@@ -27,6 +25,7 @@
 ---
 
 <p align="center">
+  <a href="#-why-ask">💡 Why ASK</a> •
   <a href="#-quick-start">🚀 Quick Start</a> •
   <a href="#-key-features">✨ Features</a> •
   <a href="#-commands">📋 Commands</a> •
@@ -35,24 +34,34 @@
 
 ---
 
-**ASK** (Agent Skills Kit) is the package manager for AI Agent skills. Just like `brew` manages macOS packages, `pip` manages Python packages, or `npm` manages Node.js dependencies, `ask` helps you discover, install, and lock skills for your agents (Claude, Cursor, Codex, etc.).
+## 💡 Why ASK
 
+You find a great skill on Claude, but you also use Cursor.
+You set up rules in Cursor, but your teammate uses Copilot.
+You want to audit third-party skills, but there's no standard tool.
 
+**ASK solves this.** One install, every agent stays in sync — with version locking, security scanning, and offline support built in.
 
-
+```
+$ ask install browser-use
+✓ Installed browser-use
+  Synced to: Claude   (.claude/skills/)
+             Cursor   (.cursor/skills/)
+             Codex    (.codex/skills/)
+```
 
 ## ✨ Key Features
 
 | Feature | Description |
 | :--- | :--- |
-| **📦 Smart Management** | Install, update, and remove skills with ease. Includes `ask.lock` for reproducible builds. |
-| **🔍 Multi-Source** | Unified search across GitHub and official repos (Anthropic, OpenAI, etc.). You can add more skill sources. |
-| **🤖 Agent Agnostic** | Works with **any** agent. Auto-detects configuration for **Claude**, **Cursor**, **Codex**, and adapts to your custom agents. |
+| **🤖 18 Agents, One CLI** | Install once, auto-sync to Claude, Cursor, Codex, Copilot, Windsurf, Gemini CLI, and 12 more. No vendor lock-in. |
+| **📦 Version Locking** | `ask.lock` pins exact commits for reproducible builds. `ask lock-install` for CI/CD like `npm ci`. |
+| **🛡️ Security Scanner** | 26+ built-in rules check for secrets, dangerous commands, and malware. SARIF output for GitHub Code Scanning. |
+| **🔍 Curated Registry** | Search across the [official registry](https://github.com/yeasy/awesome-agent-skills), GitHub repos, and community sources. |
 | **⚡ Blazing Fast** | Written in Go. Parallel downloads, sparse checkouts, and zero runtime dependencies. |
-| **🔌 Offline Mode** | Full offline support with `--offline`. Perfect for air-gapped or secure environments. |
-| **🌎 Global & Local** | Manage project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
-| **🛡️ Security Audit** | Built-in security scanner checks skills for secrets, dangerous commands, and malware using entropy analysis. |
-| **🖥️ Desktop & Web** | Beautiful UI available as `ask serve` web server or native desktop app via [Wails](https://wails.io). |
+| **🔌 Offline & Enterprise** | Full offline mode, private repo support, source whitelists, and HTML audit reports. |
+| **🌎 Global & Local** | Project-specific skills (`.agent/skills`) or user-wide tools (`~/.ask/skills`). |
+| **🖥️ Desktop & Web** | Beautiful UI via `ask serve` web server or native desktop app via [Wails](https://wails.io). |
 
 ## 🖥️ Web UI & Desktop App
 
@@ -251,6 +260,19 @@ See detailed security audit reports generated for top skill repositories:
 - [🛡️ Composio Security Audit Report](reports/composio.html)
 - [🛡️ Vercel Security Audit Report](reports/vercel.html)
 - [🛡️ Superpowers Security Audit Report](reports/superpowers.html)
+
+## 🆚 Comparison
+
+|  | ASK | Claude Native | Cursor Rules |
+| :--- | :---: | :---: | :---: |
+| **Multi-agent support** | ✅ 18 agents | Claude only | Cursor only |
+| **Version locking** | ✅ `ask.lock` | ❌ | ❌ |
+| **Security scanning** | ✅ 26+ rules | ❌ | ❌ |
+| **Offline mode** | ✅ | ❌ | ❌ |
+| **Team sharing** | ✅ lock file | ❌ | ❌ |
+| **Private repos / Enterprise** | ✅ | ❌ | ❌ |
+| **CLI interface** | ✅ | ❌ | ❌ |
+| **Curated registry** | ✅ | ❌ | ❌ |
 
 ## 🤝 Contributing
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
