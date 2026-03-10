@@ -1,0 +1,136 @@
+name: 'ASK Security Check'
+description: 'Scan agent skills for security issues using ASK (Agent Skills Kit)'
+author: 'yeasy'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to skill or project directory to scan'
+    required: false
+    default: '.'
+  severity:
+    description: 'Minimum severity to report: info, warning, critical'
+    required: false
+    default: 'warning'
+  format:
+    description: 'Output format: console, sarif, json, html, markdown'
+    required: false
+    default: 'sarif'
+  output:
+    description: 'Output file path for the report'
+    required: false
+    default: 'ask-check-results.sarif'
+  version:
+    description: 'ASK version to install (e.g., v1.7.5, latest)'
+    required: false
+    default: 'latest'
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Code Scanning (requires sarif format)'
+    required: false
+    default: 'true'
+  fail-on-findings:
+    description: 'Fail the action if any findings at or above severity threshold'
+    required: false
+    default: 'true'
+
+outputs:
+  findings-count:
+    description: 'Total number of findings'
+    value: ${{ steps.check.outputs.findings-count }}
+  critical-count:
+    description: 'Number of critical findings'
+    value: ${{ steps.check.outputs.critical-count }}
+  report-path:
+    description: 'Path to the generated report file'
+    value: ${{ steps.check.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install ASK
+      shell: bash
+      run: |
+        ASK_VERSION="${{ inputs.version }}"
+        if [ "$ASK_VERSION" = "latest" ]; then
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/yeasy/ask/releases/latest \
+            | grep "browser_download_url.*linux_amd64.tar.gz" \
+            | head -1 \
+            | cut -d '"' -f 4)
+        else
+          # Strip leading 'v' if present for URL construction
+          VERSION_NUM="${ASK_VERSION#v}"
+          DOWNLOAD_URL="https://github.com/yeasy/ask/releases/download/v${VERSION_NUM}/ask_${VERSION_NUM}_linux_amd64.tar.gz"
+        fi
+
+        echo "Downloading ASK from: $DOWNLOAD_URL"
+        curl -fsSL "$DOWNLOAD_URL" -o /tmp/ask.tar.gz
+        tar xzf /tmp/ask.tar.gz -C /tmp
+        chmod +x /tmp/ask
+        echo "/tmp" >> "$GITHUB_PATH"
+        echo "ASK version: $(/tmp/ask version 2>/dev/null || echo 'installed')"
+
+    - name: Run ASK security check
+      id: check
+      shell: bash
+      run: |
+        TARGET_PATH="${{ inputs.path }}"
+        SEVERITY="${{ inputs.severity }}"
+        FORMAT="${{ inputs.format }}"
+        OUTPUT="${{ inputs.output }}"
+        FAIL_ON="${{ inputs.fail-on-findings }}"
+
+        # Build command
+        CMD="ask check \"$TARGET_PATH\" --ci --severity \"$SEVERITY\""
+
+        if [ -n "$FORMAT" ] && [ "$FORMAT" != "console" ]; then
+          CMD="$CMD --format $FORMAT"
+        fi
+
+        if [ -n "$OUTPUT" ]; then
+          CMD="$CMD --output \"$OUTPUT\""
+        fi
+
+        echo "Running: $CMD"
+
+        # Run check and capture exit code
+        set +e
+        eval $CMD
+        EXIT_CODE=$?
+        set -e
+
+        # Parse results for outputs
+        if [ -f "$OUTPUT" ]; then
+          echo "report-path=$OUTPUT" >> "$GITHUB_OUTPUT"
+
+          # Count findings from SARIF if available
+          if [ "$FORMAT" = "sarif" ]; then
+            TOTAL=$(grep -c '"ruleId"' "$OUTPUT" 2>/dev/null || echo "0")
+            CRITICAL=$(grep -c '"level": "error"' "$OUTPUT" 2>/dev/null || echo "0")
+          else
+            TOTAL="$EXIT_CODE"
+            CRITICAL="0"
+          fi
+
+          echo "findings-count=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "critical-count=$CRITICAL" >> "$GITHUB_OUTPUT"
+        else
+          echo "findings-count=0" >> "$GITHUB_OUTPUT"
+          echo "critical-count=0" >> "$GITHUB_OUTPUT"
+          echo "report-path=" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Handle failure
+        if [ "$FAIL_ON" = "true" ] && [ "$EXIT_CODE" -ne 0 ]; then
+          echo "::error::ASK security check found issues at or above '$SEVERITY' severity"
+          exit 1
+        fi
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: inputs.upload-sarif == 'true' && inputs.format == 'sarif' && inputs.output != '' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.output }}
+        category: ask-security-check
+      continue-on-error: true
