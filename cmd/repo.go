@@ -113,11 +113,24 @@ Examples:
 			}
 		}
 
+		// Get private repo flags
+		token, _ := cmd.Flags().GetString("token")
+		baseURL, _ := cmd.Flags().GetString("base-url")
+		private, _ := cmd.Flags().GetBool("private")
+
+		// Auto-detect token from gh auth if private and no token provided
+		if private && token == "" {
+			token = detectGHToken()
+		}
+
 		// Add repo
 		newRepo := config.Repo{
-			Name: repoName,
-			Type: repoType,
-			URL:  repoURL,
+			Name:    repoName,
+			Type:    repoType,
+			URL:     repoURL,
+			Token:   token,
+			BaseURL: baseURL,
+			Private: private,
 		}
 		cfg.Repos = append(cfg.Repos, newRepo)
 
@@ -486,6 +499,18 @@ func init() {
 	rootCmd.AddCommand(repoCmd)
 	repoCmd.AddCommand(repoAddCmd)
 	repoAddCmd.Flags().Bool("sync", false, "sync repository immediately after adding")
+	repoAddCmd.Flags().String("token", "", "authentication token for private repositories")
+	repoAddCmd.Flags().String("base-url", "", "GitHub Enterprise API base URL")
+	repoAddCmd.Flags().Bool("private", false, "mark repository as private (auto-detects gh auth token)")
 	repoCmd.AddCommand(repoListCmd)
 	repoCmd.AddCommand(repoRemoveCmd)
+}
+
+// detectGHToken attempts to get a GitHub token from the gh CLI
+func detectGHToken() string {
+	out, err := exec.Command("gh", "auth", "token").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }

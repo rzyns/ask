@@ -299,6 +299,36 @@ func runInstall(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// Enterprise policy enforcement
+	if cfg.Enterprise != nil {
+		// Enforce lock file requirement
+		if cfg.Enterprise.RequireLock {
+			lockFile, lockErr := config.LoadLockFile()
+			if lockErr != nil || len(lockFile.Skills) == 0 {
+				fmt.Println("Enterprise policy: ask.lock is required. Run 'ask lock-install' instead.")
+				os.Exit(1)
+			}
+		}
+
+		// Enforce allowed sources
+		if len(cfg.Enterprise.AllowedSources) > 0 {
+			var blocked []string
+			for _, input := range expandedArgs {
+				if !config.IsSourceAllowed(input, cfg.Enterprise.AllowedSources) {
+					blocked = append(blocked, input)
+				}
+			}
+			if len(blocked) > 0 {
+				fmt.Printf("Enterprise policy: the following sources are not allowed:\n")
+				for _, b := range blocked {
+					fmt.Printf("  - %s\n", b)
+				}
+				fmt.Printf("Allowed sources: %s\n", strings.Join(cfg.Enterprise.AllowedSources, ", "))
+				os.Exit(1)
+			}
+		}
+	}
+
 	opts := installer.InstallOptions{
 		Global: global,
 		Agents: agents,

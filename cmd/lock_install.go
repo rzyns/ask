@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/installer"
+	"github.com/yeasy/ask/internal/skill"
 )
 
 var lockInstallCmd = &cobra.Command{
@@ -26,6 +28,7 @@ team members and CI/CD pipelines.`,
 	Run: func(cmd *cobra.Command, _ []string) {
 		global, _ := cmd.Flags().GetBool("global")
 		agents, _ := cmd.Flags().GetStringSlice("agent")
+		check, _ := cmd.Flags().GetBool("check")
 
 		lockFile, err := config.LoadLockFileByScope(global)
 		if err != nil {
@@ -38,10 +41,16 @@ team members and CI/CD pipelines.`,
 			return
 		}
 
+		// Check enterprise config enforcement
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			def := config.DefaultConfig()
 			cfg = &def
+		}
+
+		if cfg.Enterprise != nil && cfg.Enterprise.RequireLock {
+			// Validate lock file is not empty (already checked above)
+			fmt.Println("Enterprise mode: lock file required ✓")
 		}
 
 		opts := installer.InstallOptions{
@@ -54,21 +63,54 @@ team members and CI/CD pipelines.`,
 
 		var succeeded, failed int
 		for _, entry := range lockFile.Skills {
+			// Check allowed sources if enterprise config enforces it
+			if cfg.Enterprise != nil && len(cfg.Enterprise.AllowedSources) > 0 {
+				if !config.IsSourceAllowed(entry.URL, cfg.Enterprise.AllowedSources) {
+					fmt.Printf("  %s %s: blocked by enterprise policy (source not allowed)\n",
+						color.RedString("✗"), entry.Name)
+					failed++
+					continue
+				}
+			}
+
+			// Use commit hash for exact version pinning when available
 			input := entry.URL
 			if input == "" {
 				input = entry.Name
 			}
-			// Append version if available
-			if entry.Version != "" && input != "" {
+			if entry.Commit != "" {
+				// Use commit-based install for exact reproducibility
+				input = input + "@" + entry.Commit
+			} else if entry.Version != "" {
 				input = input + "@" + entry.Version
 			}
 
 			err := installer.Install(input, opts)
 			if err != nil {
-				fmt.Printf("  ✗ %s: %v\n", entry.Name, err)
+				fmt.Printf("  %s %s: %v\n", color.RedString("✗"), entry.Name, err)
 				failed++
 			} else {
-				fmt.Printf("  ✓ %s\n", entry.Name)
+				version := entry.Version
+				if version == "" && entry.Commit != "" {
+					version = entry.Commit[:minInt(7, len(entry.Commit))]
+				}
+				if version != "" {
+					fmt.Printf("  %s %s (%s)\n", color.GreenString("✓"), entry.Name, version)
+				} else {
+					fmt.Printf("  %s %s\n", color.GreenString("✓"), entry.Name)
+				}
+
+				// Run security check if --check flag is set or enterprise requires it
+				if check || (cfg.Enterprise != nil && cfg.Enterprise.RequireCheck) {
+					skillsDir := config.GetSkillsDirByScope(global)
+					skillPath := skillsDir + "/" + entry.Name
+					if skill.FindSkillMD(skillPath) {
+						result, checkErr := skill.CheckSafety(skillPath)
+						if checkErr == nil && hasCriticalIssues(result) {
+							fmt.Printf("    %s security check: critical issues found\n", color.RedString("!"))
+						}
+					}
+				}
 				succeeded++
 			}
 		}
@@ -81,7 +123,15 @@ team members and CI/CD pipelines.`,
 	},
 }
 
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func init() {
 	rootCmd.AddCommand(lockInstallCmd)
 	lockInstallCmd.Flags().StringSliceP("agent", "a", []string{}, "Target agent(s)")
+	lockInstallCmd.Flags().Bool("check", false, "Run security check after installing each skill")
 }

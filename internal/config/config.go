@@ -89,15 +89,57 @@ type SkillInfo struct {
 	URL         string `yaml:"url,omitempty"`
 }
 
+// EnterpriseConfig holds enterprise-level policy enforcement settings
+type EnterpriseConfig struct {
+	AllowedSources  []string `yaml:"allowed_sources,omitempty"`  // Glob patterns for allowed skill sources
+	RequireCheck    bool     `yaml:"require_check,omitempty"`    // Require security check before/after install
+	RequireLock     bool     `yaml:"require_lock,omitempty"`     // Require ask.lock for all installs
+	PrivateRegistry string   `yaml:"private_registry,omitempty"` // GitHub Enterprise API base URL
+}
+
 // Config represents the structure of ask.yaml
 type Config struct {
-	Version         string       `yaml:"version"`
-	SkillsDir       string       `yaml:"skills_dir,omitempty"`   // Skills installation directory (default: .agent/skills)
-	ToolTargets     []ToolTarget `yaml:"tool_targets,omitempty"` // Target AI tools for skill installation
-	Skills          []string     `yaml:"skills,omitempty"`       // Legacy: simple list of skill names
-	SkillsInfo      []SkillInfo  `yaml:"skills_info,omitempty"`  // New: skills with metadata
-	Repos           []Repo       `yaml:"repos,omitempty"`
-	LastProjectRoot string       `yaml:"last_project_root,omitempty"` // Last used project root (global only)
+	Version         string            `yaml:"version"`
+	SkillsDir       string            `yaml:"skills_dir,omitempty"`   // Skills installation directory
+	ToolTargets     []ToolTarget      `yaml:"tool_targets,omitempty"` // Target AI tools
+	Skills          []string          `yaml:"skills,omitempty"`       // Legacy: simple list of skill names
+	SkillsInfo      []SkillInfo       `yaml:"skills_info,omitempty"`  // Skills with metadata
+	Repos           []Repo            `yaml:"repos,omitempty"`
+	Enterprise      *EnterpriseConfig `yaml:"enterprise,omitempty"`
+	LastProjectRoot string            `yaml:"last_project_root,omitempty"`
+}
+
+// IsSourceAllowed checks if a URL matches any of the allowed source patterns.
+// Patterns support glob-style matching (e.g. "anthropics/*", "company-org/*").
+func IsSourceAllowed(sourceURL string, allowedPatterns []string) bool {
+	if len(allowedPatterns) == 0 {
+		return true
+	}
+	// Normalize URL: strip https://github.com/ prefix
+	normalized := strings.TrimPrefix(sourceURL, "https://github.com/")
+	normalized = strings.TrimPrefix(normalized, "http://github.com/")
+	normalized = strings.TrimSuffix(normalized, ".git")
+
+	for _, pattern := range allowedPatterns {
+		matched, err := filepath.Match(pattern, normalized)
+		if err == nil && matched {
+			return true
+		}
+		// Also try matching just the owner portion
+		parts := strings.SplitN(normalized, "/", 2)
+		if len(parts) > 0 {
+			ownerMatch, err := filepath.Match(pattern, parts[0]+"/"+parts[len(parts)-1])
+			if err == nil && ownerMatch {
+				return true
+			}
+		}
+		// Simple prefix match for patterns like "company-org/*"
+		prefix := strings.TrimSuffix(pattern, "/*")
+		if prefix != pattern && strings.HasPrefix(normalized, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // DefaultSkillsDir is the default directory to install skills

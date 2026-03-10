@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/yeasy/ask/internal/cache"
@@ -66,7 +67,28 @@ func getAuthToken() string {
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		return token
 	}
-	return os.Getenv("GH_TOKEN")
+	if token := os.Getenv("GH_TOKEN"); token != "" {
+		return token
+	}
+	return os.Getenv("ASK_GITHUB_TOKEN")
+}
+
+// GetTokenForRepo returns the best available token for a given repo config.
+// Priority: per-repo token → environment variable → empty string.
+func GetTokenForRepo(repo config.Repo) string {
+	if repo.Token != "" {
+		return repo.Token
+	}
+	return getAuthToken()
+}
+
+// GetAPIBaseURL returns the API base URL for a repo.
+// Defaults to "https://api.github.com" if not specified.
+func GetAPIBaseURL(repo config.Repo) string {
+	if repo.BaseURL != "" {
+		return strings.TrimRight(repo.BaseURL, "/")
+	}
+	return "https://api.github.com"
 }
 
 // SearchTopic searches GitHub for repositories with a specific topic and keyword

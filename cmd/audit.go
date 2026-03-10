@@ -156,44 +156,19 @@ func runAudit(cmd *cobra.Command, _ []string) {
 		} else {
 			fmt.Println(content)
 		}
-	case "html", "markdown", "md":
-		// Build markdown content
-		var sb strings.Builder
-		sb.WriteString("# Security Audit Report\n\n")
-		sb.WriteString(fmt.Sprintf("Generated: %s | ASK v%s\n\n", report.GeneratedAt.Format(time.RFC3339), report.Version))
-		sb.WriteString("## Summary\n\n")
-		sb.WriteString(fmt.Sprintf("- **Total skills**: %d\n", report.TotalSkills))
-		sb.WriteString(fmt.Sprintf("- **Critical**: %d\n", report.CriticalCount))
-		sb.WriteString(fmt.Sprintf("- **Warnings**: %d\n", report.WarningCount))
-		sb.WriteString(fmt.Sprintf("- **Info**: %d\n\n", report.InfoCount))
-		sb.WriteString("## Skills\n\n")
-		for _, s := range report.Skills {
-			status := "✓"
-			switch s.Status {
-			case "critical":
-				status = "✗"
-			case "warning":
-				status = "!"
+	case "markdown", "md":
+		content := generateAuditMarkdown(report)
+		if output != "" {
+			if err := os.WriteFile(output, []byte(content), 0644); err != nil {
+				fmt.Printf("Error writing report: %v\n", err)
+				os.Exit(1)
 			}
-			sb.WriteString(fmt.Sprintf("### %s %s\n\n", status, s.Name))
-			if s.URL != "" {
-				sb.WriteString(fmt.Sprintf("- URL: %s\n", s.URL))
-			}
-			if s.Version != "" {
-				sb.WriteString(fmt.Sprintf("- Version: %s\n", s.Version))
-			}
-			if len(s.Findings) > 0 {
-				sb.WriteString(fmt.Sprintf("- Findings: %d\n\n", len(s.Findings)))
-				for _, f := range s.Findings {
-					sb.WriteString(fmt.Sprintf("  - [%s] %s (%s:%d)\n", f.Severity, f.Description, f.File, f.Line))
-				}
-			} else {
-				sb.WriteString("- No issues found\n")
-			}
-			sb.WriteString("\n")
+			fmt.Printf("Audit report saved to %s\n", output)
+		} else {
+			fmt.Println(content)
 		}
-
-		content := sb.String()
+	case "html":
+		content := generateAuditHTML(report)
 		if output != "" {
 			if err := os.WriteFile(output, []byte(content), 0644); err != nil {
 				fmt.Printf("Error writing report: %v\n", err)
@@ -245,6 +220,151 @@ func runAudit(cmd *cobra.Command, _ []string) {
 	if report.CriticalCount > 0 {
 		os.Exit(1)
 	}
+}
+
+func generateAuditMarkdown(report AuditReport) string {
+	var sb strings.Builder
+	sb.WriteString("# Security Audit Report\n\n")
+	sb.WriteString(fmt.Sprintf("Generated: %s | ASK v%s\n\n", report.GeneratedAt.Format(time.RFC3339), report.Version))
+	sb.WriteString("## Summary\n\n")
+	sb.WriteString("| Metric | Count |\n|--------|-------|\n")
+	sb.WriteString(fmt.Sprintf("| Total skills | %d |\n", report.TotalSkills))
+	sb.WriteString(fmt.Sprintf("| Critical | %d |\n", report.CriticalCount))
+	sb.WriteString(fmt.Sprintf("| Warnings | %d |\n", report.WarningCount))
+	sb.WriteString(fmt.Sprintf("| Info | %d |\n\n", report.InfoCount))
+	sb.WriteString("## Skills\n\n")
+	for _, s := range report.Skills {
+		status := "✓"
+		switch s.Status {
+		case "critical":
+			status = "✗"
+		case "warning":
+			status = "!"
+		}
+		sb.WriteString(fmt.Sprintf("### %s %s\n\n", status, s.Name))
+		if s.URL != "" {
+			sb.WriteString(fmt.Sprintf("- URL: %s\n", s.URL))
+		}
+		if s.Version != "" {
+			sb.WriteString(fmt.Sprintf("- Version: %s\n", s.Version))
+		}
+		if len(s.Findings) > 0 {
+			sb.WriteString(fmt.Sprintf("- Findings: %d\n\n", len(s.Findings)))
+			for _, f := range s.Findings {
+				sb.WriteString(fmt.Sprintf("  - [%s] %s (%s:%d)\n", f.Severity, f.Description, f.File, f.Line))
+			}
+		} else {
+			sb.WriteString("- No issues found\n")
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+func generateAuditHTML(report AuditReport) string {
+	var sb strings.Builder
+	sb.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASK Security Audit Report</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 2rem; background: #f8f9fa; color: #333; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
+  .meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .card { background: #fff; border-radius: 8px; padding: 1.2rem; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card .number { font-size: 2rem; font-weight: bold; }
+  .card .label { color: #666; font-size: 0.85rem; text-transform: uppercase; }
+  .card.critical .number { color: #dc3545; }
+  .card.warning .number { color: #ffc107; }
+  .card.info .number { color: #17a2b8; }
+  .card.total .number { color: #333; }
+  .skill { background: #fff; border-radius: 8px; padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .skill-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .skill-name { font-weight: 600; font-size: 1.1rem; }
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .badge-clean { background: #d4edda; color: #155724; }
+  .badge-warning { background: #fff3cd; color: #856404; }
+  .badge-critical { background: #f8d7da; color: #721c24; }
+  .skill-meta { color: #666; font-size: 0.85rem; margin-bottom: 0.5rem; }
+  .finding { padding: 0.4rem 0.6rem; margin: 0.3rem 0; border-radius: 4px; font-size: 0.85rem; }
+  .finding-critical { background: #f8d7da; }
+  .finding-warning { background: #fff3cd; }
+  .finding-info { background: #d1ecf1; }
+  a { color: #007bff; text-decoration: none; }
+</style>
+</head>
+<body>
+`)
+	sb.WriteString("<h1>Security Audit Report</h1>\n")
+	sb.WriteString(fmt.Sprintf(`<p class="meta">Generated: %s &middot; ASK v%s</p>`+"\n",
+		report.GeneratedAt.Format("2006-01-02 15:04:05"), report.Version))
+
+	// Summary cards
+	sb.WriteString(`<div class="summary">` + "\n")
+	sb.WriteString(fmt.Sprintf(`<div class="card total"><div class="number">%d</div><div class="label">Total Skills</div></div>`+"\n", report.TotalSkills))
+	sb.WriteString(fmt.Sprintf(`<div class="card critical"><div class="number">%d</div><div class="label">Critical</div></div>`+"\n", report.CriticalCount))
+	sb.WriteString(fmt.Sprintf(`<div class="card warning"><div class="number">%d</div><div class="label">Warnings</div></div>`+"\n", report.WarningCount))
+	sb.WriteString(fmt.Sprintf(`<div class="card info"><div class="number">%d</div><div class="label">Info</div></div>`+"\n", report.InfoCount))
+	sb.WriteString("</div>\n")
+
+	// Skills
+	sb.WriteString("<h2>Skills</h2>\n")
+	for _, s := range report.Skills {
+		sb.WriteString(`<div class="skill">` + "\n")
+		badgeClass := "badge-clean"
+		badgeText := "Clean"
+		switch s.Status {
+		case "critical":
+			badgeClass = "badge-critical"
+			badgeText = "Critical"
+		case "warning":
+			badgeClass = "badge-warning"
+			badgeText = "Warning"
+		}
+		sb.WriteString(fmt.Sprintf(`<div class="skill-header"><span class="skill-name">%s</span><span class="badge %s">%s</span></div>`+"\n",
+			htmlEscape(s.Name), badgeClass, badgeText))
+
+		var meta []string
+		if s.Version != "" {
+			meta = append(meta, "v"+htmlEscape(s.Version))
+		}
+		if s.Source != "" {
+			meta = append(meta, "source: "+htmlEscape(s.Source))
+		}
+		if s.URL != "" {
+			meta = append(meta, fmt.Sprintf(`<a href="%s">%s</a>`, htmlEscape(s.URL), htmlEscape(s.URL)))
+		}
+		if len(meta) > 0 {
+			sb.WriteString(fmt.Sprintf(`<div class="skill-meta">%s</div>`+"\n", strings.Join(meta, " &middot; ")))
+		}
+
+		for _, f := range s.Findings {
+			findingClass := "finding-info"
+			switch f.Severity {
+			case skill.SeverityCritical:
+				findingClass = "finding-critical"
+			case skill.SeverityWarning:
+				findingClass = "finding-warning"
+			}
+			sb.WriteString(fmt.Sprintf(`<div class="finding %s">[%s] %s <code>%s:%d</code></div>`+"\n",
+				findingClass, f.Severity, htmlEscape(f.Description), htmlEscape(f.File), f.Line))
+		}
+		sb.WriteString("</div>\n")
+	}
+
+	sb.WriteString("</body>\n</html>\n")
+	return sb.String()
+}
+
+func htmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, `"`, "&quot;")
+	return s
 }
 
 func init() {
