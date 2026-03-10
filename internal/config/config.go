@@ -328,6 +328,30 @@ func CreateDefaultConfig() error {
 	return config.Save()
 }
 
+// CreateConfigWithAgents creates ask.yaml with specific agents enabled
+func CreateConfigWithAgents(agents []string) error {
+	cfg := DefaultConfig()
+	var targets []ToolTarget
+	// Always include default agent directory
+	targets = append(targets, ToolTarget{
+		Name:      "agent",
+		SkillsDir: DefaultSkillsDir,
+		Enabled:   true,
+	})
+	for _, name := range agents {
+		if agentType, ok := ResolveAgentType(name); ok {
+			ac := SupportedAgents[agentType]
+			targets = append(targets, ToolTarget{
+				Name:      string(agentType),
+				SkillsDir: ac.ProjectDir,
+				Enabled:   true,
+			})
+		}
+	}
+	cfg.ToolTargets = targets
+	return cfg.Save()
+}
+
 // LoadGlobalConfig loads the global config file (~/.ask/config.yaml)
 func LoadGlobalConfig() (*Config, error) {
 	cfg, err := loadConfigFromPath(GetGlobalConfigPath())
