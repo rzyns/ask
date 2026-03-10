@@ -145,7 +145,8 @@ var defaultRules = []Rule{
 	},
 }
 
-// CheckSafety performs security checks on a skill directory
+// CheckSafety performs security checks on a skill directory.
+// It loads .askcheck.yaml (if present) to support custom rules, rule ignoring, and path exclusions.
 func CheckSafety(skillPath string) (*CheckResult, error) {
 	meta, err := ParseSkillMD(skillPath)
 	if err != nil {
@@ -157,12 +158,33 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 		Findings:  []Finding{},
 	}
 
+	// Load .askcheck.yaml if present
+	checkCfg, err := LoadCheckConfig(skillPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load .askcheck.yaml: %w", err)
+	}
+
+	// Build effective rules (defaults minus ignored, plus custom)
+	rules := checkCfg.BuildRules()
+
+	// Build ignored rule set for filtering validation findings too
+	ignoreSet := make(map[string]bool)
+	if checkCfg != nil {
+		for _, id := range checkCfg.Ignore {
+			ignoreSet[strings.ToUpper(id)] = true
+		}
+	}
+
 	// Validate SKILL.md format per Agent Skills specification
 	dirName := filepath.Base(skillPath)
 	validationErrors := ValidateMeta(meta, dirName)
 	for _, ve := range validationErrors {
+		ruleID := "SKILL-FORMAT-" + strings.ToUpper(ve.Field)
+		if ignoreSet[ruleID] {
+			continue
+		}
 		result.Findings = append(result.Findings, Finding{
-			RuleID:      "SKILL-FORMAT-" + strings.ToUpper(ve.Field),
+			RuleID:      ruleID,
 			Severity:    ve.Severity,
 			Description: ve.Message,
 			File:        "SKILL.md",
@@ -184,6 +206,13 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 			return nil
 		}
 
+		relPath, _ := filepath.Rel(skillPath, path)
+
+		// Check path exclusions from .askcheck.yaml
+		if checkCfg != nil && checkCfg.IsPathIgnored(relPath) {
+			return nil
+		}
+
 		// Skip binary files/images based on extension
 		ext := strings.ToLower(filepath.Ext(path))
 		if isBinaryExt(ext) {
@@ -191,8 +220,7 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 		}
 
 		// Check for suspicious extensions
-		if isSuspiciousExt(ext) {
-			relPath, _ := filepath.Rel(skillPath, path)
+		if isSuspiciousExt(ext) && !ignoreSet["FILE-SUSPICIOUS-EXT"] {
 			result.Findings = append(result.Findings, Finding{
 				RuleID:      "FILE-SUSPICIOUS-EXT",
 				Severity:    SeverityWarning,
@@ -203,9 +231,9 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 			})
 		}
 
-		findings, err := scanFile(path, skillPath)
-		if err != nil {
-			return fmt.Errorf("failed to scan file %s: %w", path, err)
+		findings, scanErr := scanFile(path, skillPath, rules)
+		if scanErr != nil {
+			return fmt.Errorf("failed to scan file %s: %w", path, scanErr)
 		}
 		result.Findings = append(result.Findings, findings...)
 
@@ -236,7 +264,7 @@ func isSuspiciousExt(ext string) bool {
 	return suspicious[ext]
 }
 
-func scanFile(path, rootPath string) ([]Finding, error) {
+func scanFile(path, rootPath string, rules []Rule) ([]Finding, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -257,7 +285,7 @@ func scanFile(path, rootPath string) ([]Finding, error) {
 			continue
 		}
 
-		for _, rule := range defaultRules {
+		for _, rule := range rules {
 			matches := rule.Regex.FindAllStringSubmatch(line, -1)
 			for _, match := range matches {
 				fullMatch := match[0]
