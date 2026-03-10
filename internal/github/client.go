@@ -386,6 +386,116 @@ func truncate(s string, maxLen int) string {
 	return string(runes[:maxLen-3]) + "..."
 }
 
+// RepoInfo holds enriched repository metadata for scoring
+type RepoInfo struct {
+	Stars      int
+	Forks      int
+	IsOrg      bool
+	HasLicense bool
+	OwnerAge   int // years since account creation
+}
+
+// Client provides GitHub API access
+type Client struct {
+	httpClient *http.Client
+	token      string
+}
+
+// NewClient creates a new GitHub API client
+func NewClient() *Client {
+	return &Client{
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+		token:      getAuthToken(),
+	}
+}
+
+// GetRepoInfo fetches enriched repository metadata for trust scoring
+func (c *Client) GetRepoInfo(owner, repo string) (*RepoInfo, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "ask-cli")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+	}
+
+	var raw struct {
+		Stars   int `json:"stargazers_count"`
+		Forks   int `json:"forks_count"`
+		License *struct {
+			Key string `json:"key"`
+		} `json:"license"`
+		Owner struct {
+			Type      string    `json:"type"`
+			CreatedAt time.Time `json:"created_at"`
+		} `json:"owner"`
+	}
+	if decErr := json.NewDecoder(resp.Body).Decode(&raw); decErr != nil {
+		return nil, decErr
+	}
+
+	info := &RepoInfo{
+		Stars:      raw.Stars,
+		Forks:      raw.Forks,
+		IsOrg:      raw.Owner.Type == "Organization",
+		HasLicense: raw.License != nil && raw.License.Key != "",
+	}
+
+	// Owner created_at is not included in repo response; fetch owner separately
+	ownerAge, _ := c.fetchOwnerAge(owner)
+	info.OwnerAge = ownerAge
+
+	return info, nil
+}
+
+// fetchOwnerAge returns the age of a GitHub account in years
+func (c *Client) fetchOwnerAge(owner string) (int, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/users/%s", owner)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return 0, err
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "ask-cli")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+	}
+
+	var user struct {
+		CreatedAt time.Time `json:"created_at"`
+	}
+	if decErr := json.NewDecoder(resp.Body).Decode(&user); decErr != nil {
+		return 0, decErr
+	}
+
+	years := int(time.Since(user.CreatedAt).Hours() / 8760)
+	return years, nil
+}
+
 // FetchRepoDetails fetches details of a GitHub repository including star count
 func FetchRepoDetails(owner, repo string) (*Repository, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
