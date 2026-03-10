@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -23,7 +24,9 @@ var scoreCmd = &cobra.Command{
   - Transparency: data exfiltration patterns and obfuscated code
 
 The score ranges from 0-100 with grades A/B/C/D/F.
-Similar to Snyk or Socket.dev for the agent skill ecosystem.`,
+Similar to Snyk or Socket.dev for the agent skill ecosystem.
+
+Use --batch to scan all skills in a directory or repository source.`,
 	Example: `  # Score a local skill directory
   ask score ./my-skill
 
@@ -31,12 +34,27 @@ Similar to Snyk or Socket.dev for the agent skill ecosystem.`,
   ask score ./my-skill --json
 
   # Score a remote skill (cloned to temp dir)
-  ask score anthropics/browser-use`,
+  ask score anthropics/browser-use
+
+  # Batch score all skills in a directory
+  ask score --batch ./skills-dir
+
+  # Batch score a remote repo with multiple skills
+  ask score --batch anthropics/skills/skills
+
+  # Batch score with JSON output
+  ask score --batch ./skills-dir --json`,
 	Args: cobra.ExactArgs(1),
 	Run:  runScore,
 }
 
 func runScore(cmd *cobra.Command, args []string) {
+	batch, _ := cmd.Flags().GetBool("batch")
+	if batch {
+		runBatchScore(cmd, args)
+		return
+	}
+
 	target := args[0]
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 
@@ -79,6 +97,168 @@ func runScore(cmd *cobra.Command, args []string) {
 
 	// Pretty print
 	printScoreResult(result)
+}
+
+// BatchScoreResult holds results for batch scoring
+type BatchScoreResult struct {
+	Source string              `json:"source"`
+	Total  int                 `json:"total"`
+	Scores []skill.ScoreResult `json:"scores"`
+	Stats  BatchStats          `json:"stats"`
+}
+
+// BatchStats summarizes batch scoring statistics
+type BatchStats struct {
+	Average float64        `json:"average"`
+	Grades  map[string]int `json:"grades"`
+}
+
+func runBatchScore(cmd *cobra.Command, args []string) {
+	target := args[0]
+	jsonOutput, _ := cmd.Flags().GetBool("json")
+
+	// Resolve target to a local directory
+	baseDir := target
+	var tmpDir string
+	var publisher *skill.PublisherInfo
+
+	info, err := os.Stat(target)
+	if err != nil || !info.IsDir() {
+		// Clone remote repo
+		fmt.Printf("Cloning %s for batch scoring...\n", target)
+		cloned, cloneErr := cloneForScore(target)
+		if cloneErr != nil {
+			fmt.Printf("Error: cannot resolve '%s': %v\n", target, cloneErr)
+			os.Exit(1)
+		}
+		tmpDir = cloned
+		baseDir = cloned
+		publisher = fetchPublisherInfo(target)
+	}
+	if tmpDir != "" {
+		defer func() { _ = os.RemoveAll(tmpDir) }()
+	}
+
+	// Find all skill subdirectories (those containing SKILL.md)
+	skillDirs := discoverSkillDirs(baseDir)
+	if len(skillDirs) == 0 {
+		fmt.Printf("No skills found in %s\n", target)
+		os.Exit(0)
+	}
+
+	fmt.Printf("Found %d skills. Scoring...\n\n", len(skillDirs))
+
+	batchResult := BatchScoreResult{
+		Source: target,
+		Total:  len(skillDirs),
+		Stats: BatchStats{
+			Grades: make(map[string]int),
+		},
+	}
+
+	// Score each skill
+	var totalScore float64
+	for _, dir := range skillDirs {
+		result, scoreErr := skill.ScoreSkill(dir, publisher)
+		if scoreErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to score %s: %v\n", filepath.Base(dir), scoreErr)
+			continue
+		}
+		batchResult.Scores = append(batchResult.Scores, *result)
+		totalScore += result.TotalScore
+		batchResult.Stats.Grades[string(result.Grade)]++
+	}
+
+	if len(batchResult.Scores) > 0 {
+		batchResult.Stats.Average = totalScore / float64(len(batchResult.Scores))
+	}
+
+	if jsonOutput {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if encErr := encoder.Encode(batchResult); encErr != nil {
+			fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", encErr)
+		}
+		return
+	}
+
+	// Pretty print batch results as table
+	printBatchResult(&batchResult)
+}
+
+func discoverSkillDirs(baseDir string) []string {
+	var dirs []string
+
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return dirs
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		subDir := filepath.Join(baseDir, e.Name())
+		// Check if this subdirectory looks like a skill (has SKILL.md)
+		if skill.FindSkillMD(subDir) {
+			dirs = append(dirs, subDir)
+		}
+	}
+
+	return dirs
+}
+
+func printBatchResult(batch *BatchScoreResult) {
+	bold := color.New(color.Bold)
+	green := color.New(color.FgGreen)
+	yellow := color.New(color.FgYellow)
+	red := color.New(color.FgRed)
+
+	_, _ = bold.Printf("\n  Batch Score Report: %s\n", batch.Source)
+	fmt.Printf("  %d skills scored\n\n", len(batch.Scores))
+
+	// Table header
+	_, _ = bold.Printf("  %-30s  %6s  %5s  %s\n", "SKILL", "SCORE", "GRADE", "ISSUES")
+	fmt.Printf("  %s\n", strings.Repeat("─", 70))
+
+	// Sort by score (worst first for visibility)
+	for _, r := range batch.Scores {
+		grade := string(r.Grade)
+		var gradeStr string
+		switch r.Grade {
+		case skill.GradeA, skill.GradeB:
+			gradeStr = green.Sprint(grade)
+		case skill.GradeC:
+			gradeStr = yellow.Sprint(grade)
+		default:
+			gradeStr = red.Sprint(grade)
+		}
+
+		issues := 0
+		for _, cat := range r.Categories {
+			issues += len(cat.Deducts)
+		}
+
+		name := r.SkillName
+		if len(name) > 30 {
+			name = name[:27] + "..."
+		}
+		fmt.Printf("  %-30s  %5.1f   %s      %d\n", name, r.TotalScore, gradeStr, issues)
+	}
+
+	// Summary
+	fmt.Printf("\n  %s\n", strings.Repeat("─", 70))
+	fmt.Printf("  Average: %.1f/100", batch.Stats.Average)
+
+	if len(batch.Stats.Grades) > 0 {
+		fmt.Printf("  |  ")
+		for _, g := range []string{"A", "B", "C", "D", "F"} {
+			if count, ok := batch.Stats.Grades[g]; ok && count > 0 {
+				fmt.Printf("%s:%d  ", g, count)
+			}
+		}
+	}
+	fmt.Printf("\n\n")
 }
 
 func printScoreResult(result *skill.ScoreResult) {
@@ -196,4 +376,5 @@ func fetchPublisherInfo(target string) *skill.PublisherInfo {
 func init() {
 	skillCmd.AddCommand(scoreCmd)
 	scoreCmd.Flags().Bool("json", false, "Output score as JSON")
+	scoreCmd.Flags().Bool("batch", false, "Batch score all skills in a directory")
 }

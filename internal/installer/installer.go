@@ -21,9 +21,11 @@ import (
 
 // InstallOptions contains options for installing a skill
 type InstallOptions struct {
-	Global bool
-	Agents []string
-	Config *config.Config
+	Global    bool
+	Agents    []string
+	Config    *config.Config
+	SkipScore bool   // Skip trust score check
+	MinScore  string // Minimum acceptable grade (A/B/C/D/F), default "D"
 }
 
 // Install installs a single skill
@@ -357,6 +359,37 @@ func Install(input string, opts InstallOptions) error {
 
 		if err != nil {
 			return fmt.Errorf("git operation failed: %w", err)
+		}
+	}
+
+	// Trust score check (before installing)
+	if !opts.SkipScore {
+		scoreResult, scoreErr := skill.ScoreSkill(tempSkillPath, nil)
+		if scoreErr == nil {
+			minGrade := skill.GradeD
+			if opts.MinScore != "" {
+				minGrade = skill.ScoreGrade(opts.MinScore)
+			}
+			if skill.GradeBelowThreshold(scoreResult.Grade, minGrade) {
+				fmt.Printf("\n⚠ Trust score warning for %s: %.0f/100 (Grade %s)\n",
+					skillName, scoreResult.TotalScore, string(scoreResult.Grade))
+				fmt.Printf("  %s\n", scoreResult.Summary)
+				for _, cat := range scoreResult.Categories {
+					if cat.Score < 70 {
+						fmt.Printf("  - %s: %.0f/100\n", cat.Name, cat.Score)
+						for _, d := range cat.Deducts {
+							fmt.Printf("    -%.*f %s\n", 0, d.Points, d.Reason)
+						}
+					}
+				}
+				fmt.Printf("\n  Use --skip-score to bypass this check.\n\n")
+				return fmt.Errorf("skill %s scored below minimum grade %s (got %s)",
+					skillName, string(minGrade), string(scoreResult.Grade))
+			}
+			if scoreResult.Grade != skill.GradeA {
+				fmt.Printf("  Trust score: %.0f/100 (Grade %s)\n",
+					scoreResult.TotalScore, string(scoreResult.Grade))
+			}
 		}
 	}
 

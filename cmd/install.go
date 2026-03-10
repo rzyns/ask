@@ -329,10 +329,15 @@ func runInstall(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	skipScore, _ := cmd.Flags().GetBool("skip-score")
+	minScore, _ := cmd.Flags().GetString("min-score")
+
 	opts := installer.InstallOptions{
-		Global: global,
-		Agents: agents,
-		Config: cfg,
+		Global:    global,
+		Agents:    agents,
+		Config:    cfg,
+		SkipScore: skipScore,
+		MinScore:  minScore,
 	}
 
 	// Install each expanded skill
@@ -386,6 +391,8 @@ func runInstall(cmd *cobra.Command, args []string) {
 func registerInstallFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSliceP("agent", "a", []string{}, "Target agent(s) to install for (e.g. claude, cursor)")
 	cmd.Flags().StringP("repo", "r", "", "Install skill(s) from a specific repository")
+	cmd.Flags().Bool("skip-score", false, "Skip trust score check before installing")
+	cmd.Flags().String("min-score", "D", "Minimum acceptable trust grade (A/B/C/D/F)")
 }
 
 func init() {

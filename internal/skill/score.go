@@ -404,6 +404,27 @@ func compilePattern(pattern string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
+// gradeRank returns numerical rank for comparison (lower is better)
+func gradeRank(g ScoreGrade) int {
+	switch g {
+	case GradeA:
+		return 1
+	case GradeB:
+		return 2
+	case GradeC:
+		return 3
+	case GradeD:
+		return 4
+	default:
+		return 5
+	}
+}
+
+// GradeBelowThreshold returns true if grade is worse than the threshold
+func GradeBelowThreshold(grade, threshold ScoreGrade) bool {
+	return gradeRank(grade) > gradeRank(threshold)
+}
+
 func gradeFromScore(score float64) ScoreGrade {
 	switch {
 	case score >= 90:
