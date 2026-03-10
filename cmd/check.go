@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -32,6 +33,7 @@ func init() {
 	checkCmd.Flags().Bool("ci", false, "CI mode: exit with non-zero code on any findings at or above severity threshold")
 	checkCmd.Flags().String("severity", "warning", "Minimum severity to report: info, warning, critical")
 	checkCmd.Flags().String("format", "", "Output format: console (default), json, html, markdown, sarif")
+	checkCmd.Flags().Bool("watch", false, "Watch mode: re-check on file changes")
 }
 
 func filterBySeverity(result *skill.CheckResult, minSeverity string) *skill.CheckResult {
@@ -79,6 +81,13 @@ func runCheck(cmd *cobra.Command, args []string) {
 	ciMode, _ := cmd.Flags().GetBool("ci")
 	severityFilter, _ := cmd.Flags().GetString("severity")
 	format, _ := cmd.Flags().GetString("format")
+	watchMode, _ := cmd.Flags().GetBool("watch")
+
+	// Watch mode
+	if watchMode {
+		runWatchMode(targetPath, severityFilter)
+		return
+	}
 
 	// Check if the target itself is a skill
 	if skill.FindSkillMD(targetPath) {
@@ -413,5 +422,96 @@ func scanProject(rootDir string, label string) {
 	if issuesFound {
 		fmt.Println(color.RedString("\nCritical issues found in one or more skills."))
 		os.Exit(1)
+	}
+}
+
+func runWatchMode(targetPath, severityFilter string) {
+	displayPath := formatPathForDisplay(targetPath)
+	fmt.Printf("Watching for changes in %s... (Ctrl+C to stop)\n\n", color.CyanString(displayPath))
+
+	// Run initial check
+	printWatchResult("initial scan", targetPath, severityFilter)
+
+	err := skill.WatchAndCheck(targetPath, func(event string, result *skill.CheckResult, checkErr error) {
+		timestamp := time.Now().Format("15:04:05")
+		if checkErr != nil {
+			fmt.Printf("[%s] %s error: %v\n", color.YellowString(timestamp), event, checkErr)
+			return
+		}
+
+		// Filter by severity
+		filtered := filterBySeverity(result, severityFilter)
+
+		if len(filtered.Findings) == 0 {
+			fmt.Printf("[%s] %s modified → %s\n",
+				color.YellowString(timestamp),
+				event,
+				color.GreenString("0 issues ✓"))
+		} else {
+			criticals := 0
+			warnings := 0
+			infos := 0
+			for _, f := range filtered.Findings {
+				switch f.Severity {
+				case skill.SeverityCritical:
+					criticals++
+				case skill.SeverityWarning:
+					warnings++
+				case skill.SeverityInfo:
+					infos++
+				}
+			}
+			summary := fmt.Sprintf("%d critical, %d warning, %d info",
+				criticals, warnings, infos)
+			if criticals > 0 {
+				fmt.Printf("[%s] %s modified → %s\n",
+					color.YellowString(timestamp),
+					event,
+					color.RedString(summary))
+			} else {
+				fmt.Printf("[%s] %s modified → %s\n",
+					color.YellowString(timestamp),
+					event,
+					color.YellowString(summary))
+			}
+			// Show critical findings inline
+			for _, f := range filtered.Findings {
+				if f.Severity == skill.SeverityCritical {
+					fmt.Printf("    %s %s: %s (%s:%d)\n",
+						color.RedString("!"),
+						f.RuleID,
+						f.Description,
+						f.File,
+						f.Line)
+				}
+			}
+		}
+	})
+
+	if err != nil {
+		fmt.Printf("Watch error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func printWatchResult(event, targetPath, severityFilter string) {
+	timestamp := time.Now().Format("15:04:05")
+	result, err := skill.CheckSafety(targetPath)
+	if err != nil {
+		fmt.Printf("[%s] %s error: %v\n", color.YellowString(timestamp), event, err)
+		return
+	}
+
+	filtered := filterBySeverity(result, severityFilter)
+	if len(filtered.Findings) == 0 {
+		fmt.Printf("[%s] %s → %s\n",
+			color.YellowString(timestamp),
+			event,
+			color.GreenString("0 issues ✓"))
+	} else {
+		fmt.Printf("[%s] %s → %d issues found\n",
+			color.YellowString(timestamp),
+			event,
+			len(filtered.Findings))
 	}
 }
