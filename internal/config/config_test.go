@@ -14,9 +14,9 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	// We now have 5 default repos: featured, anthropics, openai, ComposioHQ, vercel
-	if len(config.Repos) != 5 {
-		t.Errorf("Expected 5 default repos, got %d", len(config.Repos))
+	// We now have 6 default repos: featured, anthropics, openai, composio, vercel, openclaw
+	if len(config.Repos) != 6 {
+		t.Errorf("Expected 6 default repos, got %d", len(config.Repos))
 	}
 }
 
@@ -32,6 +32,7 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		"openai":     {repoType: "dir", url: "openai/skills/skills"},
 		"composio":   {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
 		"vercel":     {repoType: "dir", url: "vercel-labs/agent-skills"},
+		"openclaw":   {repoType: "dir", url: "openclaw/openclaw/skills"},
 	}
 
 	for _, repo := range config.Repos {

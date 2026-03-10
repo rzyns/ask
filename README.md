@@ -7,7 +7,7 @@
 <h3 align="center">One command. Every agent.</h3>
 
 <p align="center">
-  Install once — works with Claude, Cursor, Codex, Copilot, Windsurf, Gemini, and 12 more.
+  Install once — works with Claude, Cursor, Codex, Copilot, Windsurf, Gemini, OpenClaw, and 12 more.
 </p>
 
 <p align="center">
@@ -54,7 +54,7 @@ $ ask install browser-use
 
 | Feature | Description |
 | :--- | :--- |
-| **🤖 18 Agents, One CLI** | Install once, auto-sync to Claude, Cursor, Codex, Copilot, Windsurf, Gemini CLI, and 12 more. No vendor lock-in. |
+| **🤖 19 Agents, One CLI** | Install once, auto-sync to Claude, Cursor, Codex, Copilot, Windsurf, Gemini CLI, OpenClaw, and 12 more. No vendor lock-in. |
 | **📦 Version Locking** | `ask.lock` pins exact commits for reproducible builds. `ask lock-install` for CI/CD like `npm ci`. |
 | **🛡️ Security Scanner** | 26+ built-in rules check for secrets, dangerous commands, and malware. SARIF output for GitHub Code Scanning. |
 | **🔍 Curated Registry** | Search across the [official registry](https://github.com/yeasy/awesome-agent-skills), GitHub repos, and community sources. |
@@ -192,6 +192,7 @@ ASK comes pre-configured with trusted sources:
 | **Composio** | [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) collection |
 | **OpenAI** | Official [openai/skills](https://github.com/openai/skills) |
 | **Vercel** | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) AI SDK skills |
+| **OpenClaw** | [openclaw/openclaw](https://github.com/openclaw/openclaw/tree/main/skills) Built-in skills from OpenClaw |
 
 ### Optional Repositories
 
@@ -265,7 +266,7 @@ See detailed security audit reports generated for top skill repositories:
 
 |  | ASK | Claude Native | Cursor Rules |
 | :--- | :---: | :---: | :---: |
-| **Multi-agent support** | ✅ 18 agents | Claude only | Cursor only |
+| **Multi-agent support** | ✅ 19 agents | Claude only | Cursor only |
 | **Version locking** | ✅ `ask.lock` | ❌ | ❌ |
 | **Security scanning** | ✅ 26+ rules | ❌ | ❌ |
 | **Offline mode** | ✅ | ❌ | ❌ |

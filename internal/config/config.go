@@ -247,6 +247,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "vercel-labs/agent-skills",
 			},
+			{
+				Name: "openclaw",
+				Type: "dir",
+				URL:  "openclaw/openclaw/skills",
+			},
 		},
 	}
 }

@@ -48,6 +48,8 @@ const (
 	AgentNeovate AgentType = "neovate"
 	// AgentCodeBuddy represents the CodeBuddy agent
 	AgentCodeBuddy AgentType = "codebuddy"
+	// AgentOpenClaw represents the OpenClaw agent
+	AgentOpenClaw AgentType = "openclaw"
 )
 
 // AgentConfig holds directory paths for an agent
@@ -167,6 +169,12 @@ var SupportedAgents = map[AgentType]AgentConfig{
 		ProjectDir: ".codebuddy/skills",
 		GlobalDir:  ".codebuddy/skills",
 		Aliases:    []string{},
+	},
+	AgentOpenClaw: {
+		Name:       "OpenClaw",
+		ProjectDir: ".openclaw/skills",
+		GlobalDir:  ".openclaw/workspace/skills",
+		Aliases:    []string{"openclaw-ai"},
 	},
 }
 

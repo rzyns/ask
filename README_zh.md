@@ -1,21 +1,20 @@
-# ASK: Agent Skills Kit for Enterprise AI
+# ASK: Agent Skills Kit
 
 <p align="center">
   <img src="assets/logo.png" alt="ASK Logo" width="150"/>
 </p>
 
-<p align="center">
-  <strong>智能体必备的技能包管理器</strong>
-</p>
+<h3 align="center">一条命令，所有智能体。</h3>
 
 <p align="center">
-  只需一行命令，让智能体掌握无限可能。
+  安装一次 — 自动同步到 Claude、Cursor、Codex、Copilot、Windsurf、Gemini、OpenClaw 等 19 个智能体。
 </p>
 
 <p align="center">
   <a href="https://github.com/yeasy/ask/releases"><img src="https://img.shields.io/github/v/release/yeasy/ask?style=flat-square&color=blue" alt="Release"></a>
   <a href="https://github.com/yeasy/ask/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yeasy/ask?style=flat-square" alt="License"></a>
   <a href="https://github.com/yeasy/ask/stargazers"><img src="https://img.shields.io/github/stars/yeasy/ask?style=flat-square" alt="Stars"></a>
+  <a href="https://goreportcard.com/report/github.com/yeasy/ask"><img src="https://goreportcard.com/badge/github.com/yeasy/ask?style=flat-square" alt="Go Report Card"></a>
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
 </p>
 
@@ -26,31 +25,43 @@
 ---
 
 <p align="center">
+  <a href="#-为什么选择-ask">💡 为什么选择 ASK</a> •
   <a href="#-快速开始">🚀 快速开始</a> •
   <a href="#-核心特性">✨ 核心特性</a> •
-  <a href="#-常用命令">📋 常用命令</a> •
+  <a href="#-命令参考">📋 命令参考</a> •
   <a href="docs/README.md">📚 文档</a>
 </p>
 
 ---
 
-**ASK** (Agent Skills Kit) 是专为 AI Agent 设计的技能包管理器。就像 `brew` 管理 macOS 软件、`pip` 管理 Python 包一样，`ask` 帮助您高效发现、安装和管理 AI 智能体的各种能力（支持 Claude, Cursor, Codex 等）。
+## 💡 为什么选择 ASK
 
+你在 Claude 上找到一个好用的 Skill，但你也用 Cursor。
+你在 Cursor 上配置了规则，但团队有人用 Copilot。
+你想审计第三方技能，但没有标准工具。
 
+**ASK 解决这个问题。** 一次安装，所有智能体同步 — 自带版本锁定、安全扫描和离线支持。
 
-
+```
+$ ask install browser-use
+✓ Installed browser-use
+  Synced to: Claude   (.claude/skills/)
+             Cursor   (.cursor/skills/)
+             Codex    (.codex/skills/)
+```
 
 ## ✨ 核心特性
 
 | 特性 | 说明 |
 | :--- | :--- |
-| **📦 智能管理** | 轻松安装、升级和卸载。支持 `ask.lock` 版本锁定，确保环境一致性。 |
-| **🔍 多源聚合** | 统一检索 GitHub 社区及官方仓库 (Anthropic, OpenAI 等)。支持添加更多自定义源。 |
-| **🤖 Agent 无关** | 适用于 **任何** AI 智能体。自动适配 **Claude**, **Cursor**, **Codex**，并支持自定义 Agent 配置，不绑定特定厂商。 |
-| **⚡ 极速体验** | 纯 Go 语言编写。支持并发下载、稀疏检出 (Sparse Checkout)，无运行时依赖，毫秒级响应。 |
-| **🔌 离线模式** | 支持 `--offline` 离线模式，优先使用本地缓存，完美适配内网或安全受限环境。 |
-| **🌎 全局与本地** | 灵活支持项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
-| **🛡️ 安全守卫** | 内置安全扫描引擎，通过熵值分析检测敏感信息泄漏、危险命令及恶意代码，为智能体保驾护航。 |
+| **🤖 19 个智能体，一个 CLI** | 一次安装，自动同步到 Claude、Cursor、Codex、Copilot、Windsurf、Gemini CLI、OpenClaw 等 19 个智能体。不绑定厂商。 |
+| **📦 版本锁定** | `ask.lock` 精确锁定 commit，确保可复现构建。`ask lock-install` 类似 `npm ci`，专为 CI/CD 设计。 |
+| **🛡️ 安全扫描** | 26+ 条内置规则检测密钥泄漏、危险命令和恶意代码。支持 SARIF 格式输出，集成 GitHub Code Scanning。 |
+| **🔍 精选注册表** | 搜索 [官方注册表](https://github.com/yeasy/awesome-agent-skills)、GitHub 仓库和社区源。 |
+| **⚡ 极速体验** | 纯 Go 编写，并发下载、稀疏检出，零运行时依赖。 |
+| **🔌 离线与企业** | 完整离线模式、私有仓库支持、来源白名单、HTML 审计报告。 |
+| **🌎 全局与本地** | 项目级 (`.agent/skills`) 和用户级 (`~/.ask/skills`) 隔离管理。 |
+| **🖥️ 桌面与 Web** | 精美 UI，支持 `ask serve` Web 服务器或 [Wails](https://wails.io) 原生桌面应用。 |
 
 ## 🖥️ Web UI & 桌面应用
 
@@ -178,6 +189,7 @@ ASK 默认内置了以下受信源：
 | **Composio** | 精选集 [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) |
 | **OpenAI** | 官方库 [openai/skills](https://github.com/openai/skills) |
 | **Vercel** | AI SDK [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) |
+| **OpenClaw** | [openclaw/openclaw](https://github.com/openclaw/openclaw/tree/main/skills) OpenClaw 内置技能 |
 
 ### 可选技能仓库
 
@@ -246,6 +258,19 @@ ask completion fish > ~/.config/fish/completions/ask.fish
 - [🛡️ Composio 安全审计报告](reports/composio.html)
 - [🛡️ Vercel 安全审计报告](reports/vercel.html)
 - [🛡️ Superpowers 安全审计报告](reports/superpowers.html)
+
+## 🆚 对比
+
+|  | ASK | Claude 原生 | Cursor Rules |
+| :--- | :---: | :---: | :---: |
+| **多智能体支持** | ✅ 19 个 | 仅 Claude | 仅 Cursor |
+| **版本锁定** | ✅ `ask.lock` | ❌ | ❌ |
+| **安全扫描** | ✅ 26+ 规则 | ❌ | ❌ |
+| **离线模式** | ✅ | ❌ | ❌ |
+| **团队共享** | ✅ lock 文件 | ❌ | ❌ |
+| **私有仓库 / 企业级** | ✅ | ❌ | ❌ |
+| **CLI 工具** | ✅ | ❌ | ❌ |
+| **精选注册表** | ✅ | ❌ | ❌ |
 
 ## 🤝 贡献参与
 欢迎提交 PR 或 Issue！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
