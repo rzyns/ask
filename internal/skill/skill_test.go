@@ -178,8 +178,8 @@ func TestCreateSkillTemplate(t *testing.T) {
 	if meta.Description == "" {
 		t.Error("Expected description to be set")
 	}
-	if meta.Version != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got '%s'", meta.Version)
+	if meta.Version != "0.1.0" {
+		t.Errorf("Expected version '0.1.0', got '%s'", meta.Version)
 	}
 }
 

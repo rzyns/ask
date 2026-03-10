@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -19,21 +22,25 @@ var publishCmd = &cobra.Command{
 This command runs comprehensive checks including:
   - SKILL.md format validation
   - Security scanning
+  - Version follows semver
   - Required files verification
   - Git repository status check
 
-After validation passes, it provides instructions for submitting
-the skill to the registry.`,
+After validation passes, it generates a registry entry that can be
+submitted to the awesome-agent-skills repository.`,
 	Example: `  # Publish skill in current directory
   ask skill publish
 
   # Publish skill at a specific path
-  ask skill publish ./my-skill`,
+  ask skill publish ./my-skill
+
+  # Generate registry entry to file
+  ask skill publish --output registry-entry.json`,
 	Args: cobra.MaximumNArgs(1),
 	Run:  runPublish,
 }
 
-func runPublish(_ *cobra.Command, args []string) {
+func runPublish(cmd *cobra.Command, args []string) {
 	var targetPath string
 	var err error
 
@@ -47,7 +54,11 @@ func runPublish(_ *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	output, _ := cmd.Flags().GetString("output")
+
 	fmt.Printf("Preparing to publish skill at %s...\n\n", targetPath)
+
+	allPassed := true
 
 	// Step 1: Check SKILL.md exists
 	fmt.Print("  Checking SKILL.md... ")
@@ -73,11 +84,22 @@ func runPublish(_ *cobra.Command, args []string) {
 		for _, e := range validationErrors {
 			fmt.Printf("    - %s\n", e)
 		}
-		os.Exit(1)
+		allPassed = false
+	} else {
+		color.Green("OK")
 	}
-	color.Green("OK")
 
-	// Step 3: Security scan
+	// Step 3: Version check (semver)
+	fmt.Print("  Checking version (semver)... ")
+	if meta.Version == "" {
+		color.Yellow("MISSING (add version to SKILL.md frontmatter)")
+	} else if !isValidSemver(meta.Version) {
+		color.Yellow("WARN (not valid semver: %s)", meta.Version)
+	} else {
+		color.Green("OK (%s)", meta.Version)
+	}
+
+	// Step 4: Security scan
 	fmt.Print("  Running security scan... ")
 	result, err := skill.CheckSafety(targetPath)
 	if err != nil {
@@ -98,23 +120,20 @@ func runPublish(_ *cobra.Command, args []string) {
 	}
 
 	if criticals > 0 {
-		color.Red("FAIL")
-		fmt.Printf("    %d critical issues found. Fix them before publishing.\n", criticals)
+		color.Red("FAIL (%d critical)", criticals)
 		for _, f := range result.Findings {
 			if f.Severity == skill.SeverityCritical {
 				fmt.Printf("    - %s: %s (%s:%d)\n", f.RuleID, f.Description, f.File, f.Line)
 			}
 		}
-		os.Exit(1)
-	}
-
-	if warnings > 0 {
+		allPassed = false
+	} else if warnings > 0 {
 		color.Yellow("WARN (%d warnings)", warnings)
 	} else {
 		color.Green("OK")
 	}
 
-	// Step 4: Check for README
+	// Step 5: Check for README
 	fmt.Print("  Checking README.md... ")
 	readmePath := filepath.Join(targetPath, "README.md")
 	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
@@ -123,30 +142,168 @@ func runPublish(_ *cobra.Command, args []string) {
 		color.Green("OK")
 	}
 
-	// Step 5: Check git status
+	// Step 6: Check for prompt files
+	fmt.Print("  Checking prompts/... ")
+	promptDir := filepath.Join(targetPath, "prompts")
+	if entries, err := os.ReadDir(promptDir); err != nil || len(entries) == 0 {
+		color.Yellow("EMPTY (add prompt files)")
+	} else {
+		color.Green("OK (%d files)", len(entries))
+	}
+
+	// Step 7: Check git status
 	fmt.Print("  Checking git status... ")
+	gitRemote := getGitRemote(targetPath)
 	gitCmd := exec.Command("git", "-C", targetPath, "status", "--porcelain")
-	output, err := gitCmd.Output()
+	gitOutput, err := gitCmd.Output()
 	if err != nil {
 		color.Yellow("SKIP (not a git repo)")
-	} else if len(output) > 0 {
+	} else if len(gitOutput) > 0 {
 		color.Yellow("WARN (uncommitted changes)")
 	} else {
 		color.Green("OK")
 	}
 
+	// Step 8: Check git tag
+	fmt.Print("  Checking git tag... ")
+	if meta.Version != "" {
+		tagCmd := exec.Command("git", "-C", targetPath, "tag", "-l", "v"+meta.Version)
+		tagOutput, tagErr := tagCmd.Output()
+		if tagErr != nil {
+			color.Yellow("SKIP (not a git repo)")
+		} else if strings.TrimSpace(string(tagOutput)) == "" {
+			color.Yellow("MISSING (run: git tag v%s)", meta.Version)
+		} else {
+			color.Green("OK (v%s)", meta.Version)
+		}
+	} else {
+		color.Yellow("SKIP (no version)")
+	}
+
 	// Summary
 	fmt.Println()
-	if criticals == 0 {
-		color.Green("✓ Skill '%s' is ready for publishing!\n", meta.Name)
-		fmt.Println()
-		fmt.Println("Next steps:")
-		fmt.Println("  1. Push your skill to a public GitHub repository")
-		fmt.Println("  2. Submit it to the ASK registry:")
-		fmt.Println("     https://github.com/yeasy/awesome-agent-skills/issues/new")
-		fmt.Println()
-		fmt.Printf("  Install command: ask install <your-github-username>/<repo-name>\n")
+	if !allPassed {
+		color.Red("✗ Skill has issues that must be fixed before publishing.\n")
+		os.Exit(1)
 	}
+
+	color.Green("✓ Skill '%s' is ready for publishing!\n", meta.Name)
+
+	// Generate registry entry
+	entry := generateRegistryEntry(meta, targetPath, gitRemote)
+
+	if output != "" {
+		data, _ := json.MarshalIndent(entry, "", "  ")
+		if err := os.WriteFile(output, data, 0644); err != nil {
+			fmt.Printf("Error writing registry entry: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("\nRegistry entry saved to %s\n", output)
+	} else {
+		fmt.Println()
+		fmt.Println("Registry entry (add to awesome-agent-skills/registry/index.json):")
+		fmt.Println()
+		data, _ := json.MarshalIndent(entry, "  ", "  ")
+		fmt.Printf("  %s\n", string(data))
+	}
+
+	fmt.Println()
+	fmt.Println("Next steps:")
+	fmt.Println("  1. Push your skill to a public GitHub repository")
+	if meta.Version != "" {
+		fmt.Printf("  2. Tag your release: git tag v%s && git push --tags\n", meta.Version)
+	}
+	fmt.Println("  3. Submit to registry: https://github.com/yeasy/awesome-agent-skills")
+}
+
+// registryEntry matches the RegistrySkill struct format
+type registryEntry struct {
+	Name        string   `json:"name"`
+	Source      string   `json:"source"`
+	URL         string   `json:"url"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Tags        []string `json:"tags"`
+	Stars       int      `json:"stars"`
+	Featured    bool     `json:"featured"`
+	InstallCmd  string   `json:"install_cmd"`
+}
+
+func generateRegistryEntry(meta *skill.Meta, skillPath, gitRemote string) registryEntry {
+	source := filepath.Base(skillPath)
+	skillURL := ""
+	installCmd := "ask install " + meta.Name
+
+	if gitRemote != "" {
+		owner := parseOwnerFromRemote(gitRemote)
+		if owner != "" {
+			source = owner
+		}
+		skillURL = gitRemote
+		skillURL = strings.TrimSuffix(skillURL, ".git")
+		if strings.HasPrefix(skillURL, "git@github.com:") {
+			skillURL = "https://github.com/" + strings.TrimPrefix(skillURL, "git@github.com:")
+		}
+		installCmd = "ask install " + strings.TrimPrefix(skillURL, "https://github.com/")
+	}
+
+	category := "general"
+	if meta.Tags != nil {
+		for _, tag := range meta.Tags {
+			switch tag {
+			case "productivity", "development", "creative", "business", "media", "security":
+				category = tag
+			}
+		}
+	}
+
+	tags := meta.Tags
+	if tags == nil {
+		tags = []string{"agent-skill"}
+	}
+
+	return registryEntry{
+		Name:        meta.Name,
+		Source:      source,
+		URL:         skillURL,
+		Description: meta.Description,
+		Category:    category,
+		Tags:        tags,
+		Stars:       0,
+		Featured:    false,
+		InstallCmd:  installCmd,
+	}
+}
+
+func getGitRemote(path string) string {
+	cmd := exec.Command("git", "-C", path, "remote", "get-url", "origin")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func parseOwnerFromRemote(remote string) string {
+	if strings.HasPrefix(remote, "git@github.com:") {
+		parts := strings.SplitN(strings.TrimPrefix(remote, "git@github.com:"), "/", 2)
+		if len(parts) > 0 {
+			return parts[0]
+		}
+	}
+	remote = strings.TrimSuffix(remote, ".git")
+	remote = strings.TrimPrefix(remote, "https://github.com/")
+	remote = strings.TrimPrefix(remote, "http://github.com/")
+	parts := strings.SplitN(remote, "/", 2)
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return ""
+}
+
+func isValidSemver(v string) bool {
+	matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$`, v)
+	return matched
 }
 
 func validateSkillMeta(meta *skill.Meta) []string {
@@ -165,4 +322,5 @@ func validateSkillMeta(meta *skill.Meta) []string {
 
 func init() {
 	skillCmd.AddCommand(publishCmd)
+	publishCmd.Flags().StringP("output", "o", "", "Write registry entry to file")
 }

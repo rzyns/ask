@@ -14,15 +14,19 @@ type TemplateData struct {
 	Name        string
 	Description string
 	Author      string
+	Version     string
+	Tags        []string
 }
 
 const skillMDTemplate = `---
 name: {{.Name}}
 description: {{.Description}}
-version: 1.0.0
+version: {{.Version}}
 author: {{.Author}}
 tags:
-  - agent-skill
+{{- range .Tags}}
+  - {{.}}
+{{- end}}
 ---
 
 # {{.Name}}
@@ -39,6 +43,11 @@ Explain how to use this skill here.
 - [Reference](references/ref.md)
 `
 
+// GetGitAuthorExported returns the git author name for external callers
+func GetGitAuthorExported() string {
+	return getGitAuthor()
+}
+
 // getGitAuthor attempts to get the author name from git config
 // Falls back to "User" if git config is unavailable
 func getGitAuthor() string {
@@ -54,8 +63,31 @@ func getGitAuthor() string {
 	return author
 }
 
+// CreateSkillTemplateWithData creates a new skill directory using provided template data
+func CreateSkillTemplateWithData(data TemplateData, destDir string) error {
+	if data.Version == "" {
+		data.Version = "0.1.0"
+	}
+	if len(data.Tags) == 0 {
+		data.Tags = []string{"agent-skill"}
+	}
+	return createSkillDir(data, destDir)
+}
+
 // CreateSkillTemplate creates a new skill directory with template files
 func CreateSkillTemplate(name, destDir string) error {
+	data := TemplateData{
+		Name:        name,
+		Description: "A new skill for AI Agents",
+		Author:      getGitAuthor(),
+		Version:     "0.1.0",
+		Tags:        []string{"agent-skill"},
+	}
+	return createSkillDir(data, destDir)
+}
+
+func createSkillDir(data TemplateData, destDir string) error {
+	name := data.Name
 	skillDir := filepath.Join(destDir, name)
 
 	// 1. Create directory structure
@@ -84,12 +116,6 @@ func CreateSkillTemplate(name, destDir string) error {
 		return fmt.Errorf("failed to create SKILL.md: %w", err)
 	}
 	defer func() { _ = f.Close() }()
-
-	data := TemplateData{
-		Name:        name,
-		Description: "A new skill for AI Agents",
-		Author:      getGitAuthor(),
-	}
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
