@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 
+## [1.7.9] - 2026-03-14
+
+### Fixed
+- **Concurrency**: Added `sync.RWMutex` to protect global `searchCache` from race conditions during concurrent GitHub API access.
+- **Performance**: Replaced O(n²) duplicate skill check in `install` restore with O(1) map-based lookup.
+- **Security**: Added git ref validation in `Checkout()` to reject malformed references containing `..`, shell metacharacters, or leading `-`.
+- **Security**: Added path traversal protection in `buildRepoURL` and `buildRepoName` to reject `..` and empty segments.
+- **Reliability**: Replaced `io.ReadAtLeast` with `io.ReadAll(io.LimitReader(...))` for safer SKILL.md description reading.
+- **Code Quality**: Consolidated hardcoded HTTP timeout values into named constants (`httpTimeoutDefault`, `httpTimeoutShort`).
+- **UX**: Added OS signal handling (`Ctrl+C`) for graceful cancellation of `repo sync` operations.
+- **Code Quality**: Removed redundant `splitLines`/`trimSpace` helper functions in favor of `strings` stdlib.
+
 ## [1.7.4] - 2026-03-04
 
 ### Fixed
