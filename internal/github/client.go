@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yeasy/ask/internal/cache"
@@ -20,10 +21,20 @@ const (
 	SkillTopic = "agent-skill"
 	// APIURL is the GitHub API endpoint for searching repositories
 	APIURL = "https://api.github.com/search/repositories"
+
+	// httpTimeoutDefault is the default timeout for GitHub API requests
+	httpTimeoutDefault = 10 * time.Second
+	// httpTimeoutShort is a shorter timeout for non-critical requests like fetching descriptions
+	httpTimeoutShort = 5 * time.Second
+	// maxDescriptionReadBytes limits how much of SKILL.md we read for description extraction
+	maxDescriptionReadBytes = 4096
 )
 
-// Global cache instance
-var searchCache *cache.Cache
+// Global cache instance, protected by cacheMu for concurrent access
+var (
+	searchCache *cache.Cache
+	cacheMu     sync.RWMutex
+)
 
 // OfflineMode returns whether the application is in offline mode.
 // Delegates to config.OfflineMode as the single source of truth.
@@ -38,6 +49,25 @@ func init() {
 	if err != nil {
 		// Cache is optional, continue without it
 		searchCache = nil
+	}
+}
+
+// cacheGet safely reads from the global cache under a read lock.
+func cacheGet(key string, dest interface{}) bool {
+	cacheMu.RLock()
+	defer cacheMu.RUnlock()
+	if searchCache == nil {
+		return false
+	}
+	return searchCache.Get(key, dest)
+}
+
+// cacheSet safely writes to the global cache under a write lock.
+func cacheSet(key string, value interface{}) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	if searchCache != nil {
+		_ = searchCache.Set(key, value)
 	}
 }
 
@@ -97,11 +127,9 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 
 	// Try cache first
 	// In offline mode, we MUST find it in cache or return error
-	if searchCache != nil {
-		var cached []Repository
-		if searchCache.Get(cacheKey, &cached) {
-			return cached, nil
-		}
+	var cached []Repository
+	if cacheGet(cacheKey, &cached) {
+		return cached, nil
 	}
 
 	if isOffline() {
@@ -129,7 +157,7 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "ask-cli")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: httpTimeoutDefault}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -146,9 +174,7 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 	}
 
 	// Cache the result
-	if searchCache != nil {
-		_ = searchCache.Set(cacheKey, result.Items)
-	}
+	cacheSet(cacheKey, result.Items)
 
 	return result.Items, nil
 }
@@ -165,11 +191,9 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 	cacheKey := fmt.Sprintf("dir:%s/%s/%s", owner, repo, path)
 
 	// Try cache first
-	if searchCache != nil {
-		var cached []Repository
-		if searchCache.Get(cacheKey, &cached) {
-			return cached, nil
-		}
+	var cached []Repository
+	if cacheGet(cacheKey, &cached) {
+		return cached, nil
 	}
 
 	if isOffline() {
@@ -190,7 +214,7 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "ask-cli")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: httpTimeoutDefault}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -240,9 +264,7 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 	}
 
 	// Cache the result
-	if searchCache != nil {
-		_ = searchCache.Set(cacheKey, skills)
-	}
+	cacheSet(cacheKey, skills)
 
 	return skills, nil
 }
@@ -251,11 +273,9 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 func fetchSkillDescription(owner, repo, skillPath string) string {
 	// Check cache first
 	cacheKey := fmt.Sprintf("skill-desc:%s/%s/%s", owner, repo, skillPath)
-	if searchCache != nil {
-		var cached string
-		if searchCache.Get(cacheKey, &cached) {
-			return cached
-		}
+	var cached string
+	if cacheGet(cacheKey, &cached) {
+		return cached
 	}
 
 	// Fetch SKILL.md content
@@ -273,7 +293,7 @@ func fetchSkillDescription(owner, repo, skillPath string) string {
 	req.Header.Set("Accept", "application/vnd.github.v3.raw") // Get raw file content
 	req.Header.Set("User-Agent", "ask-cli")
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: httpTimeoutShort}
 	resp, err := client.Do(req)
 	if err != nil {
 		return ""
@@ -284,20 +304,19 @@ func fetchSkillDescription(owner, repo, skillPath string) string {
 		return ""
 	}
 
-	// Read the content (limit to 4KB to avoid huge files)
-	buf := make([]byte, 4096)
-	n, err := io.ReadAtLeast(resp.Body, buf, 1)
-	if err != nil && n == 0 {
+	// Read the content (limit to maxDescriptionReadBytes to avoid huge files)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxDescriptionReadBytes))
+	if err != nil || len(data) == 0 {
 		return ""
 	}
-	content := string(buf[:n])
+	content := string(data)
 
 	// Parse description from SKILL.md (check both frontmatter and first paragraph)
 	desc := parseDescriptionFromSkillMD(content)
 
 	// Cache the description
-	if searchCache != nil && desc != "" {
-		_ = searchCache.Set(cacheKey, desc)
+	if desc != "" {
+		cacheSet(cacheKey, desc)
 	}
 
 	return desc
@@ -328,7 +347,7 @@ func parseDescriptionFromSkillMD(content string) string {
 
 	// If no frontmatter description, look for first non-empty non-heading line
 	for _, line := range lines {
-		line = trimSpace(line)
+		line = strings.TrimSpace(line)
 		if line == "" || line == "---" {
 			continue
 		}
@@ -342,36 +361,13 @@ func parseDescriptionFromSkillMD(content string) string {
 	return ""
 }
 
-// Helper functions to avoid importing strings package
+// splitLines splits a string into lines by newline character.
 func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
-}
-
-func trimSpace(s string) string {
-	start := 0
-	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\r') {
-		end--
-	}
-	return s[start:end]
+	return strings.Split(s, "\n")
 }
 
 func trimQuotes(s string) string {
-	s = trimSpace(s)
+	s = strings.TrimSpace(s)
 	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
 		return s[1 : len(s)-1]
 	}
@@ -511,7 +507,7 @@ func FetchRepoDetails(owner, repo string) (*Repository, error) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "ask-cli")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: httpTimeoutDefault}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

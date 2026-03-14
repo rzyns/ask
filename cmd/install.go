@@ -139,16 +139,14 @@ func runInstall(cmd *cobra.Command, args []string) {
 					count++
 				}
 				// Add from legacy skills list if not duplicate
+				seen := make(map[string]bool, len(skillArgs))
+				for _, existing := range skillArgs {
+					seen[existing] = true
+				}
 				for _, s := range cfg.Skills {
-					exists := false
-					for _, existing := range skillArgs {
-						if existing == s {
-							exists = true
-							break
-						}
-					}
-					if !exists {
+					if !seen[s] {
 						skillArgs = append(skillArgs, s)
+						seen[s] = true
 						count++
 					}
 				}

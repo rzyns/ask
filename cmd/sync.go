@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
 	"time"
@@ -80,7 +81,9 @@ If no repo name is specified, syncs all configured repositories.`,
 		bar := ui.NewProgressBar(len(targetRepos), "Syncing repositories")
 
 		// Use errgroup for parallel syncing with limit
-		ctx := context.Background()
+		// Support cancellation via OS signals (Ctrl+C)
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
 		g, ctx := errgroup.WithContext(ctx)
 		g.SetLimit(5) // Limit concurrency to 5
 
@@ -169,28 +172,48 @@ If no repo name is specified, syncs all configured repositories.`,
 	},
 }
 
-// buildRepoURL constructs the git clone URL from repo config
-func buildRepoURL(url string) string {
+// buildRepoURL constructs the git clone URL from repo config.
+// Validates that owner/repo parts do not contain path traversal patterns.
+func buildRepoURL(repoURL string) string {
 	// Handle owner/repo format
-	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "git@") {
+	if !strings.HasPrefix(repoURL, "http") && !strings.HasPrefix(repoURL, "git@") {
 		// Extract owner/repo from path like "anthropics/skills/skills"
-		parts := strings.Split(url, "/")
+		parts := strings.Split(repoURL, "/")
 		if len(parts) >= 2 {
-			return fmt.Sprintf("https://github.com/%s/%s.git", parts[0], parts[1])
+			owner, repo := parts[0], parts[1]
+			// Reject path traversal or empty segments
+			if owner == ".." || repo == ".." || owner == "." || repo == "." || owner == "" || repo == "" {
+				return ""
+			}
+			return fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 		}
-		return "https://github.com/" + url + ".git"
+		if repoURL == ".." || repoURL == "." || repoURL == "" {
+			return ""
+		}
+		return "https://github.com/" + repoURL + ".git"
 	}
-	return url
+	return repoURL
 }
 
-// buildRepoName constructs a filesystem-safe name from repo URL
-func buildRepoName(url string) string {
+// buildRepoName constructs a filesystem-safe name from repo URL.
+// Strips path traversal patterns to prevent directory escape.
+func buildRepoName(repoURL string) string {
 	// Handle owner/repo/path format
-	parts := strings.Split(url, "/")
+	parts := strings.Split(repoURL, "/")
 	if len(parts) >= 2 {
-		return parts[0] + "-" + parts[1]
+		owner := strings.ReplaceAll(parts[0], "..", "")
+		repo := strings.ReplaceAll(parts[1], "..", "")
+		if owner == "" || repo == "" {
+			return "unknown-repo"
+		}
+		return owner + "-" + repo
 	}
-	return strings.ReplaceAll(url, "/", "-")
+	name := strings.ReplaceAll(repoURL, "/", "-")
+	name = strings.ReplaceAll(name, "..", "")
+	if name == "" {
+		return "unknown-repo"
+	}
+	return name
 }
 
 func init() {

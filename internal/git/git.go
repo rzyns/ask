@@ -172,13 +172,34 @@ func GetLatestTag(repoPath string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// Checkout checks out a specific tag or branch
+// Checkout checks out a specific tag or branch.
+// The ref is validated to prevent unexpected git behavior from malformed references.
 func Checkout(repoPath, ref string) error {
+	if err := validateGitRef(ref); err != nil {
+		return fmt.Errorf("invalid git ref: %w", err)
+	}
 	cmd := exec.Command("git", "checkout", ref)
 	cmd.Dir = repoPath
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// validateGitRef checks that a git reference string is safe to use.
+func validateGitRef(ref string) error {
+	if ref == "" {
+		return fmt.Errorf("ref cannot be empty")
+	}
+	if strings.Contains(ref, "..") {
+		return fmt.Errorf("ref cannot contain '..'")
+	}
+	if strings.ContainsAny(ref, " \t\n\r~^:?*[\\") {
+		return fmt.Errorf("ref contains invalid characters")
+	}
+	if strings.HasPrefix(ref, "-") {
+		return fmt.Errorf("ref cannot start with '-'")
+	}
+	return nil
 }
 
 // GetCurrentCommit returns the current commit hash of the repository
