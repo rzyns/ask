@@ -62,7 +62,7 @@ const maxInputLength = 255
 
 func runInstall(cmd *cobra.Command, args []string) {
 	// Check for offline mode
-	if offline, _ := cmd.Flags().GetBool("offline"); offline || config.OfflineMode {
+	if offline, _ := cmd.Flags().GetBool("offline"); offline || config.IsOffline() {
 		fmt.Println("Error: Cannot install skills in offline mode.")
 		os.Exit(1)
 	}
@@ -350,7 +350,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 	}
 
 	// Print summary
-	if len(args) > 1 {
+	if len(expandedArgs) > 1 {
 		fmt.Println()
 		fmt.Println("Installation Summary:")
 

@@ -9,7 +9,6 @@ import (
 
 // Resolver handles dependency resolution for skills
 type Resolver struct {
-	visited  map[string]bool
 	resolved map[string]bool
 	order    []string
 }
@@ -17,7 +16,6 @@ type Resolver struct {
 // NewResolver creates a new dependency resolver
 func NewResolver() *Resolver {
 	return &Resolver{
-		visited:  make(map[string]bool),
 		resolved: make(map[string]bool),
 		order:    []string{},
 	}
@@ -43,8 +41,6 @@ func (r *Resolver) resolve(name, path string, chain []string) ([]string, error) 
 		return nil, nil
 	}
 
-	// Mark as visited
-	r.visited[name] = true
 	chain = append(chain, name)
 
 	// Parse SKILL.md for dependencies

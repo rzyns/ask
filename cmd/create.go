@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 
 	"github.com/charmbracelet/huh"
@@ -48,7 +49,7 @@ func runCreate(cmd *cobra.Command, args []string) {
 		fmt.Printf("Error getting current working directory: %v\n", err)
 		os.Exit(1)
 	}
-	if _, err := os.Stat(cwd + "/" + name); err == nil {
+	if _, err := os.Stat(filepath.Join(cwd, name)); err == nil {
 		fmt.Printf("Error: Directory '%s' already exists.\n", name)
 		os.Exit(1)
 	}
@@ -89,7 +90,7 @@ func runCreate(cmd *cobra.Command, args []string) {
 
 	// Create .askcheck.yaml
 	checkContent := "# ASK security check configuration\nignore: []\nignore_paths:\n  - assets/**\nrules: []\n"
-	if err := os.WriteFile(cwd+"/"+name+"/.askcheck.yaml", []byte(checkContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(cwd, name, ".askcheck.yaml"), []byte(checkContent), 0600); err != nil {
 		fmt.Printf("Warning: Failed to create .askcheck.yaml: %v\n", err)
 	}
 

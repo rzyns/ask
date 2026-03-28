@@ -193,8 +193,12 @@ func runPublish(cmd *cobra.Command, args []string) {
 	entry := generateRegistryEntry(meta, targetPath, gitRemote)
 
 	if output != "" {
-		data, _ := json.MarshalIndent(entry, "", "  ")
-		if err := os.WriteFile(output, data, 0644); err != nil {
+		data, err := json.MarshalIndent(entry, "", "  ")
+		if err != nil {
+			fmt.Printf("Error marshaling registry entry: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.WriteFile(output, data, 0600); err != nil {
 			fmt.Printf("Error writing registry entry: %v\n", err)
 			os.Exit(1)
 		}
@@ -203,7 +207,11 @@ func runPublish(cmd *cobra.Command, args []string) {
 		fmt.Println()
 		fmt.Println("Registry entry (add to awesome-agent-skills/registry/index.json):")
 		fmt.Println()
-		data, _ := json.MarshalIndent(entry, "  ", "  ")
+		data, err := json.MarshalIndent(entry, "  ", "  ")
+		if err != nil {
+			fmt.Printf("Error marshaling registry entry: %v\n", err)
+			os.Exit(1)
+		}
 		fmt.Printf("  %s\n", string(data))
 	}
 
@@ -301,9 +309,10 @@ func parseOwnerFromRemote(remote string) string {
 	return ""
 }
 
+var semverRe = regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$`)
+
 func isValidSemver(v string) bool {
-	matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$`, v)
-	return matched
+	return semverRe.MatchString(v)
 }
 
 func validateSkillMeta(meta *skill.Meta) []string {

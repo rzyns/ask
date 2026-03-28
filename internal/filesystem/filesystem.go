@@ -26,6 +26,11 @@ func CopyDir(source string, destination string) error {
 	}
 
 	for _, entry := range entries {
+		// Skip symlinks to prevent following links outside intended directory
+		if entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+
 		srcPath := filepath.Join(source, entry.Name())
 		dstPath := filepath.Join(destination, entry.Name())
 

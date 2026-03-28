@@ -17,6 +17,13 @@ import (
 // SearchURL is the endpoint for quick search
 const SearchURL = "https://www.skillhub.club/api/search/quick"
 
+// Pre-compiled regexes for Resolve()
+var (
+	reGitHubHref    = regexp.MustCompile(`href="(https://github\.com/[^"]+)"`)
+	reRepoURLJSON   = regexp.MustCompile(`"repoUrl":"(https://github\.com/[^"]+)"`)
+	reRepoURLEscape = regexp.MustCompile(`\\?"repoUrl\\?":\\?"(https://github\.com/[^"\\]+)\\?"`)
+)
+
 // Skill represents a skill from SkillHub search
 type Skill struct {
 	ID          string   `json:"id"`
@@ -57,7 +64,7 @@ func (c *Client) Search(query string) ([]Skill, error) {
 		query = "agent" // default search term if none provided?
 	}
 
-	if config.OfflineMode {
+	if config.IsOffline() {
 		return nil, fmt.Errorf("search is not available in offline mode")
 	}
 
@@ -90,10 +97,10 @@ func (c *Client) Search(query string) ([]Skill, error) {
 
 // Resolve fetches the GitHub URL for a given skill slug
 func (c *Client) Resolve(slug string) (string, error) {
-	if config.OfflineMode {
+	if config.IsOffline() {
 		return "", fmt.Errorf("skill resolution is not available in offline mode")
 	}
-	skillURL := fmt.Sprintf("https://www.skillhub.club/skills/%s", slug)
+	skillURL := fmt.Sprintf("https://www.skillhub.club/skills/%s", url.PathEscape(slug))
 	resp, err := c.HTTPClient.Get(skillURL)
 	if err != nil {
 		return "", err
@@ -110,11 +117,8 @@ func (c *Client) Resolve(slug string) (string, error) {
 	}
 
 	// Look for GitHub link in the page content
-	// Use regex or string searching.
-	// We confirmed with curl that it appears as href="https://github.com/..."
-	// A simple regex:
-	re := regexp.MustCompile(`href="(https://github\.com/[^"]+)"`)
-	matches := re.FindStringSubmatch(string(body))
+	bodyStr := string(body)
+	matches := reGitHubHref.FindStringSubmatch(bodyStr)
 
 	if len(matches) > 1 {
 		rawURL := matches[1]
@@ -126,18 +130,14 @@ func (c *Client) Resolve(slug string) (string, error) {
 	}
 
 	// Fallback: try to find repoUrl in Next.js hydration data or JSON
-	// Matches: "repoUrl":"https://github.com/..."
-	reJSON := regexp.MustCompile(`"repoUrl":"(https://github\.com/[^"]+)"`)
-	matchesJSON := reJSON.FindStringSubmatch(string(body))
+	matchesJSON := reRepoURLJSON.FindStringSubmatch(bodyStr)
 	if len(matchesJSON) > 1 {
 		rawURL := matchesJSON[1]
-		// unescape backward slashes if any (though usually forward slashes are fine in JSON)
 		return strings.ReplaceAll(rawURL, `\/`, "/"), nil
 	}
 
 	// Try one more pattern for escaped JSON
-	reEscaped := regexp.MustCompile(`\\?"repoUrl\\?":\\?"(https://github\.com/[^"\\]+)\\?"`)
-	matchesEscaped := reEscaped.FindStringSubmatch(string(body))
+	matchesEscaped := reRepoURLEscape.FindStringSubmatch(bodyStr)
 	if len(matchesEscaped) > 1 {
 		return matchesEscaped[1], nil
 	}

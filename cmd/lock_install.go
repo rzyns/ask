@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -103,7 +104,7 @@ team members and CI/CD pipelines.`,
 				// Run security check if --check flag is set or enterprise requires it
 				if check || (cfg.Enterprise != nil && cfg.Enterprise.RequireCheck) {
 					skillsDir := config.GetSkillsDirByScope(global)
-					skillPath := skillsDir + "/" + entry.Name
+					skillPath := filepath.Join(skillsDir, entry.Name)
 					if skill.FindSkillMD(skillPath) {
 						result, checkErr := skill.CheckSafety(skillPath)
 						if checkErr == nil && hasCriticalIssues(result) {

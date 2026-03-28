@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
@@ -111,15 +113,18 @@ Use --global to update global skills.`,
 			ui.Debug(fmt.Sprintf("Updating %s...", skillName))
 
 			// Run git pull
-			gitCmd := exec.Command("git", "pull", "--rebase")
+			pullCtx, pullCancel := context.WithTimeout(context.Background(), 60*time.Second)
+			gitCmd := exec.CommandContext(pullCtx, "git", "pull", "--rebase")
 			gitCmd.Dir = skillPath
 			gitCmd.Stdout = os.Stdout
 			gitCmd.Stderr = os.Stderr
 
 			if err := gitCmd.Run(); err != nil {
+				pullCancel()
 				ui.Warn(fmt.Sprintf("  Failed to update %s: %v", skillName, err))
 				continue
 			}
+			pullCancel()
 
 			ui.Debug(fmt.Sprintf("  Updated %s successfully!", skillName))
 		}

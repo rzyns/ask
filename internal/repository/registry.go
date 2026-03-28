@@ -34,7 +34,7 @@ type RegistryIndex struct {
 
 // FetchSkillsFromRegistry fetches skills from a registry index.json hosted on GitHub
 func FetchSkillsFromRegistry(registryURL string, keyword string) ([]github.Repository, error) {
-	if config.OfflineMode {
+	if config.IsOffline() {
 		return nil, fmt.Errorf("offline mode: cannot fetch registry")
 	}
 

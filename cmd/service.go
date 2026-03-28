@@ -96,7 +96,7 @@ func runServiceStart(_ *cobra.Command, _ []string) {
 
 	// Open log file
 	logPath := mgr.GetLogFilePath()
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		ui.Error("Failed to open log file: " + err.Error())
 		return

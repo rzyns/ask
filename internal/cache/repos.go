@@ -84,8 +84,12 @@ func (c *ReposCache) CloneOrPull(ctx context.Context, repoURL, repoName string) 
 	repoPath := filepath.Join(c.baseDir, sanitizeRepoName(repoName))
 
 	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+		// Validate URL scheme to prevent cloning arbitrary local paths
+		if !strings.HasPrefix(repoURL, "https://") && !strings.HasPrefix(repoURL, "http://") {
+			return fmt.Errorf("repository URL must use HTTP or HTTPS: %s", repoURL)
+		}
 		// Clone with depth=1 for speed
-		cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", repoURL, repoPath)
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", "--", repoURL, repoPath)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("git clone failed: %v\nOutput: %s", err, string(output))
@@ -112,7 +116,7 @@ func (c *ReposCache) ListSkills(repoName string) ([]SkillEntry, error) {
 	var skills []SkillEntry
 
 	// Walk the repo looking for SKILL.md files
-	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			// Skip permission errors but continue walking
 			if os.IsPermission(err) {
@@ -120,12 +124,16 @@ func (c *ReposCache) ListSkills(repoName string) ([]SkillEntry, error) {
 			}
 			return err
 		}
+		// Skip symlinks to prevent following links outside intended directory
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
 		// Skip .git directory
-		if info.IsDir() && info.Name() == ".git" {
+		if d.IsDir() && d.Name() == ".git" {
 			return filepath.SkipDir
 		}
 		// Look for SKILL.md
-		if !info.IsDir() && strings.ToUpper(info.Name()) == "SKILL.MD" {
+		if !d.IsDir() && strings.ToUpper(d.Name()) == "SKILL.MD" {
 			skillDir := filepath.Dir(path)
 			skillName := filepath.Base(skillDir)
 
@@ -200,8 +208,15 @@ func sanitizeRepoName(name string) string {
 	return name
 }
 
+// maxDescriptionFileSize is the maximum SKILL.md file size to read for description extraction
+const maxDescriptionFileSize = 8192
+
 // extractDescription reads SKILL.md and extracts description from frontmatter
 func extractDescription(skillMDPath string) string {
+	info, err := os.Stat(skillMDPath)
+	if err != nil || info.Size() > maxDescriptionFileSize {
+		return ""
+	}
 	data, err := os.ReadFile(skillMDPath)
 	if err != nil {
 		return ""
@@ -308,7 +323,7 @@ func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int, urls map[stri
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(indexPath, data, 0644)
+	return os.WriteFile(indexPath, data, 0600)
 }
 
 // LoadIndex loads the repo index from disk

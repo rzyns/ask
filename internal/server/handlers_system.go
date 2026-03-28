@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -51,10 +52,12 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		Initialized: initialized,
 	}
 
-	// Get current working directory for ProjectRoot
+	// Get current working directory for ProjectRoot (read-lock to avoid race with Chdir)
+	s.cwdMu.RLock()
 	if cwd, err := os.Getwd(); err == nil {
 		info.ProjectRoot = cwd
 	}
+	s.cwdMu.RUnlock()
 
 	jsonResponse(w, info)
 }
@@ -64,6 +67,7 @@ func (s *Server) handleCacheClear(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	limitRequestBody(w, r)
 
 	// Clear Repos Cache
 	reposCache, err := cache.New(cache.GetReposCacheDir(), 0)
@@ -118,6 +122,14 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Handle project_root update first, as it changes the context for everything else
 	if req.ProjectRoot != "" {
+		// Sanitize and restrict path
+		cleanRoot, pathErr := sanitizeAndRestrictPath(req.ProjectRoot)
+		if pathErr != nil {
+			jsonError(w, pathErr.Error(), http.StatusBadRequest)
+			return
+		}
+		req.ProjectRoot = cleanRoot
+
 		// Validate the path exists before changing
 		if info, err := os.Stat(req.ProjectRoot); err != nil || !info.IsDir() {
 			jsonError(w, "Invalid project root: not a valid directory", http.StatusBadRequest)
@@ -152,14 +164,19 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		if globalCfg, err := config.LoadGlobalConfig(); err == nil {
 			globalCfg.LastProjectRoot = req.ProjectRoot
 			if err := globalCfg.SaveGlobal(); err != nil {
-				fmt.Printf("Failed to save global config: %v\n", err)
+				log.Printf("Failed to save global config: %v", err)
 			}
 		}
 	}
 
 	// Handle skills_dir update
 	if req.SkillsDir != "" {
-		cfg.SkillsDir = req.SkillsDir
+		cleanSkillsDir, pathErr := sanitizeAndRestrictPath(req.SkillsDir)
+		if pathErr != nil {
+			jsonError(w, pathErr.Error(), http.StatusBadRequest)
+			return
+		}
+		cfg.SkillsDir = cleanSkillsDir
 		updated = true
 	}
 

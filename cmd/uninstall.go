@@ -151,14 +151,18 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 			if err == nil {
 				cfg.RemoveSkill(targetName)
 				cfg.RemoveSkillInfo(targetName)
-				_ = cfg.SaveByScope(global)
+				if saveErr := cfg.SaveByScope(global); saveErr != nil {
+					ui.Warn(fmt.Sprintf("Failed to save config: %v", saveErr))
+				}
 			}
 
 			// Update lock file
 			lockFile, err := config.LoadLockFileByScope(global)
 			if err == nil && lockFile != nil {
 				lockFile.RemoveEntry(targetName)
-				_ = lockFile.SaveByScope(global)
+				if saveErr := lockFile.SaveByScope(global); saveErr != nil {
+					ui.Warn(fmt.Sprintf("Failed to save lock file: %v", saveErr))
+				}
 			}
 		}
 

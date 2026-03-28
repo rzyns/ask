@@ -100,7 +100,9 @@ func runDoctor(_ *cobra.Command, _ []string) {
 	if doctorJSON {
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
-		_ = encoder.Encode(report)
+		if err := encoder.Encode(report); err != nil {
+			fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+		}
 		return
 	}
 

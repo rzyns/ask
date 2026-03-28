@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"strings"
@@ -145,10 +146,14 @@ func runAudit(cmd *cobra.Command, _ []string) {
 	// Output
 	switch format {
 	case "json":
-		data, _ := json.MarshalIndent(report, "", "  ")
+		data, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			fmt.Printf("Error marshaling report: %v\n", err)
+			os.Exit(1)
+		}
 		content := string(data)
 		if output != "" {
-			if err := os.WriteFile(output, []byte(content), 0644); err != nil {
+			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
 				fmt.Printf("Error writing report: %v\n", err)
 				os.Exit(1)
 			}
@@ -159,7 +164,7 @@ func runAudit(cmd *cobra.Command, _ []string) {
 	case "markdown", "md":
 		content := generateAuditMarkdown(report)
 		if output != "" {
-			if err := os.WriteFile(output, []byte(content), 0644); err != nil {
+			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
 				fmt.Printf("Error writing report: %v\n", err)
 				os.Exit(1)
 			}
@@ -170,7 +175,7 @@ func runAudit(cmd *cobra.Command, _ []string) {
 	case "html":
 		content := generateAuditHTML(report)
 		if output != "" {
-			if err := os.WriteFile(output, []byte(content), 0644); err != nil {
+			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
 				fmt.Printf("Error writing report: %v\n", err)
 				os.Exit(1)
 			}
@@ -300,7 +305,7 @@ func generateAuditHTML(report AuditReport) string {
 `)
 	sb.WriteString("<h1>Security Audit Report</h1>\n")
 	sb.WriteString(fmt.Sprintf(`<p class="meta">Generated: %s &middot; ASK v%s</p>`+"\n",
-		report.GeneratedAt.Format("2006-01-02 15:04:05"), report.Version))
+		report.GeneratedAt.Format("2006-01-02 15:04:05"), htmlEscape(report.Version)))
 
 	// Summary cards
 	sb.WriteString(`<div class="summary">` + "\n")
@@ -360,11 +365,7 @@ func generateAuditHTML(report AuditReport) string {
 }
 
 func htmlEscape(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, `"`, "&quot;")
-	return s
+	return html.EscapeString(s)
 }
 
 func init() {

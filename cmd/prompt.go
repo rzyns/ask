@@ -102,7 +102,7 @@ func runPrompt(_ *cobra.Command, args []string) {
 	xmlContent := string(output)
 
 	if promptOutputFile != "" {
-		if err := os.WriteFile(promptOutputFile, []byte(xmlContent), 0644); err != nil {
+		if err := os.WriteFile(promptOutputFile, []byte(xmlContent), 0600); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing to %s: %v\n", promptOutputFile, err)
 			os.Exit(1)
 		}

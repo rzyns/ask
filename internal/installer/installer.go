@@ -76,7 +76,7 @@ func Install(input string, opts InstallOptions) error {
 				if cacheErr == nil && reposCache != nil && reposCache.HasRepo(repoName) {
 					// Check for staleness (24 hours)
 					// Only refresh if NOT in offline mode
-					if !config.OfflineMode && reposCache.IsStale(repoName, 24*time.Hour) {
+					if !config.IsOffline() && reposCache.IsStale(repoName, 24*time.Hour) {
 						ui.Debug(fmt.Sprintf("Repo '%s' is stale, refreshing...", repoName))
 						// We need to fetch the repo URL from config to refresh
 						var refreshURL string
@@ -328,7 +328,7 @@ func Install(input string, opts InstallOptions) error {
 	allExist := true
 	for _, dir := range targetDirs {
 		destPath := filepath.Join(dir, skillName)
-		if _, err := os.Stat(destPath); os.IsNotExist(err) {
+		if _, err := os.Stat(destPath); err != nil {
 			allExist = false
 		}
 	}

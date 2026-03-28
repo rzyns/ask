@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,6 +15,9 @@ import (
 	"github.com/yeasy/ask/internal/github"
 	"github.com/yeasy/ask/internal/skill"
 )
+
+// maxSkillFileSize is the maximum file size allowed when reading skill file content (1MB)
+const maxSkillFileSize = 1024 * 1024
 
 // SkillInfo represents a skill for API responses
 type SkillInfo struct {
@@ -310,7 +314,7 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		} else {
-			fmt.Printf("Error searching local cache: %v\n", err)
+			log.Printf("Error searching local cache: %v", err)
 		}
 	}
 
@@ -372,6 +376,10 @@ func (s *Server) handleSkillInstall(w http.ResponseWriter, r *http.Request) {
 	}
 	args := []string{"skill", "install", req.Name}
 	if req.Agent != "" {
+		if _, ok := config.ResolveAgentType(req.Agent); !ok {
+			jsonError(w, "Invalid agent name: "+req.Agent, http.StatusBadRequest)
+			return
+		}
 		args = append(args, "--agent", req.Agent)
 	}
 
@@ -449,10 +457,17 @@ func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sanitize and restrict path
+	cleanPath, pathErr := sanitizeAndRestrictPath(req.Path)
+	if pathErr != nil {
+		jsonError(w, pathErr.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// Verify path exists
-	info, err := os.Stat(req.Path)
+	info, err := os.Stat(cleanPath)
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Path access error: %s", err.Error()), http.StatusBadRequest)
+		jsonError(w, "Path does not exist or is not accessible", http.StatusBadRequest)
 		return
 	}
 	if !info.IsDir() {
@@ -461,7 +476,7 @@ func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call scan logic (limit depth to 3 for performance)
-	results, err := skill.ScanDirectory(req.Path, 3)
+	results, err := skill.ScanDirectory(cleanPath, 3)
 	if err != nil {
 		jsonError(w, fmt.Sprintf("Scan failed: %v", err), http.StatusInternalServerError)
 		return
@@ -498,6 +513,13 @@ func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sanitize and restrict path
+	cleanSrcPath, pathErr := sanitizeAndRestrictPath(req.SrcPath)
+	if pathErr != nil {
+		jsonError(w, pathErr.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// Use CLI logic to install from local path
 	// ask install /path/to/skill
 	exe, err := os.Executable()
@@ -506,7 +528,7 @@ func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	args := []string{"skill", "install", req.SrcPath}
+	args := []string{"skill", "install", cleanSrcPath}
 	// TODO: req.Name is currently ignored. The skill name is derived from the directory name.
 	// To support renaming, the install CLI would need to be extended with a --name flag.
 
@@ -620,8 +642,8 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Size Check (Max 1MB)
-		if fileInfo.Size() > 1024*1024 {
+		// Size Check
+		if fileInfo.Size() > maxSkillFileSize {
 			jsonError(w, "File too large (>1MB)", http.StatusBadRequest)
 			return
 		}
@@ -736,6 +758,17 @@ func (s *Server) handleSkillReadme(w http.ResponseWriter, r *http.Request) {
 
 	if readmePath == "" {
 		jsonError(w, "Documentation not found (SKILL.md)", http.StatusNotFound)
+		return
+	}
+
+	// Check file size before reading
+	readmeInfo, err := os.Stat(readmePath)
+	if err != nil {
+		jsonError(w, "Failed to access documentation", http.StatusInternalServerError)
+		return
+	}
+	if readmeInfo.Size() > maxSkillFileSize {
+		jsonError(w, "Documentation file too large", http.StatusBadRequest)
 		return
 	}
 

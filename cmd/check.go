@@ -119,7 +119,7 @@ func runCheck(cmd *cobra.Command, args []string) {
 				os.Exit(1)
 			}
 			if outputFile != "" {
-				if err := os.WriteFile(outputFile, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(outputFile, []byte(content), 0600); err != nil {
 					fmt.Printf("Error writing report: %v\n", err)
 					os.Exit(1)
 				}
@@ -202,7 +202,7 @@ func handleReport(result *skill.CheckResult, filename string) {
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(content), 0600); err != nil {
 		fmt.Printf("Error writing report to %s: %v\n", filename, err)
 		os.Exit(1)
 	}

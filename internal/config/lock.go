@@ -51,7 +51,7 @@ func (l *LockFile) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(LockFileName, data, 0644)
+	return os.WriteFile(LockFileName, data, 0600)
 }
 
 // AddEntry adds or updates a lock entry
@@ -117,7 +117,7 @@ func (l *LockFile) SaveGlobal() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(GetGlobalLockPath(), data, 0644)
+	return os.WriteFile(GetGlobalLockPath(), data, 0600)
 }
 
 // LoadLockFileByScope loads lock file based on global flag

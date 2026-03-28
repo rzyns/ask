@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -25,7 +27,7 @@ type Server struct {
 	port    int
 	server  *http.Server
 	mu      sync.Mutex
-	cwdMu   sync.Mutex // protects os.Chdir to prevent concurrent directory changes
+	cwdMu   sync.RWMutex // protects os.Chdir; write-lock for Chdir, read-lock for Getwd
 	version string
 }
 
@@ -52,6 +54,8 @@ func (s *Server) Start() error {
 		Addr:              fmt.Sprintf("127.0.0.1:%d", s.port),
 		Handler:           corsMiddleware(mux),
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
 	}
 
 	s.mu.Lock()
@@ -120,7 +124,11 @@ func OpenBrowser(url string) error {
 	default:
 		return fmt.Errorf("unsupported platform")
 	}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }() // reap child to avoid zombie process
+	return nil
 }
 
 // validateSkillName checks if a skill name is safe (alphanumeric, -, _, .)
@@ -141,6 +149,29 @@ func validateSkillName(name string) error {
 		return fmt.Errorf("directory traversal not allowed")
 	}
 	return nil
+}
+
+// sanitizeAndRestrictPath resolves a raw path to an absolute path and restricts it
+// to be within the user's home directory or current working directory.
+func sanitizeAndRestrictPath(rawPath string) (string, error) {
+	cleanPath, err := filepath.Abs(filepath.Clean(rawPath))
+	if err != nil {
+		return "", fmt.Errorf("invalid path")
+	}
+
+	homeDir, homeErr := os.UserHomeDir()
+	cwd, cwdErr := os.Getwd()
+	if homeErr != nil && cwdErr != nil {
+		return "", fmt.Errorf("cannot determine safe base directory")
+	}
+
+	inHome := homeErr == nil && (cleanPath == homeDir || strings.HasPrefix(cleanPath, homeDir+string(filepath.Separator)))
+	inCwd := cwdErr == nil && (cleanPath == cwd || strings.HasPrefix(cleanPath, cwd+string(filepath.Separator)))
+	if !inHome && !inCwd {
+		return "", fmt.Errorf("path must be within home directory or project directory")
+	}
+
+	return cleanPath, nil
 }
 
 // corsMiddleware adds CORS headers for development, restricted to localhost

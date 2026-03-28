@@ -3,19 +3,19 @@ package git
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/yeasy/ask/internal/filesystem"
 	"github.com/yeasy/ask/internal/ui"
 )
 
 // Clone clones a git repository to the specified destination
 func Clone(url, dest string) error {
 	bar := ui.NewSpinner(fmt.Sprintf("Cloning %s...", filepath.Base(url)))
-	cmd := exec.Command("git", "clone", "--depth", "1", "--progress", url, dest)
+	cmd := exec.Command("git", "clone", "--depth", "1", "--progress", "--", url, dest)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	err := cmd.Run()
@@ -33,9 +33,12 @@ func SparseClone(repoURL, branch, subDir, dest string) error {
 	ui.UpdateDescription(bar, "Initializing sparse clone...")
 	args := []string{"clone", "--filter=blob:none", "--no-checkout", "--depth", "1", "--progress"}
 	if branch != "" {
+		if err := validateGitRef(branch); err != nil {
+			return fmt.Errorf("invalid branch ref: %w", err)
+		}
 		args = append(args, "--branch", branch)
 	}
-	args = append(args, repoURL, dest)
+	args = append(args, "--", repoURL, dest)
 
 	cmd := exec.Command("git", args...)
 	cmd.Stdout = bar
@@ -56,7 +59,7 @@ func SparseClone(repoURL, branch, subDir, dest string) error {
 
 	// Step 3: Set the subdirectory to checkout
 	ui.UpdateDescription(bar, fmt.Sprintf("Setting checkout path to %s...", subDir))
-	cmd = exec.Command("git", "sparse-checkout", "set", subDir)
+	cmd = exec.Command("git", "sparse-checkout", "set", "--", subDir)
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
@@ -117,48 +120,7 @@ func InstallSubdir(repoURL, branch, subDir, dest string) error {
 		return fmt.Errorf("subdirectory %s not found in repo", subDir)
 	}
 
-	return copyDir(srcPath, dest)
-}
-
-func copyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		destPath := filepath.Join(dst, relPath)
-
-		if info.IsDir() {
-			return os.MkdirAll(destPath, info.Mode())
-		}
-
-		return copyFile(path, destPath)
-	})
-}
-
-func copyFile(src, dst string) (retErr error) {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = in.Close() }()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := out.Close(); retErr == nil {
-			retErr = cerr
-		}
-	}()
-
-	_, err = io.Copy(out, in)
-	return err
+	return filesystem.CopyDir(srcPath, dest)
 }
 
 // GetLatestTag returns the latest tag for a repository in the given path

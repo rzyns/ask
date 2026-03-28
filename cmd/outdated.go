@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
@@ -95,10 +97,15 @@ Use --global to check global skills.`,
 			remoteCommit := ""
 			status := "✓ Up to date"
 
-			if !config.OfflineMode {
-				fetchCmd := exec.Command("git", "fetch", "--quiet")
+			isOffline := config.IsOffline()
+			if !isOffline {
+				fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
+				fetchCmd := exec.CommandContext(fetchCtx, "git", "fetch", "--quiet")
 				fetchCmd.Dir = skillPath
-				_ = fetchCmd.Run()
+				if err := fetchCmd.Run(); err != nil {
+					ui.Debug(fmt.Sprintf("Failed to fetch %s: %v", skillName, err))
+				}
+				fetchCancel()
 
 				// Get remote HEAD commit
 				remoteCommit = getRemoteHeadCommit(skillPath)
@@ -115,7 +122,7 @@ Use --global to check global skills.`,
 			}
 
 			// Compare local vs remote commit
-			if !config.OfflineMode {
+			if !isOffline {
 				status = "✓ Up to date"
 				if currentCommit != remoteCommit && remoteCommit != "" {
 					status = "⬆ Update available"

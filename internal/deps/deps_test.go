@@ -14,10 +14,6 @@ func TestNewResolver(t *testing.T) {
 		t.Fatal("NewResolver returned nil")
 	}
 
-	if resolver.visited == nil {
-		t.Error("visited map not initialized")
-	}
-
 	if resolver.resolved == nil {
 		t.Error("resolved map not initialized")
 	}

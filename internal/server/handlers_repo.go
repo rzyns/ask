@@ -99,6 +99,16 @@ func (s *Server) handleRepoAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate URL format: must be HTTPS URL or owner/repo shorthand
+	if !strings.HasPrefix(req.URL, "https://") && !strings.HasPrefix(req.URL, "http://") {
+		// Allow owner/repo shorthand (e.g., "yeasy/awesome-agent-skills")
+		parts := strings.SplitN(req.URL, "/", 3)
+		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+			jsonError(w, "Repository URL must be an HTTP(S) URL or owner/repo format", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Execute repo add command
 	exe, err := os.Executable()
 	if err != nil {
@@ -187,8 +197,8 @@ func (s *Server) handleRepoSync(w http.ResponseWriter, r *http.Request) {
 
 	args := []string{"repo", "sync"}
 	if req.Name != "" {
-		if strings.HasPrefix(req.Name, "-") {
-			jsonError(w, "Invalid repository name", http.StatusBadRequest)
+		if err := validateSkillName(req.Name); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		args = append(args, req.Name)

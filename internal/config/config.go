@@ -5,16 +5,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"gopkg.in/yaml.v3"
 )
 
-// OfflineMode indicates if the application is running in offline mode
-var OfflineMode bool
+// offlineMode indicates if the application is running in offline mode (atomic for thread safety)
+var offlineMode atomic.Bool
 
-// SetOffline sets the offline mode
+// IsOffline returns whether the application is in offline mode (thread-safe)
+func IsOffline() bool {
+	return offlineMode.Load()
+}
+
+// SetOffline sets the offline mode (thread-safe)
 func SetOffline(offline bool) {
-	OfflineMode = offline
+	offlineMode.Store(offline)
 }
 
 // Repo represents a skill repository
@@ -48,7 +54,7 @@ func DefaultToolTargets() []ToolTarget {
 	// This prevents showing clutter like "clawdbot" when not applicable.
 	// We use the current working directory to detect.
 
-	if !OfflineMode {
+	if !IsOffline() {
 		if cwd, err := os.Getwd(); err == nil {
 
 			// DetectExistingToolDirs returns ToolTarget structs created from DefaultToolTargets logic which was cyclical.
@@ -310,7 +316,7 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("ask.yaml", data, 0644)
+	return os.WriteFile("ask.yaml", data, 0600)
 }
 
 // RemoveSkill removes a skill from the configuration
@@ -423,7 +429,7 @@ func (c *Config) SaveGlobal() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(GetGlobalConfigPath(), data, 0644)
+	return os.WriteFile(GetGlobalConfigPath(), data, 0600)
 }
 
 // LoadConfigByScope loads config based on global flag
@@ -520,9 +526,10 @@ func (c *Config) GetActiveSkillsDirs(projectDir string) []string {
 
 // GetToolTargetByName returns a tool target by name
 func (c *Config) GetToolTargetByName(name string) *ToolTarget {
-	for _, t := range c.GetToolTargets() {
-		if t.Name == name {
-			return &t
+	targets := c.GetToolTargets()
+	for i := range targets {
+		if targets[i].Name == name {
+			return &targets[i]
 		}
 	}
 	return nil

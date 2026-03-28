@@ -37,9 +37,9 @@ var (
 )
 
 // OfflineMode returns whether the application is in offline mode.
-// Delegates to config.OfflineMode as the single source of truth.
+// Delegates to config.IsOffline as the single source of truth.
 func isOffline() bool {
-	return config.OfflineMode
+	return config.IsOffline()
 }
 
 func init() {
@@ -200,7 +200,7 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 		return nil, fmt.Errorf("offline mode: data not found in cache")
 	}
 
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", url.PathEscape(owner), url.PathEscape(repo), escapePathSegments(path))
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -279,7 +279,7 @@ func fetchSkillDescription(owner, repo, skillPath string) string {
 	}
 
 	// Fetch SKILL.md content
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s/SKILL.md", owner, repo, skillPath)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s/SKILL.md", url.PathEscape(owner), url.PathEscape(repo), escapePathSegments(skillPath))
 
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -336,8 +336,8 @@ func parseDescriptionFromSkillMD(content string) string {
 				continue
 			}
 			// Look for description field
-			if len(line) > 12 && line[:12] == "description:" {
-				desc := trimQuotes(line[12:])
+			if strings.HasPrefix(line, "description:") {
+				desc := trimQuotes(strings.TrimPrefix(line, "description:"))
 				if desc != "" {
 					return truncate(desc, 60)
 				}
@@ -374,7 +374,20 @@ func trimQuotes(s string) string {
 	return s
 }
 
+// escapePathSegments escapes each segment of a URL path individually,
+// preserving '/' as path delimiters.
+func escapePathSegments(p string) string {
+	segments := strings.Split(p, "/")
+	for i, seg := range segments {
+		segments[i] = url.PathEscape(seg)
+	}
+	return strings.Join(segments, "/")
+}
+
 func truncate(s string, maxLen int) string {
+	if maxLen < 4 {
+		maxLen = 4
+	}
 	runes := []rune(s)
 	if len(runes) <= maxLen {
 		return s
@@ -400,14 +413,14 @@ type Client struct {
 // NewClient creates a new GitHub API client
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{Timeout: httpTimeoutDefault},
 		token:      getAuthToken(),
 	}
 }
 
 // GetRepoInfo fetches enriched repository metadata for trust scoring
 func (c *Client) GetRepoInfo(owner, repo string) (*RepoInfo, error) {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", url.PathEscape(owner), url.PathEscape(repo))
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, err
@@ -460,7 +473,7 @@ func (c *Client) GetRepoInfo(owner, repo string) (*RepoInfo, error) {
 
 // fetchOwnerAge returns the age of a GitHub account in years
 func (c *Client) fetchOwnerAge(owner string) (int, error) {
-	apiURL := fmt.Sprintf("https://api.github.com/users/%s", owner)
+	apiURL := fmt.Sprintf("https://api.github.com/users/%s", url.PathEscape(owner))
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return 0, err
@@ -494,7 +507,7 @@ func (c *Client) fetchOwnerAge(owner string) (int, error) {
 
 // FetchRepoDetails fetches details of a GitHub repository including star count
 func FetchRepoDetails(owner, repo string) (*Repository, error) {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", url.PathEscape(owner), url.PathEscape(repo))
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, err

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/yeasy/ask/internal/filesystem"
 )
 
 // runGit executes a git command in the specified directory with a clean environment
@@ -160,8 +162,8 @@ func TestCopyDir(t *testing.T) {
 
 	// Copy directory
 	dstDir := filepath.Join(tmpDir, "dst")
-	if err := copyDir(srcDir, dstDir); err != nil {
-		t.Fatalf("copyDir failed: %v", err)
+	if err := filesystem.CopyDir(srcDir, dstDir); err != nil {
+		t.Fatalf("CopyDir failed: %v", err)
 	}
 
 	// Verify files were copied
@@ -197,8 +199,8 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	// Copy file
-	if err := copyFile(srcFile, dstFile); err != nil {
-		t.Fatalf("copyFile failed: %v", err)
+	if err := filesystem.CopyFile(srcFile, dstFile); err != nil {
+		t.Fatalf("CopyFile failed: %v", err)
 	}
 
 	// Verify destination file exists

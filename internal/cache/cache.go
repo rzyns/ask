@@ -101,7 +101,7 @@ func (c *Cache) Set(key string, v interface{}) error {
 	}
 
 	filename := filepath.Join(c.dir, hashKey(key)+".json")
-	return os.WriteFile(filename, entryData, 0644)
+	return os.WriteFile(filename, entryData, 0600)
 }
 
 // Clear removes all cached entries
