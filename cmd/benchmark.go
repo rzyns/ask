@@ -31,7 +31,7 @@ var benchmarkCmd = &cobra.Command{
 			fmt.Printf("Error creating temp cache: %v\n", err)
 			return
 		}
-		defer os.RemoveAll(tmpCacheDir)
+		defer func() { _ = os.RemoveAll(tmpCacheDir) }()
 		_, _ = cache.New(tmpCacheDir, cache.DefaultTTL)
 
 		start := time.Now()
