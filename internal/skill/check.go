@@ -194,13 +194,18 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 	}
 
 	// Walk through the skill directory
-	err = filepath.Walk(skillPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.WalkDir(skillPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.IsDir() {
-			if info.Name() == ".git" {
+		// Skip symlinks to prevent following links outside intended directory
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+
+		if d.IsDir() {
+			if d.Name() == ".git" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -247,21 +252,23 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 	return result, nil
 }
 
+var binaryExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true,
+	".zip": true, ".tar": true, ".gz": true, ".pdf": true,
+	".pyc": true, ".o": true,
+}
+
 func isBinaryExt(ext string) bool {
-	binaryExts := map[string]bool{
-		".png": true, ".jpg": true, ".jpeg": true, ".gif": true,
-		".zip": true, ".tar": true, ".gz": true, ".pdf": true,
-		".pyc": true, ".o": true,
-	}
 	return binaryExts[ext]
 }
 
+var suspiciousExts = map[string]bool{
+	".exe": true, ".bin": true, ".dll": true, ".so": true, ".dylib": true,
+	".class": true, ".jar": true,
+}
+
 func isSuspiciousExt(ext string) bool {
-	suspicious := map[string]bool{
-		".exe": true, ".bin": true, ".dll": true, ".so": true, ".dylib": true,
-		".class": true, ".jar": true,
-	}
-	return suspicious[ext]
+	return suspiciousExts[ext]
 }
 
 func scanFile(path, rootPath string, rules []Rule) ([]Finding, error) {

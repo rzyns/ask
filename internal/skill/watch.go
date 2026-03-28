@@ -90,12 +90,16 @@ func WatchAndCheck(skillPath string, callback func(event string, result *CheckRe
 
 // addDirRecursive adds a directory and all its subdirectories to the watcher.
 func addDirRecursive(watcher *fsnotify.Watcher, root string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
-		if info.IsDir() {
-			if info.Name() == ".git" {
+		// Skip symlinks to prevent following links outside intended directory
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
 				return filepath.SkipDir
 			}
 			return watcher.Add(path)

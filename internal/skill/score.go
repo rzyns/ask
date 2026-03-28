@@ -8,8 +8,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
+
+func init() {
+	sum := weightSecurity + weightQuality + weightPublisher + weightTransparency
+	if math.Abs(sum-1.0) > 0.001 {
+		panic("score category weights must sum to 1.0")
+	}
+}
 
 // ScoreGrade represents the trust grade of a skill
 type ScoreGrade string
@@ -21,6 +29,44 @@ const (
 	GradeC ScoreGrade = "C" // 70-79: Acceptable
 	GradeD ScoreGrade = "D" // 60-69: Poor
 	GradeF ScoreGrade = "F" // 0-59: Fail
+)
+
+// Category weights (must sum to 1.0)
+const (
+	weightSecurity     = 0.40
+	weightQuality      = 0.30
+	weightPublisher    = 0.20
+	weightTransparency = 0.10
+)
+
+// Grade score thresholds
+const (
+	thresholdA = 90
+	thresholdB = 80
+	thresholdC = 70
+	thresholdD = 60
+)
+
+// Security scoring parameters
+const (
+	criticalDeductPer = 25.0  // Points deducted per critical finding
+	criticalDeductMax = 100.0 // Maximum deduction for critical findings
+	warningDeductPer  = 5.0   // Points deducted per warning
+	warningDeductMax  = 40.0  // Maximum deduction for warnings
+	infoDeductMax     = 10.0  // Maximum deduction for info findings
+)
+
+// Publisher scoring parameters
+const (
+	publisherBaseScore  = 50.0 // Starting score for publisher category
+	orgBonus            = 15.0 // Bonus for organization accounts
+	starBonusDivisor    = 50.0 // Stars divided by this for bonus
+	starBonusMax        = 20.0 // Maximum star bonus
+	accountAgeBonusMax  = 10.0 // Maximum account age bonus (1 point per year)
+	licensePresentBonus = 5.0  // Bonus for having a license
+
+	// maxSkillFileSize is the maximum file size to read during scoring (1MB)
+	maxSkillFileSize = 1024 * 1024
 )
 
 // ScoreCategory represents a scored dimension
@@ -97,7 +143,7 @@ func ScoreSkill(skillPath string, publisher *PublisherInfo) (*ScoreResult, error
 func scoreSecurityCategory(skillPath string) ScoreCategory {
 	cat := ScoreCategory{
 		Name:   "Security",
-		Weight: 0.40,
+		Weight: weightSecurity,
 		Score:  100,
 	}
 
@@ -120,9 +166,9 @@ func scoreSecurityCategory(skillPath string) ScoreCategory {
 		}
 	}
 
-	// Critical findings: -25 each (max -100)
+	// Critical findings: deduct per finding (capped)
 	if critCount > 0 {
-		deduct := math.Min(float64(critCount)*25, 100)
+		deduct := math.Min(float64(critCount)*criticalDeductPer, criticalDeductMax)
 		cat.Score -= deduct
 		cat.Deducts = append(cat.Deducts, Deduction{
 			Reason: fmt.Sprintf("%d critical finding(s): secrets, dangerous commands, or malware indicators", critCount),
@@ -130,9 +176,9 @@ func scoreSecurityCategory(skillPath string) ScoreCategory {
 		})
 	}
 
-	// Warnings: -5 each (max -40)
+	// Warnings: deduct per finding (capped)
 	if warnCount > 0 {
-		deduct := math.Min(float64(warnCount)*5, 40)
+		deduct := math.Min(float64(warnCount)*warningDeductPer, warningDeductMax)
 		cat.Score -= deduct
 		cat.Deducts = append(cat.Deducts, Deduction{
 			Reason: fmt.Sprintf("%d warning(s): suspicious patterns or network calls", warnCount),
@@ -140,9 +186,9 @@ func scoreSecurityCategory(skillPath string) ScoreCategory {
 		})
 	}
 
-	// Info: -1 each (max -10)
+	// Info: -1 each (capped)
 	if infoCount > 0 {
-		deduct := math.Min(float64(infoCount), 10)
+		deduct := math.Min(float64(infoCount), infoDeductMax)
 		cat.Score -= deduct
 		cat.Deducts = append(cat.Deducts, Deduction{
 			Reason: fmt.Sprintf("%d informational finding(s)", infoCount),
@@ -166,7 +212,7 @@ func scoreSecurityCategory(skillPath string) ScoreCategory {
 func scoreQualityCategory(skillPath string) ScoreCategory {
 	cat := ScoreCategory{
 		Name:   "Quality",
-		Weight: 0.30,
+		Weight: weightQuality,
 		Score:  100,
 	}
 
@@ -264,8 +310,8 @@ func scoreQualityCategory(skillPath string) ScoreCategory {
 func scorePublisherCategory(publisher *PublisherInfo) ScoreCategory {
 	cat := ScoreCategory{
 		Name:   "Publisher",
-		Weight: 0.20,
-		Score:  50, // Start at 50, earn points for trust signals
+		Weight: weightPublisher,
+		Score:  publisherBaseScore, // Start at base, earn points for trust signals
 	}
 
 	if publisher == nil {
@@ -273,27 +319,27 @@ func scorePublisherCategory(publisher *PublisherInfo) ScoreCategory {
 		return cat
 	}
 
-	// Organization accounts are more trustworthy (+15)
+	// Organization accounts are more trustworthy
 	if publisher.IsOrg {
-		cat.Score += 15
+		cat.Score += orgBonus
 		cat.Details = fmt.Sprintf("Organization: %s", publisher.Owner)
 	}
 
-	// Stars indicate community trust (+20 max)
-	starBonus := math.Min(float64(publisher.RepoStars)/50.0, 20)
+	// Stars indicate community trust
+	starBonus := math.Min(float64(publisher.RepoStars)/starBonusDivisor, starBonusMax)
 	cat.Score += starBonus
 
-	// Account age (+10 max, 1 point per year)
-	ageBonus := math.Min(float64(publisher.AccountAge), 10)
+	// Account age (1 point per year, capped)
+	ageBonus := math.Min(float64(publisher.AccountAge), accountAgeBonusMax)
 	cat.Score += ageBonus
 
-	// License present (+5)
+	// License present
 	if publisher.HasLicense {
-		cat.Score += 5
+		cat.Score += licensePresentBonus
 	} else {
 		cat.Deducts = append(cat.Deducts, Deduction{
 			Reason: "No license detected in repository",
-			Points: 5,
+			Points: licensePresentBonus,
 		})
 	}
 
@@ -311,7 +357,7 @@ func scorePublisherCategory(publisher *PublisherInfo) ScoreCategory {
 func scoreTransparencyCategory(skillPath string) ScoreCategory {
 	cat := ScoreCategory{
 		Name:   "Transparency",
-		Weight: 0.10,
+		Weight: weightTransparency,
 		Score:  100,
 	}
 
@@ -329,16 +375,34 @@ func scoreTransparencyCategory(skillPath string) ScoreCategory {
 		{"steganographic data hiding", `(?i)(canvas|image).*?(toDataURL|getImageData).*?(fetch|send)`, 25},
 	}
 
-	err := filepath.Walk(skillPath, func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil || info.IsDir() {
-			if info != nil && info.Name() == ".git" {
-				return filepath.SkipDir
+	err := filepath.WalkDir(skillPath, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsPermission(walkErr) {
+				return nil
 			}
 			return walkErr
 		}
 
+		// Skip symlinks to prevent following links outside intended directory
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		ext := strings.ToLower(filepath.Ext(path))
 		if isBinaryExt(ext) {
+			return nil
+		}
+
+		// Skip files larger than 1MB to prevent memory exhaustion
+		info, infoErr := d.Info()
+		if infoErr != nil || info.Size() > maxSkillFileSize {
 			return nil
 		}
 
@@ -389,18 +453,33 @@ func matchPattern(text, pattern string) (bool, error) {
 	return re.MatchString(text), nil
 }
 
-// patternCache caches compiled regex patterns
-var patternCache = make(map[string]*regexp.Regexp)
+// patternCache caches compiled regex patterns with synchronization
+var (
+	patternCache   = make(map[string]*regexp.Regexp)
+	patternCacheMu sync.RWMutex
+)
 
 func compilePattern(pattern string) (*regexp.Regexp, error) {
+	patternCacheMu.RLock()
 	if cached, ok := patternCache[pattern]; ok {
+		patternCacheMu.RUnlock()
 		return cached, nil
 	}
+	patternCacheMu.RUnlock()
+
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
 	}
+
+	patternCacheMu.Lock()
+	// Re-check after acquiring write lock to avoid redundant compilation
+	if cached, ok := patternCache[pattern]; ok {
+		patternCacheMu.Unlock()
+		return cached, nil
+	}
 	patternCache[pattern] = re
+	patternCacheMu.Unlock()
 	return re, nil
 }
 
@@ -427,13 +506,13 @@ func GradeBelowThreshold(grade, threshold ScoreGrade) bool {
 
 func gradeFromScore(score float64) ScoreGrade {
 	switch {
-	case score >= 90:
+	case score >= thresholdA:
 		return GradeA
-	case score >= 80:
+	case score >= thresholdB:
 		return GradeB
-	case score >= 70:
+	case score >= thresholdC:
 		return GradeC
-	case score >= 60:
+	case score >= thresholdD:
 		return GradeD
 	default:
 		return GradeF
