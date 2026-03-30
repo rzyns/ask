@@ -19,13 +19,13 @@ type TemplateData struct {
 }
 
 const skillMDTemplate = `---
-name: {{.Name}}
-description: {{.Description}}
-version: {{.Version}}
-author: {{.Author}}
+name: "{{yamlEscape .Name}}"
+description: "{{yamlEscape .Description}}"
+version: "{{yamlEscape .Version}}"
+author: "{{yamlEscape .Author}}"
 tags:
 {{- range .Tags}}
-  - {{.}}
+  - "{{yamlEscape .}}"
 {{- end}}
 ---
 
@@ -43,14 +43,9 @@ Explain how to use this skill here.
 - [Reference](references/ref.md)
 `
 
-// GetGitAuthorExported returns the git author name for external callers
-func GetGitAuthorExported() string {
-	return getGitAuthor()
-}
-
-// getGitAuthor attempts to get the author name from git config
-// Falls back to "User" if git config is unavailable
-func getGitAuthor() string {
+// GetGitAuthor returns the git author name from git config.
+// Falls back to "User" if git config is unavailable.
+func GetGitAuthor() string {
 	cmd := exec.Command("git", "config", "user.name")
 	output, err := cmd.Output()
 	if err != nil {
@@ -79,7 +74,7 @@ func CreateSkillTemplate(name, destDir string) error {
 	data := TemplateData{
 		Name:        name,
 		Description: "A new skill for AI Agents",
-		Author:      getGitAuthor(),
+		Author:      GetGitAuthor(),
 		Version:     "0.1.0",
 		Tags:        []string{"agent-skill"},
 	}
@@ -106,7 +101,12 @@ func createSkillDir(data TemplateData, destDir string) error {
 	}
 
 	// 2. Create SKILL.md
-	tmpl, err := template.New("skill").Parse(skillMDTemplate)
+	funcMap := template.FuncMap{
+		"yamlEscape": func(s string) string {
+			return strings.ReplaceAll(s, `"`, `\"`)
+		},
+	}
+	tmpl, err := template.New("skill").Funcs(funcMap).Parse(skillMDTemplate)
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}
@@ -115,14 +115,25 @@ func createSkillDir(data TemplateData, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create SKILL.md: %w", err)
 	}
-	defer func() { _ = f.Close() }()
+	closeSkillMD := true
+	defer func() {
+		if closeSkillMD {
+			_ = f.Close()
+		}
+	}()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	// 3. Create example script
-	scriptContent := fmt.Sprintf("#!/bin/bash\necho \"Hello from %s skill!\"\n", name)
+	// Close explicitly to catch write errors (deferred close would discard them)
+	closeSkillMD = false
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to write SKILL.md: %w", err)
+	}
+
+	// 3. Create example script (use single quotes to prevent shell injection)
+	scriptContent := fmt.Sprintf("#!/bin/bash\necho 'Hello from %s skill!'\n", strings.ReplaceAll(name, "'", "'\\''"))
 	scriptFile := filepath.Join(skillDir, "scripts", "hello.sh")
 	if err := os.WriteFile(scriptFile, []byte(scriptContent), 0755); err != nil {
 		return fmt.Errorf("failed to create example script: %w", err)

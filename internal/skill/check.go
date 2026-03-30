@@ -150,7 +150,9 @@ var defaultRules = []Rule{
 func CheckSafety(skillPath string) (*CheckResult, error) {
 	meta, err := ParseSkillMD(skillPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse skill metadata: %w", err)
+		// If SKILL.md is missing or unparseable, proceed with a fallback name
+		// derived from the directory. We still want to scan files for security issues.
+		meta = &Meta{Name: filepath.Base(skillPath)}
 	}
 
 	result := &CheckResult{
@@ -196,7 +198,8 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 	// Walk through the skill directory
 	err = filepath.WalkDir(skillPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// Skip permission errors and other access issues
+			return nil
 		}
 
 		// Skip symlinks to prevent following links outside intended directory
@@ -211,7 +214,10 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 			return nil
 		}
 
-		relPath, _ := filepath.Rel(skillPath, path)
+		relPath, relErr := filepath.Rel(skillPath, path)
+		if relErr != nil {
+			return nil
+		}
 
 		// Check path exclusions from .askcheck.yaml
 		if checkCfg != nil && checkCfg.IsPathIgnored(relPath) {
@@ -221,6 +227,11 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 		// Skip binary files/images based on extension
 		ext := strings.ToLower(filepath.Ext(path))
 		if isBinaryExt(ext) {
+			return nil
+		}
+
+		// Skip files that are too large to scan safely
+		if info, infoErr := d.Info(); infoErr == nil && info.Size() > maxSkillFileSize {
 			return nil
 		}
 
@@ -253,9 +264,14 @@ func CheckSafety(skillPath string) (*CheckResult, error) {
 }
 
 var binaryExts = map[string]bool{
-	".png": true, ".jpg": true, ".jpeg": true, ".gif": true,
-	".zip": true, ".tar": true, ".gz": true, ".pdf": true,
-	".pyc": true, ".o": true,
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".bmp": true,
+	".ico": true, ".svg": true, ".webp": true, ".tiff": true, ".tif": true,
+	".zip": true, ".tar": true, ".gz": true, ".bz2": true, ".xz": true,
+	".7z": true, ".rar": true, ".zst": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".pyc": true, ".o": true, ".a": true, ".wasm": true,
+	".mp3": true, ".mp4": true, ".wav": true, ".avi": true, ".mov": true,
+	".ttf": true, ".otf": true, ".woff": true, ".woff2": true, ".eot": true,
 }
 
 func isBinaryExt(ext string) bool {
@@ -272,6 +288,10 @@ func isSuspiciousExt(ext string) bool {
 }
 
 func scanFile(path, rootPath string, rules []Rule) ([]Finding, error) {
+	// Check for symlink to prevent following links
+	if fi, lErr := os.Lstat(path); lErr != nil || fi.Mode()&os.ModeSymlink != 0 {
+		return nil, nil
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -279,7 +299,10 @@ func scanFile(path, rootPath string, rules []Rule) ([]Finding, error) {
 	defer func() { _ = file.Close() }()
 
 	var findings []Finding
-	relPath, _ := filepath.Rel(rootPath, path)
+	relPath, relErr := filepath.Rel(rootPath, path)
+	if relErr != nil {
+		relPath = filepath.Base(path)
+	}
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
 
@@ -345,5 +368,8 @@ func scanFile(path, rootPath string, rules []Rule) ([]Finding, error) {
 		}
 	}
 
-	return findings, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return findings, fmt.Errorf("scanning %s: %w", path, err)
+	}
+	return findings, nil
 }

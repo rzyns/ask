@@ -2,6 +2,7 @@ package skill
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,13 @@ type Meta struct {
 func ParseSkillMD(skillPath string) (*Meta, error) {
 	skillMDPath := filepath.Join(skillPath, "SKILL.md")
 
+	// Reject symlinks to prevent path traversal
+	if info, err := os.Lstat(skillMDPath); err != nil {
+		return nil, err
+	} else if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("symlink rejected: %s", skillMDPath)
+	}
+
 	file, err := os.Open(skillMDPath)
 	if err != nil {
 		return nil, err
@@ -37,6 +45,7 @@ func ParseSkillMD(skillPath string) (*Meta, error) {
 	var frontmatter []string
 	inFrontmatter := false
 	lineCount := 0
+	const maxFrontmatterLines = 500 // Prevent unbounded reads from unclosed frontmatter
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -55,6 +64,9 @@ func ParseSkillMD(skillPath string) (*Meta, error) {
 
 		if inFrontmatter {
 			frontmatter = append(frontmatter, line)
+			if len(frontmatter) > maxFrontmatterLines {
+				break // Frontmatter too large, likely unclosed
+			}
 		}
 	}
 
@@ -78,6 +90,16 @@ func ParseSkillMD(skillPath string) (*Meta, error) {
 
 // parseFromContent attempts to extract metadata from SKILL.md content
 func parseFromContent(skillMDPath string) (*Meta, error) {
+	info, err := os.Lstat(skillMDPath)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("refusing to read symlink: %s", skillMDPath)
+	}
+	if info.Size() > maxSkillFileSize {
+		return nil, fmt.Errorf("skill file too large: %d bytes (max %d)", info.Size(), maxSkillFileSize)
+	}
 	content, err := os.ReadFile(skillMDPath)
 	if err != nil {
 		return nil, err
@@ -102,9 +124,14 @@ func parseFromContent(skillMDPath string) (*Meta, error) {
 	return meta, nil
 }
 
-// FindSkillMD checks if a skill has a SKILL.md file
+// FindSkillMD checks if a skill has a SKILL.md file.
+// Uses Lstat to avoid following symlinks.
 func FindSkillMD(skillPath string) bool {
 	skillMDPath := filepath.Join(skillPath, "SKILL.md")
-	_, err := os.Stat(skillMDPath)
-	return err == nil
+	fi, err := os.Lstat(skillMDPath)
+	if err != nil {
+		return false
+	}
+	// Reject symlinks
+	return fi.Mode()&os.ModeSymlink == 0
 }

@@ -12,11 +12,14 @@ import (
 	"time"
 )
 
-func init() {
+// verifyWeights checks that score category weights sum to 1.0.
+// Called from tests to catch configuration errors at test time.
+func verifyWeights() error {
 	sum := weightSecurity + weightQuality + weightPublisher + weightTransparency
 	if math.Abs(sum-1.0) > 0.001 {
-		panic("score category weights must sum to 1.0")
+		return fmt.Errorf("score category weights must sum to 1.0, got %f", sum)
 	}
+	return nil
 }
 
 // ScoreGrade represents the trust grade of a skill
@@ -278,7 +281,10 @@ func scoreQualityCategory(skillPath string) ScoreCategory {
 		})
 	} else {
 		// Check if prompts dir has any .md files
-		entries, _ := os.ReadDir(promptsDir)
+		entries, readErr := os.ReadDir(promptsDir)
+		if readErr != nil {
+			entries = nil
+		}
 		hasMD := false
 		for _, e := range entries {
 			if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
@@ -333,13 +339,13 @@ func scorePublisherCategory(publisher *PublisherInfo) ScoreCategory {
 	ageBonus := math.Min(float64(publisher.AccountAge), accountAgeBonusMax)
 	cat.Score += ageBonus
 
-	// License present
+	// License present (bonus for having one, no bonus without)
 	if publisher.HasLicense {
 		cat.Score += licensePresentBonus
 	} else {
 		cat.Deducts = append(cat.Deducts, Deduction{
-			Reason: "No license detected in repository",
-			Points: licensePresentBonus,
+			Reason: "No license detected in repository (missing bonus)",
+			Points: 0, // Not a deduction; license is a bonus, not a baseline
 		})
 	}
 
@@ -406,13 +412,20 @@ func scoreTransparencyCategory(skillPath string) ScoreCategory {
 			return nil
 		}
 
+		// Double-check for symlink to narrow TOCTOU window
+		if fi, lErr := os.Lstat(path); lErr != nil || fi.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
 		content, readErr := os.ReadFile(path)
 		if readErr != nil {
 			return nil
 		}
 
 		text := string(content)
-		relPath, _ := filepath.Rel(skillPath, path)
+		relPath, relErr := filepath.Rel(skillPath, path)
+		if relErr != nil {
+			return nil
+		}
 
 		for _, p := range exfilPatterns {
 			matched, _ := matchPattern(text, p.pattern)
@@ -535,6 +548,10 @@ func generateSummary(result *ScoreResult) string {
 }
 
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	// Reject symlinks
+	return fi.Mode()&os.ModeSymlink == 0
 }

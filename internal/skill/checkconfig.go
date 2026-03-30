@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,16 +28,34 @@ type CustomRuleDef struct {
 	Description string `yaml:"description"`
 }
 
+// maxCheckConfigSize limits the .askcheck.yaml file size
+const maxCheckConfigSize = 256 * 1024 // 256KB
+
+// readFileIfSafe reads a file after verifying it is not a symlink and within size limit.
+func readFileIfSafe(path string, maxSize int64) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("refusing to read symlink: %s", path)
+	}
+	if info.Size() > maxSize {
+		return nil, fmt.Errorf("file too large: %d bytes (max %d)", info.Size(), maxSize)
+	}
+	return os.ReadFile(path)
+}
+
 // LoadCheckConfig loads .askcheck.yaml from the given directory.
 // Returns nil (no error) if the file does not exist.
 func LoadCheckConfig(dir string) (*CheckConfig, error) {
 	path := filepath.Join(dir, ".askcheck.yaml")
-	data, err := os.ReadFile(path)
+	data, err := readFileIfSafe(path, maxCheckConfigSize)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Also try .askcheck.yml
 			path = filepath.Join(dir, ".askcheck.yml")
-			data, err = os.ReadFile(path)
+			data, err = readFileIfSafe(path, maxCheckConfigSize)
 			if err != nil {
 				if os.IsNotExist(err) {
 					return nil, nil

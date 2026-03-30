@@ -20,7 +20,10 @@ func ScanDirectory(root string, limitDepth int) ([]ScanResult, error) {
 	// Use WalkDir for efficiency
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err // Continue or handle permission errors? Better return to notify
+			if path == root {
+				return err // Propagate errors for the root path itself
+			}
+			return nil // Skip permission errors for subdirectories
 		}
 
 		// Check depth

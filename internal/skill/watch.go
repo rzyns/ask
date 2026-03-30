@@ -1,10 +1,12 @@
 package skill
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,7 +15,7 @@ import (
 // WatchAndCheck watches a skill directory for file changes and re-runs security checks.
 // It blocks until the context is canceled or an unrecoverable error occurs.
 // The callback is invoked after each check with the result (nil result on error).
-func WatchAndCheck(skillPath string, callback func(event string, result *CheckResult, err error)) error {
+func WatchAndCheck(ctx context.Context, skillPath string, callback func(event string, result *CheckResult, err error)) error {
 	absPath, err := filepath.Abs(skillPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
@@ -33,9 +35,25 @@ func WatchAndCheck(skillPath string, callback func(event string, result *CheckRe
 	// Debounce: collect events within a short window before re-checking
 	var debounceTimer *time.Timer
 	debounceDelay := 300 * time.Millisecond
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var stopped bool
+	defer func() {
+		mu.Lock()
+		stopped = true
+		mu.Unlock()
+		if debounceTimer != nil {
+			if debounceTimer.Stop() {
+				wg.Done() // Timer was stopped before firing, balance the Add
+			}
+		}
+		wg.Wait()
+	}()
 
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil // Watcher closed
@@ -47,7 +65,10 @@ func WatchAndCheck(skillPath string, callback func(event string, result *CheckRe
 			}
 
 			// Ignore .git directory changes
-			rel, _ := filepath.Rel(absPath, event.Name)
+			rel, relErr := filepath.Rel(absPath, event.Name)
+			if relErr != nil {
+				continue
+			}
 			if strings.HasPrefix(rel, ".git"+string(os.PathSeparator)) || rel == ".git" {
 				continue
 			}
@@ -72,11 +93,22 @@ func WatchAndCheck(skillPath string, callback func(event string, result *CheckRe
 
 			// Debounce: reset timer on each event
 			if debounceTimer != nil {
-				debounceTimer.Stop()
+				if debounceTimer.Stop() {
+					wg.Done() // Timer was stopped before firing, balance the Add
+				}
 			}
+			eventName := displayRel // capture for closure to avoid race
+			wg.Add(1)
 			debounceTimer = time.AfterFunc(debounceDelay, func() {
+				defer wg.Done()
+				mu.Lock()
+				if stopped {
+					mu.Unlock()
+					return
+				}
+				mu.Unlock()
 				result, checkErr := CheckSafety(absPath)
-				callback(displayRel, result, checkErr)
+				callback(eventName, result, checkErr)
 			})
 
 		case watchErr, ok := <-watcher.Errors:
