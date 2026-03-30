@@ -165,6 +165,119 @@ func TestDefaultToolTargets(t *testing.T) {
 	}
 }
 
+func TestGetAllSkillNames(t *testing.T) {
+	config := DefaultConfig()
+
+	// Empty config should return empty slice
+	names := config.GetAllSkillNames()
+	if len(names) != 0 {
+		t.Errorf("Expected 0 skills, got %d", len(names))
+	}
+
+	// Add skills via legacy list
+	config.Skills = []string{"skill-a", "skill-b"}
+	names = config.GetAllSkillNames()
+	if len(names) != 2 {
+		t.Errorf("Expected 2 skills, got %d", len(names))
+	}
+
+	// Add skill via SkillsInfo with one duplicate
+	config.SkillsInfo = []SkillInfo{
+		{Name: "skill-b", Description: "Duplicate"},
+		{Name: "skill-c", Description: "New"},
+	}
+	names = config.GetAllSkillNames()
+	if len(names) != 3 {
+		t.Errorf("Expected 3 deduplicated skills, got %d: %v", len(names), names)
+	}
+
+	// Verify order: Skills first, then unique SkillsInfo
+	expected := []string{"skill-a", "skill-b", "skill-c"}
+	for i, name := range names {
+		if name != expected[i] {
+			t.Errorf("Expected names[%d]=%s, got %s", i, expected[i], name)
+		}
+	}
+
+	// Only SkillsInfo, no legacy Skills
+	config.Skills = nil
+	names = config.GetAllSkillNames()
+	if len(names) != 2 {
+		t.Errorf("Expected 2 skills from SkillsInfo only, got %d", len(names))
+	}
+}
+
+func TestAtomicWriteFile_Basic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "testfile.txt")
+	data := []byte("hello atomic write")
+
+	err := atomicWriteFile(path, data, 0644)
+	if err != nil {
+		t.Fatalf("atomicWriteFile failed: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("Failed to read written file: %v", err)
+	}
+	if string(got) != string(data) {
+		t.Errorf("Expected content %q, got %q", string(data), string(got))
+	}
+}
+
+func TestAtomicWriteFile_Permissions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "permfile.txt")
+
+	err := atomicWriteFile(path, []byte("perm test"), 0600)
+	if err != nil {
+		t.Fatalf("atomicWriteFile failed: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Failed to stat file: %v", err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Errorf("Expected permissions 0600, got %o", info.Mode().Perm())
+	}
+}
+
+func TestAtomicWriteFile_Overwrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "overwrite.txt")
+
+	// Write initial content
+	err := atomicWriteFile(path, []byte("original"), 0644)
+	if err != nil {
+		t.Fatalf("First write failed: %v", err)
+	}
+
+	// Overwrite with new content
+	err = atomicWriteFile(path, []byte("replaced"), 0644)
+	if err != nil {
+		t.Fatalf("Overwrite failed: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("Failed to read file: %v", err)
+	}
+	if string(got) != "replaced" {
+		t.Errorf("Expected content %q, got %q", "replaced", string(got))
+	}
+}
+
+func TestAtomicWriteFile_InvalidDir(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nonexistent", "file.txt")
+
+	err := atomicWriteFile(path, []byte("data"), 0644)
+	if err == nil {
+		t.Fatal("Expected error for non-existent directory, got nil")
+	}
+}
+
 func TestDetectExistingToolDirs(t *testing.T) {
 	// Setup temp dir
 	dir := t.TempDir()

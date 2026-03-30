@@ -111,3 +111,58 @@ func TestSpinnerAndProgressBar(_ *testing.T) {
 	}
 	_ = bar.Finish()
 }
+
+func TestSetupAllLevels(t *testing.T) {
+	levels := []string{"debug", "info", "warn", "error", "unknown_fallback"}
+	for _, level := range levels {
+		Setup(level)
+		if Log == nil {
+			t.Fatalf("Setup(%q) resulted in nil Log", level)
+		}
+	}
+}
+
+func TestSetupCaseInsensitive(t *testing.T) {
+	// Verify that Setup handles mixed-case level strings
+	for _, level := range []string{"DEBUG", "Info", "WARN", "Error"} {
+		Setup(level)
+		if Log == nil {
+			t.Fatalf("Setup(%q) resulted in nil Log", level)
+		}
+	}
+}
+
+func TestDebugLogDoesNotPanic(t *testing.T) {
+	Setup("debug")
+	// Debug should not panic, even with extra args
+	Debug("test debug message")
+	Debug("test with args", "key", "value")
+	if Log == nil {
+		t.Fatal("Log should not be nil after Debug call")
+	}
+}
+
+func TestInfoWarnErrorLogDoNotPanic(t *testing.T) {
+	Setup("debug")
+	Info("info message")
+	Info("info with args", "count", 42)
+	Warn("warn message")
+	Warn("warn with args", "issue", "low disk")
+	Error("error message")
+	Error("error with args", "err", "connection refused")
+	if Log == nil {
+		t.Fatal("Log should not be nil after logging calls")
+	}
+}
+
+func TestSetupDefaultFallback(t *testing.T) {
+	// Any unrecognized level string should fall back to info without error
+	Setup("nonexistent")
+	if Log == nil {
+		t.Fatal("Setup with unknown level should still create a logger")
+	}
+	Setup("")
+	if Log == nil {
+		t.Fatal("Setup with empty string should still create a logger")
+	}
+}

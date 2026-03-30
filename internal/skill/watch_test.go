@@ -1,6 +1,8 @@
 package skill
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -37,10 +39,13 @@ A test skill.
 	var mu sync.Mutex
 	var events []string
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Start watching in a goroutine
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- WatchAndCheck(dir, func(event string, _ *CheckResult, _ error) {
+		errCh <- WatchAndCheck(ctx, dir, func(event string, _ *CheckResult, _ error) {
 			mu.Lock()
 			defer mu.Unlock()
 			events = append(events, event)
@@ -65,6 +70,10 @@ A test skill.
 	if eventCount == 0 {
 		t.Error("expected at least one callback event after file modification")
 	}
+
+	// Cancel context to stop watcher goroutine
+	cancel()
+	<-errCh
 }
 
 func TestWatchAndCheck_IgnoresGitDir(t *testing.T) {
@@ -91,8 +100,12 @@ A test skill.
 	var mu sync.Mutex
 	var events []string
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
 	go func() {
-		_ = WatchAndCheck(dir, func(event string, _ *CheckResult, _ error) {
+		errCh <- WatchAndCheck(ctx, dir, func(event string, _ *CheckResult, _ error) {
 			mu.Lock()
 			defer mu.Unlock()
 			events = append(events, event)
@@ -115,6 +128,9 @@ A test skill.
 	if eventCount > 0 {
 		t.Errorf("expected no events for .git changes, got %d", eventCount)
 	}
+
+	cancel()
+	<-errCh
 }
 
 func TestWatchAndCheck_DetectsNewFiles(t *testing.T) {
@@ -135,8 +151,12 @@ A test skill.
 	var mu sync.Mutex
 	var events []string
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
 	go func() {
-		_ = WatchAndCheck(dir, func(event string, _ *CheckResult, _ error) {
+		errCh <- WatchAndCheck(ctx, dir, func(event string, _ *CheckResult, _ error) {
 			mu.Lock()
 			defer mu.Unlock()
 			events = append(events, event)
@@ -158,5 +178,43 @@ A test skill.
 
 	if eventCount == 0 {
 		t.Error("expected at least one callback event for new file creation")
+	}
+
+	cancel()
+	<-errCh
+}
+
+func TestWatchAndCheck_ContextCancellation(t *testing.T) {
+	dir := t.TempDir()
+
+	skillMD := `---
+name: cancel-test
+version: 0.1.0
+description: Test skill
+---
+# cancel-test
+A test skill.
+`
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(skillMD), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- WatchAndCheck(ctx, dir, func(_ string, _ *CheckResult, _ error) {})
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("WatchAndCheck did not return after context cancellation")
 	}
 }

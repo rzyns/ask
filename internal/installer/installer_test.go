@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,22 +27,30 @@ func TestInstall_InvalidInput(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstall_Ambiguous(_ *testing.T) {
-	// This test depends on cache state, so we might need to mock cache
-	// or we accept that without cache it might try to define it as repo
-	// For now, let's test basic validation logic
-}
-
-func TestInstallOptions(t *testing.T) {
-	cfg := &config.Config{}
+func TestInstall_NilConfig(t *testing.T) {
+	// Install with nil config should not panic
 	opts := InstallOptions{
-		Global: true,
-		Agents: []string{"claude"},
-		Config: cfg,
+		Global: false,
+		Agents: []string{},
+		Config: nil,
 	}
 
-	assert.True(t, opts.Global)
-	assert.Len(t, opts.Agents, 1)
-	assert.Equal(t, "claude", opts.Agents[0])
-	assert.Equal(t, cfg, opts.Config)
+	err := Install("some-skill", opts)
+	// Should fail gracefully (no config means no targets), not panic
+	assert.Error(t, err)
+}
+
+func TestInstall_SpecialCharactersInInput(t *testing.T) {
+	opts := InstallOptions{
+		Config: &config.Config{},
+	}
+
+	// Path traversal attempt
+	err := Install("../../etc/passwd", opts)
+	assert.Error(t, err)
+
+	// Very long input
+	longInput := strings.Repeat("a", 300)
+	err = Install(longInput, opts)
+	assert.Error(t, err)
 }

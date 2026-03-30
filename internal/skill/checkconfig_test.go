@@ -31,7 +31,7 @@ rules:
     severity: info
     description: "TODO comment found"
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -193,7 +193,7 @@ func TestCheckSafety_WithIgnoreRule(t *testing.T) {
 	}
 
 	// Create .askcheck.yaml that ignores CMD-SUDO
-	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte("ignore:\n  - CMD-SUDO\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte("ignore:\n  - CMD-SUDO\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -227,7 +227,7 @@ func TestCheckSafety_WithIgnorePath(t *testing.T) {
 	}
 
 	// Create .askcheck.yaml that ignores vendor/
-	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte("ignore_paths:\n  - \"vendor/**\"\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte("ignore_paths:\n  - \"vendor/**\"\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -263,7 +263,7 @@ func TestCheckSafety_WithCustomRule(t *testing.T) {
     severity: warning
     description: "FIXME comment found"
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte(cfg), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".askcheck.yaml"), []byte(cfg), 0600); err != nil {
 		t.Fatal(err)
 	}
 
