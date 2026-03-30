@@ -35,6 +35,8 @@ homebrew-tap/
 dist/
 .agent/
 .ask/
+.claude/
+.gocache/
 ask.lock
 
 # Wails build directory
