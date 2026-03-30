@@ -2,6 +2,7 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,20 +13,39 @@ import (
 	"github.com/yeasy/ask/internal/ui"
 )
 
-// Clone clones a git repository to the specified destination
-func Clone(url, dest string) error {
+// Clone clones a git repository to the specified destination.
+// Only HTTPS URLs are accepted for security.
+func Clone(ctx context.Context, url, dest string) error {
+	if !strings.HasPrefix(url, "https://") {
+		return fmt.Errorf("git clone requires HTTPS URL: %s", url)
+	}
 	bar := ui.NewSpinner(fmt.Sprintf("Cloning %s...", filepath.Base(url)))
-	cmd := exec.Command("git", "clone", "--depth", "1", "--progress", "--", url, dest)
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--progress", "--", url, dest)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	err := cmd.Run()
 	_ = bar.Finish()
-	return err
+	if err != nil {
+		return fmt.Errorf("git clone %s: %w", url, err)
+	}
+	return nil
 }
 
-// SparseClone clones only a specific subdirectory using sparse checkout
-// This is much faster than full clone for large repos when only a subdir is needed
-func SparseClone(repoURL, branch, subDir, dest string) error {
+// SparseClone clones only a specific subdirectory using sparse checkout.
+// This is much faster than full clone for large repos when only a subdir is needed.
+// Only HTTPS URLs are accepted for security.
+func SparseClone(ctx context.Context, repoURL, branch, subDir, dest string) error {
+	if !strings.HasPrefix(repoURL, "https://") {
+		return fmt.Errorf("git clone requires HTTPS URL: %s", repoURL)
+	}
+	// Validate subDir to prevent path traversal.
+	// Use filepath.ToSlash for consistent comparison across platforms
+	// (filepath.Clean converts / to \ on Windows).
+	cleaned := filepath.Clean(subDir)
+	if filepath.ToSlash(cleaned) != filepath.ToSlash(subDir) || strings.HasPrefix(cleaned, "..") || filepath.IsAbs(cleaned) {
+		return fmt.Errorf("invalid subdirectory: path traversal not allowed")
+	}
+
 	bar := ui.NewSpinner(fmt.Sprintf("Sparse cloning %s from %s...", subDir, filepath.Base(repoURL)))
 	defer func() { _ = bar.Finish() }()
 
@@ -40,41 +60,47 @@ func SparseClone(repoURL, branch, subDir, dest string) error {
 	}
 	args = append(args, "--", repoURL, dest)
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("sparse clone init failed: %w", err)
 	}
 
+	// Clean up dest directory if any subsequent step fails
+	cleanup := func(stepErr error) error {
+		_ = os.RemoveAll(dest)
+		return stepErr
+	}
+
 	// Step 2: Initialize sparse-checkout in cone mode
 	ui.UpdateDescription(bar, "Configuring sparse checkout...")
-	cmd = exec.Command("git", "sparse-checkout", "init", "--cone")
+	cmd = exec.CommandContext(ctx, "git", "sparse-checkout", "init", "--cone")
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("sparse-checkout init failed: %w", err)
+		return cleanup(fmt.Errorf("sparse-checkout init failed: %w", err))
 	}
 
 	// Step 3: Set the subdirectory to checkout
 	ui.UpdateDescription(bar, fmt.Sprintf("Setting checkout path to %s...", subDir))
-	cmd = exec.Command("git", "sparse-checkout", "set", "--", subDir)
+	cmd = exec.CommandContext(ctx, "git", "sparse-checkout", "set", "--", subDir)
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("sparse-checkout set failed: %w", err)
+		return cleanup(fmt.Errorf("sparse-checkout set failed: %w", err))
 	}
 
 	// Step 4: Checkout
 	ui.UpdateDescription(bar, "Checking out files...")
-	cmd = exec.Command("git", "checkout")
+	cmd = exec.CommandContext(ctx, "git", "checkout")
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("checkout failed: %w", err)
+		return cleanup(fmt.Errorf("checkout failed: %w", err))
 	}
 
 	return nil
@@ -82,7 +108,7 @@ func SparseClone(repoURL, branch, subDir, dest string) error {
 
 // InstallSubdir installs a subdirectory from a repository
 // Uses sparse checkout for efficiency, falls back to full clone if sparse fails
-func InstallSubdir(repoURL, branch, subDir, dest string) error {
+func InstallSubdir(ctx context.Context, repoURL, branch, subDir, dest string) error {
 	// Create temp dir for sparse clone
 	tempDir, err := os.MkdirTemp("", "ask-install-*")
 	if err != nil {
@@ -91,22 +117,22 @@ func InstallSubdir(repoURL, branch, subDir, dest string) error {
 	defer func() { _ = os.RemoveAll(tempDir) }() // Clean up
 
 	// Try sparse checkout first
-	if err := SparseClone(repoURL, branch, subDir, tempDir); err != nil {
+	if err := SparseClone(ctx, repoURL, branch, subDir, tempDir); err != nil {
 		// Fallback to full clone
-		fmt.Printf("Sparse checkout failed, falling back to full clone...\n")
+		fmt.Fprintf(os.Stderr, "Sparse checkout failed, falling back to full clone...\n")
 		_ = os.RemoveAll(tempDir) // Clean up failed sparse clone
 		tempDir, err = os.MkdirTemp("", "ask-install-*")
 		if err != nil {
 			return fmt.Errorf("failed to create temp dir: %w", err)
 		}
 
-		if err := Clone(repoURL, tempDir); err != nil {
+		if err := Clone(ctx, repoURL, tempDir); err != nil {
 			return fmt.Errorf("failed to clone repo: %w", err)
 		}
 
 		// If branch is specified, checkout that branch in full clone fallback
 		if branch != "" {
-			if err := Checkout(tempDir, branch); err != nil {
+			if err := Checkout(ctx, tempDir, branch); err != nil {
 				return fmt.Errorf("failed to checkout branch %s: %w", branch, err)
 			}
 		}
@@ -124,8 +150,8 @@ func InstallSubdir(repoURL, branch, subDir, dest string) error {
 }
 
 // GetLatestTag returns the latest tag for a repository in the given path
-func GetLatestTag(repoPath string) (string, error) {
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
+func GetLatestTag(ctx context.Context, repoPath string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "describe", "--tags", "--abbrev=0")
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {
@@ -136,11 +162,11 @@ func GetLatestTag(repoPath string) (string, error) {
 
 // Checkout checks out a specific tag or branch.
 // The ref is validated to prevent unexpected git behavior from malformed references.
-func Checkout(repoPath, ref string) error {
+func Checkout(ctx context.Context, repoPath, ref string) error {
 	if err := validateGitRef(ref); err != nil {
 		return fmt.Errorf("invalid git ref: %w", err)
 	}
-	cmd := exec.Command("git", "checkout", ref)
+	cmd := exec.CommandContext(ctx, "git", "checkout", ref)
 	cmd.Dir = repoPath
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -161,12 +187,15 @@ func validateGitRef(ref string) error {
 	if strings.HasPrefix(ref, "-") {
 		return fmt.Errorf("ref cannot start with '-'")
 	}
+	if strings.HasPrefix(ref, "/") {
+		return fmt.Errorf("ref cannot start with '/'")
+	}
 	return nil
 }
 
 // GetCurrentCommit returns the current commit hash of the repository
-func GetCurrentCommit(repoPath string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
+func GetCurrentCommit(ctx context.Context, repoPath string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {

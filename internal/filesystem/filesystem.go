@@ -2,18 +2,34 @@
 package filesystem
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 )
 
+const maxCopyDepth = 20
+
 // CopyDir recursively copies a directory tree, attempting to preserve permissions.
 // Source directory must exist, destination directory must *not* exist.
+// Uses Lstat on the source root to reject symlinks and prevent following links
+// to attacker-controlled locations.
 func CopyDir(source string, destination string) error {
-	srcInfo, err := os.Stat(source)
+	return copyDirRecursive(source, destination, 0)
+}
+
+func copyDirRecursive(source, destination string, depth int) error {
+	if depth > maxCopyDepth {
+		return fmt.Errorf("copy directory recursion limit reached (max depth %d)", maxCopyDepth)
+	}
+
+	srcInfo, err := os.Lstat(source)
 	if err != nil {
 		return err
+	}
+	if srcInfo.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("source is a symlink: rejecting for safety")
 	}
 
 	if err := os.MkdirAll(destination, srcInfo.Mode()); err != nil {
@@ -35,7 +51,7 @@ func CopyDir(source string, destination string) error {
 		dstPath := filepath.Join(destination, entry.Name())
 
 		if entry.IsDir() {
-			if err := CopyDir(srcPath, dstPath); err != nil {
+			if err := copyDirRecursive(srcPath, dstPath, depth+1); err != nil {
 				return err
 			}
 		} else {
@@ -48,7 +64,16 @@ func CopyDir(source string, destination string) error {
 }
 
 // CopyFile copies a single file from src to dst.
+// Rejects symlinks as source to prevent symlink-based attacks.
 func CopyFile(src, dst string) (retErr error) {
+	fi, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("source is a symlink: rejecting for safety")
+	}
+
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -69,10 +94,13 @@ func CopyFile(src, dst string) (retErr error) {
 		return err
 	}
 
-	// Preserve permissions
+	// Preserve permissions but strip setuid, setgid, sticky bits and
+	// group/other write bits for security.
+	// Execute bits are preserved so shell scripts remain runnable.
 	info, err := os.Stat(src)
 	if err == nil {
-		_ = os.Chmod(dst, info.Mode())
+		mode := info.Mode() & 0755 // Keep owner rwx, group/other r-x only
+		_ = os.Chmod(dst, mode)
 	}
 
 	return nil
@@ -114,7 +142,10 @@ func CreateSymlinkOrCopy(source, target string) error {
 	// Fallback for other OS or file types
 	// If symlink failed (permission denied?), try copy
 	fi, err := os.Stat(source)
-	if err == nil && fi.IsDir() {
+	if err != nil {
+		return fmt.Errorf("failed to stat source %s: %w", source, err)
+	}
+	if fi.IsDir() {
 		return CopyDir(source, target)
 	}
 	return CopyFile(source, target)

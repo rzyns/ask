@@ -13,6 +13,12 @@ import (
 	"github.com/yeasy/ask/internal/github"
 )
 
+const maxResponseBodySize = 5 * 1024 * 1024 // 5MB
+
+// rawBaseURL is the base URL for fetching raw files from GitHub.
+// It can be overridden in tests to point to a local httptest server.
+var rawBaseURL = "https://raw.githubusercontent.com"
+
 // RegistrySkill represents a skill entry in the registry index
 type RegistrySkill struct {
 	Name        string   `json:"name"`
@@ -46,7 +52,7 @@ func FetchSkillsFromRegistry(registryURL string, keyword string) ([]github.Repos
 	owner := parts[0]
 	repo := parts[1]
 	path := parts[2]
-	rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s", owner, repo, path)
+	rawURL := fmt.Sprintf("%s/%s/%s/main/%s", rawBaseURL, owner, repo, path)
 
 	req, err := http.NewRequest("GET", rawURL, nil)
 	if err != nil {
@@ -65,13 +71,16 @@ func FetchSkillsFromRegistry(registryURL string, keyword string) ([]github.Repos
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBodySize))
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024)) // 5MB limit
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
 	if err != nil {
 		return nil, err
 	}

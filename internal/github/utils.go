@@ -6,12 +6,26 @@ import (
 	"strings"
 )
 
-// ParseBrowserURL parses a GitHub browser URL and extracts components
+// ParseBrowserURL parses a GitHub browser URL and extracts components.
 // Input: https://github.com/owner/repo/tree/branch/path/to/skill
 // Returns: repoURL, branch, subDir, skillName, ok
+//
+// Note: branch names containing "/" (e.g. "feature/v2") are not supported
+// because the URL format is ambiguous — there is no way to distinguish
+// the branch/path boundary without an API call.
 func ParseBrowserURL(url string) (repoURL, branch, subDir, skillName string, ok bool) {
 	// Remove trailing slashes
 	url = strings.TrimSuffix(url, "/")
+
+	// Upgrade http to https for security
+	if strings.HasPrefix(url, "http://github.com/") {
+		url = "https://" + url[len("http://"):]
+	}
+
+	// Verify this is actually a GitHub HTTPS URL
+	if !strings.HasPrefix(url, "https://github.com/") {
+		return "", "", "", "", false
+	}
 
 	// Check if it contains /tree/ (GitHub browser URL format)
 	if !strings.Contains(url, "/tree/") {
@@ -24,7 +38,10 @@ func ParseBrowserURL(url string) (repoURL, branch, subDir, skillName string, ok 
 		return "", "", "", "", false
 	}
 
-	repoURL = parts[0] + ".git"
+	repoURL = parts[0]
+	if !strings.HasSuffix(repoURL, ".git") {
+		repoURL += ".git"
+	}
 
 	// Split branch and path
 	branchAndPath := parts[1]
@@ -66,19 +83,28 @@ func ParseRepoURL(url string) (owner, repo string, err error) {
 
 	// Handle https://github.com/owner/repo
 	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
-		// Just strip protocol and domain
-		parts := strings.Split(url, "github.com/")
-		if len(parts) == 2 {
-			url = parts[1]
-		} else {
-			// If we couldn't strip github.com from an http(s) URL, it's not a valid GitHub repo URL for us
+		// Match only exact github.com host (not subdomains like evil.github.com)
+		matched := false
+		for _, prefix := range []string{
+			"https://github.com/",
+			"http://github.com/",
+			"https://www.github.com/",
+			"http://www.github.com/",
+		} {
+			if strings.HasPrefix(url, prefix) {
+				url = strings.TrimPrefix(url, prefix)
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return "", "", fmt.Errorf("invalid repo URL (must be github.com): %s", url)
 		}
 	}
 
 	// Split owner/repo
 	parts := strings.Split(url, "/")
-	if len(parts) >= 2 {
+	if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
 		return parts[0], parts[1], nil
 	}
 

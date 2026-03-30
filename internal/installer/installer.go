@@ -2,6 +2,7 @@
 package installer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,9 @@ import (
 	"github.com/yeasy/ask/internal/ui"
 )
 
+// maxInstallDepth is the maximum recursion depth for Install to prevent circular resolution.
+const maxInstallDepth = 3
+
 // InstallOptions contains options for installing a skill
 type InstallOptions struct {
 	Global    bool
@@ -26,12 +30,22 @@ type InstallOptions struct {
 	Config    *config.Config
 	SkipScore bool   // Skip trust score check
 	MinScore  string // Minimum acceptable grade (A/B/C/D/F), default "D"
+	depth     int    // current recursion depth (internal use only)
 }
 
 // Install installs a single skill
 func Install(input string, opts InstallOptions) error {
 	if strings.TrimSpace(input) == "" {
 		return fmt.Errorf("could not determine skill name: input is empty")
+	}
+
+	// Reject path traversal attempts early, before reaching any git/network operations
+	if strings.Contains(input, "..") {
+		return fmt.Errorf("invalid input: path traversal not allowed")
+	}
+
+	if opts.depth >= maxInstallDepth {
+		return fmt.Errorf("install recursion limit reached (max %d): possible circular resolution for %q", maxInstallDepth, input)
 	}
 
 	// Parse version if specified (skill@version)
@@ -99,7 +113,10 @@ func Install(input string, opts InstallOptions) error {
 							// Let's use it.
 							_, _ = repository.FetchSkills(refreshRepo)
 							// Re-load cache after sync
-							reposCache, _ = cache.NewReposCache() //nolint:errcheck
+							newCache, cacheErr := cache.NewReposCache()
+							if cacheErr == nil {
+								reposCache = newCache
+							}
 						}
 					}
 
@@ -237,9 +254,9 @@ func Install(input string, opts InstallOptions) error {
 
 			if len(exactMatches) > 1 {
 				// Ambiguous!
-				fmt.Printf("Error: Multiple skills named '%s' found:\n", input)
+				fmt.Fprintf(os.Stderr, "Error: Multiple skills named '%s' found:\n", input)
 				for _, m := range exactMatches {
-					fmt.Printf("  - %s/%s\n", m.RepoName, m.Name)
+					fmt.Fprintf(os.Stderr, "  - %s/%s\n", m.RepoName, m.Name)
 				}
 				return fmt.Errorf("ambiguous skill name '%s'. Please specify the repository like 'RepoName/SkillName'", input)
 			} else if len(exactMatches) == 1 {
@@ -257,7 +274,9 @@ func Install(input string, opts InstallOptions) error {
 				// Actually, the above block handles "Repo/Skill". This block handles "Skill" only.
 				// If we find it, we can construct "Repo/Skill" and recurse?
 				resolvedInput := fmt.Sprintf("%s/%s", exactMatches[0].RepoName, exactMatches[0].Name)
-				return Install(resolvedInput, opts)
+				recurseOpts := opts
+				recurseOpts.depth = opts.depth + 1
+				return Install(resolvedInput, recurseOpts)
 			}
 		}
 
@@ -266,7 +285,9 @@ func Install(input string, opts InstallOptions) error {
 			client := skillhub.NewClient()
 			if resolved, err := client.Resolve(input); err == nil {
 				fmt.Printf("Resolved SkillHub slug '%s' to '%s'\n", input, resolved)
-				return Install(resolved, opts)
+				recurseOpts := opts
+				recurseOpts.depth = opts.depth + 1
+				return Install(resolved, recurseOpts)
 			}
 		}
 	}
@@ -324,15 +345,10 @@ func Install(input string, opts InstallOptions) error {
 
 	fmt.Printf("Installing %s to %s...\n", skillName, scopeLabel)
 
-	// Check if already installed
-	allExist := true
-	for _, dir := range targetDirs {
-		destPath := filepath.Join(dir, skillName)
-		if _, err := os.Stat(destPath); err != nil {
-			allExist = false
-		}
-	}
-	if allExist {
+	// Check if already installed (fast path using initial name;
+	// re-checked after SKILL.md may override skillName)
+	initialSkillName := skillName
+	if allExist := checkAllExist(targetDirs, skillName); allExist {
 		fmt.Printf("Skill %s is already installed in all target directories\n", skillName)
 		return nil
 	}
@@ -350,11 +366,13 @@ func Install(input string, opts InstallOptions) error {
 		if err := filesystem.CopyDir(localSourcePath, tempSkillPath); err != nil {
 			return fmt.Errorf("failed to copy local skill: %w", err)
 		}
+	} else if repoURL == "" {
+		return fmt.Errorf("could not resolve repository URL for %q", originalInput)
 	} else {
 		if subDir != "" {
-			err = git.InstallSubdir(repoURL, branch, subDir, tempSkillPath)
+			err = git.InstallSubdir(context.Background(), repoURL, branch, subDir, tempSkillPath)
 		} else {
-			err = git.Clone(repoURL, tempSkillPath)
+			err = git.Clone(context.Background(), repoURL, tempSkillPath)
 		}
 
 		if err != nil {
@@ -371,18 +389,18 @@ func Install(input string, opts InstallOptions) error {
 				minGrade = skill.ScoreGrade(opts.MinScore)
 			}
 			if skill.GradeBelowThreshold(scoreResult.Grade, minGrade) {
-				fmt.Printf("\n⚠ Trust score warning for %s: %.0f/100 (Grade %s)\n",
+				fmt.Fprintf(os.Stderr, "\n⚠ Trust score warning for %s: %.0f/100 (Grade %s)\n",
 					skillName, scoreResult.TotalScore, string(scoreResult.Grade))
-				fmt.Printf("  %s\n", scoreResult.Summary)
+				fmt.Fprintf(os.Stderr, "  %s\n", scoreResult.Summary)
 				for _, cat := range scoreResult.Categories {
 					if cat.Score < 70 {
-						fmt.Printf("  - %s: %.0f/100\n", cat.Name, cat.Score)
+						fmt.Fprintf(os.Stderr, "  - %s: %.0f/100\n", cat.Name, cat.Score)
 						for _, d := range cat.Deducts {
-							fmt.Printf("    -%.*f %s\n", 0, d.Points, d.Reason)
+							fmt.Fprintf(os.Stderr, "    -%.*f %s\n", 0, d.Points, d.Reason)
 						}
 					}
 				}
-				fmt.Printf("\n  Use --skip-score to bypass this check.\n\n")
+				fmt.Fprintf(os.Stderr, "\n  Use --skip-score to bypass this check.\n\n")
 				return fmt.Errorf("skill %s scored below minimum grade %s (got %s)",
 					skillName, string(minGrade), string(scoreResult.Grade))
 			}
@@ -396,15 +414,15 @@ func Install(input string, opts InstallOptions) error {
 	// Checkout version
 	if version != "" && subDir == "" {
 		fmt.Printf("Checking out version %s...\n", version)
-		if err := git.Checkout(tempSkillPath, version); err != nil {
-			fmt.Printf("Warning: Failed to checkout version %s: %v\n", version, err)
+		if err := git.Checkout(context.Background(), tempSkillPath, version); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to checkout version %s: %v\n", version, err)
 		}
 	}
 
 	// Get commit hash
 	var commitHash string
 	if subDir == "" {
-		commitHash, _ = git.GetCurrentCommit(tempSkillPath)
+		commitHash, _ = git.GetCurrentCommit(context.Background(), tempSkillPath)
 	}
 
 	// Get metadata
@@ -418,11 +436,24 @@ func Install(input string, opts InstallOptions) error {
 			// If SKILL.md defines a name, use it as the directory name
 			// This is important for root-level skills where the repo name might differ
 			if meta.Name != "" {
-				// Sanitize name to be safe file path
-				safeName := strings.ReplaceAll(meta.Name, "/", "-")
-				safeName = strings.ReplaceAll(safeName, "\\", "-")
-				safeName = strings.ReplaceAll(safeName, " ", "-")
-				if safeName != "" {
+				// Sanitize name using allowlist: keep only safe characters
+				safeName := strings.Map(func(r rune) rune {
+					if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+						return r
+					}
+					return '-'
+				}, meta.Name)
+				// Collapse consecutive dashes and trim leading dots/dashes
+				for strings.Contains(safeName, "--") {
+					safeName = strings.ReplaceAll(safeName, "--", "-")
+				}
+				safeName = strings.TrimLeft(safeName, ".-")
+				safeName = strings.TrimRight(safeName, ".-")
+				// Limit length to prevent filesystem issues
+				if len(safeName) > 100 {
+					safeName = safeName[:100]
+				}
+				if safeName != "" && safeName != "." && safeName != ".." {
 					skillName = safeName
 				}
 			}
@@ -430,6 +461,14 @@ func Install(input string, opts InstallOptions) error {
 	}
 	if skillDescription == "" {
 		skillDescription = "Skill installed from " + originalInput
+	}
+
+	// Re-check "already installed" if SKILL.md changed the effective name
+	if skillName != initialSkillName {
+		if allExist := checkAllExist(targetDirs, skillName); allExist {
+			fmt.Printf("Skill %s is already installed in all target directories\n", skillName)
+			return nil
+		}
 	}
 
 	// Environment setup
@@ -452,7 +491,7 @@ func Install(input string, opts InstallOptions) error {
 	centralPath := filepath.Join(centralDir, skillName)
 
 	sourceExists := false
-	if _, err := os.Stat(centralPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(centralPath); err == nil {
 		sourceExists = true
 	}
 
@@ -472,7 +511,7 @@ func Install(input string, opts InstallOptions) error {
 			continue
 		}
 
-		if _, err := os.Stat(destPath); !os.IsNotExist(err) {
+		if _, err := os.Stat(destPath); err == nil {
 			if filesystem.IsSymlink(destPath) {
 				ui.Debug("  → Already linked in " + destPath)
 			} else {
@@ -534,7 +573,7 @@ func Install(input string, opts InstallOptions) error {
 			if opts.Global {
 				configFile = "~/.ask/config.yaml"
 			}
-			fmt.Printf("Warning: Failed to update %s: %v\n", configFile, err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to update %s: %v\n", configFile, err)
 		}
 
 		// Update lock file
@@ -555,13 +594,26 @@ func Install(input string, opts InstallOptions) error {
 			if opts.Global {
 				lockFileName = "~/.ask/ask.lock"
 			}
-			fmt.Printf("Warning: Failed to update %s: %v\n", lockFileName, err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to update %s: %v\n", lockFileName, err)
 		}
 	} else if !opts.Global {
 		ui.Debug("Note: ask.yaml not found. Run 'ask init' to track dependencies.")
 	}
 
 	return nil
+}
+
+// checkAllExist returns true if skillName already exists in every target directory.
+func checkAllExist(targetDirs []string, skillName string) bool {
+	if len(targetDirs) == 0 {
+		return false
+	}
+	for _, dir := range targetDirs {
+		if _, err := os.Stat(filepath.Join(dir, skillName)); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // resolveAgentFromDir tries to identify the agent name from a skills directory path

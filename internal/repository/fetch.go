@@ -2,6 +2,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -76,7 +77,7 @@ func FetchSkillsViaGit(repo config.Repo) ([]github.Repository, error) {
 
 	// Clone repo
 	// Using generic Clone (depth 1)
-	if err := git.Clone(cloneURL, tempDir); err != nil {
+	if err := git.Clone(context.Background(), cloneURL, tempDir); err != nil {
 		return nil, fmt.Errorf("failed to clone repo: %w", err)
 	}
 
@@ -153,6 +154,11 @@ func ScanSkills(baseDir, subPath, owner, repoName string) ([]github.Repository, 
 
 		for _, entry := range entries {
 			if !entry.IsDir() {
+				continue
+			}
+
+			// Skip symlinks to prevent following links outside intended directory
+			if entry.Type()&os.ModeSymlink != 0 {
 				continue
 			}
 

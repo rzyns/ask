@@ -58,11 +58,15 @@ func GetReposCacheDir() string {
 	return filepath.Join(homeDir, ".ask", "repos")
 }
 
-// HasRepo checks if a repository is cached locally
+// HasRepo checks if a repository is cached locally.
+// Uses Lstat to avoid following symlinks.
 func (c *ReposCache) HasRepo(repoName string) bool {
 	repoPath := filepath.Join(c.baseDir, sanitizeRepoName(repoName))
-	_, err := os.Stat(repoPath)
-	return err == nil
+	fi, err := os.Lstat(repoPath)
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeSymlink == 0
 }
 
 // IsStale checks if a repository's cache is older than the ttl
@@ -85,14 +89,14 @@ func (c *ReposCache) CloneOrPull(ctx context.Context, repoURL, repoName string) 
 
 	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
 		// Validate URL scheme to prevent cloning arbitrary local paths
-		if !strings.HasPrefix(repoURL, "https://") && !strings.HasPrefix(repoURL, "http://") {
-			return fmt.Errorf("repository URL must use HTTP or HTTPS: %s", repoURL)
+		if !strings.HasPrefix(repoURL, "https://") {
+			return fmt.Errorf("repository URL must use HTTPS: %s", repoURL)
 		}
 		// Clone with depth=1 for speed
 		cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", "--", repoURL, repoPath)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("git clone failed: %v\nOutput: %s", err, string(output))
+			return fmt.Errorf("git clone failed: %w\nOutput: %s", err, string(output))
 		}
 		return nil
 	}
@@ -101,7 +105,7 @@ func (c *ReposCache) CloneOrPull(ctx context.Context, repoURL, repoName string) 
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "pull", "--ff-only")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git pull failed: %v\nOutput: %s", err, string(output))
+		return fmt.Errorf("git pull failed: %w\nOutput: %s", err, string(output))
 	}
 	return nil
 }
@@ -205,16 +209,21 @@ func sanitizeRepoName(name string) string {
 	name = strings.ReplaceAll(name, "/", "-")
 	name = strings.ReplaceAll(name, "\\", "-")
 	name = strings.ReplaceAll(name, "..", "_")
+	name = strings.TrimLeft(name, ".-")
+	if name == "" {
+		name = "_"
+	}
 	return name
 }
 
 // maxDescriptionFileSize is the maximum SKILL.md file size to read for description extraction
 const maxDescriptionFileSize = 8192
 
-// extractDescription reads SKILL.md and extracts description from frontmatter
+// extractDescription reads SKILL.md and extracts description from frontmatter.
+// Uses Lstat to avoid following symlinks.
 func extractDescription(skillMDPath string) string {
-	info, err := os.Stat(skillMDPath)
-	if err != nil || info.Size() > maxDescriptionFileSize {
+	info, err := os.Lstat(skillMDPath)
+	if err != nil || info.Size() > maxDescriptionFileSize || info.Mode()&os.ModeSymlink != 0 {
 		return ""
 	}
 	data, err := os.ReadFile(skillMDPath)
@@ -222,6 +231,8 @@ func extractDescription(skillMDPath string) string {
 		return ""
 	}
 	content := string(data)
+	// Normalize Windows line endings
+	content = strings.ReplaceAll(content, "\r\n", "\n")
 
 	// Check for YAML frontmatter
 	if !strings.HasPrefix(content, "---") {
@@ -323,12 +334,49 @@ func (c *ReposCache) SaveIndexWithStars(starCounts map[string]int, urls map[stri
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(indexPath, data, 0600)
+	return atomicWriteFile(indexPath, data, 0600)
 }
+
+// atomicWriteFile writes data to a temp file then renames it to the target path.
+// This prevents partial writes from corrupting the file on crash.
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
+// maxIndexFileSize limits the index file size to prevent OOM on malformed files
+const maxIndexFileSize = 5 * 1024 * 1024 // 5MB
 
 // LoadIndex loads the repo index from disk
 func (c *ReposCache) LoadIndex() ([]RepoInfo, error) {
 	indexPath := filepath.Join(c.baseDir, "index.json")
+	info, err := os.Stat(indexPath)
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() > maxIndexFileSize {
+		return nil, fmt.Errorf("index file too large: %d bytes (max %d)", info.Size(), maxIndexFileSize)
+	}
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
 		return nil, err

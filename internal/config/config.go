@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -115,6 +116,29 @@ type Config struct {
 	LastProjectRoot string            `yaml:"last_project_root,omitempty"`
 }
 
+// GetAllSkillNames returns a deduplicated list of skill names from both
+// the legacy Skills list and the SkillsInfo list.
+func (c *Config) GetAllSkillNames() []string {
+	if c == nil {
+		return nil
+	}
+	allSkills := make([]string, 0, len(c.Skills)+len(c.SkillsInfo))
+	seen := make(map[string]bool)
+	for _, s := range c.Skills {
+		if !seen[s] {
+			seen[s] = true
+			allSkills = append(allSkills, s)
+		}
+	}
+	for _, si := range c.SkillsInfo {
+		if !seen[si.Name] {
+			seen[si.Name] = true
+			allSkills = append(allSkills, si.Name)
+		}
+	}
+	return allSkills
+}
+
 // IsSourceAllowed checks if a URL matches any of the allowed source patterns.
 // Patterns support glob-style matching (e.g. "anthropics/*", "company-org/*").
 func IsSourceAllowed(sourceURL string, allowedPatterns []string) bool {
@@ -130,14 +154,6 @@ func IsSourceAllowed(sourceURL string, allowedPatterns []string) bool {
 		matched, err := filepath.Match(pattern, normalized)
 		if err == nil && matched {
 			return true
-		}
-		// Also try matching just the owner portion
-		parts := strings.SplitN(normalized, "/", 2)
-		if len(parts) > 0 {
-			ownerMatch, err := filepath.Match(pattern, parts[0]+"/"+parts[len(parts)-1])
-			if err == nil && ownerMatch {
-				return true
-			}
 		}
 		// Simple prefix match for patterns like "company-org/*"
 		prefix := strings.TrimSuffix(pattern, "/*")
@@ -262,8 +278,18 @@ func DefaultConfig() Config {
 	}
 }
 
+// maxConfigFileSize limits the config file size to prevent OOM on malformed files
+const maxConfigFileSize = 1024 * 1024 // 1MB
+
 // loadConfigFromPath loads and merges a config from the given file path
 func loadConfigFromPath(path string) (*Config, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() > maxConfigFileSize {
+		return nil, fmt.Errorf("config file too large: %d bytes (max %d)", info.Size(), maxConfigFileSize)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -310,13 +336,40 @@ func LoadConfig() (*Config, error) {
 	return loadConfigFromPath("ask.yaml")
 }
 
-// Save saves the configuration to ask.yaml
+// Save saves the configuration to ask.yaml atomically
 func (c *Config) Save() error {
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("ask.yaml", data, 0600)
+	return atomicWriteFile("ask.yaml", data, 0600)
+}
+
+// atomicWriteFile writes data to a temp file then renames it to the target path.
+// This prevents partial writes from corrupting the file.
+func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
 
 // RemoveSkill removes a skill from the configuration
@@ -419,7 +472,7 @@ func LoadGlobalConfig() (*Config, error) {
 	return cfg, nil
 }
 
-// SaveGlobal saves the configuration to the global config file (~/.ask/config.yaml)
+// SaveGlobal saves the configuration to the global config file (~/.ask/config.yaml) atomically
 func (c *Config) SaveGlobal() error {
 	if err := EnsureGlobalDirExists(); err != nil {
 		return err
@@ -429,7 +482,7 @@ func (c *Config) SaveGlobal() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(GetGlobalConfigPath(), data, 0600)
+	return atomicWriteFile(GetGlobalConfigPath(), data, 0600)
 }
 
 // LoadConfigByScope loads config based on global flag
@@ -489,8 +542,16 @@ func DetectExistingToolDirs(projectDir string) []ToolTarget {
 		})
 	}
 
+	// Collect agent names and sort for deterministic output
+	agentNames := make([]string, 0, len(SupportedAgents))
+	for name := range SupportedAgents {
+		agentNames = append(agentNames, string(name))
+	}
+	sort.Strings(agentNames)
+
 	// Check for each supported agent's directory
-	for name, agentConfig := range SupportedAgents {
+	for _, nameStr := range agentNames {
+		agentConfig := SupportedAgents[AgentType(nameStr)]
 		// Check if the tool's parent directory exists (e.g., .claude, .cursor)
 		toolDir := filepath.Dir(agentConfig.ProjectDir)
 		if toolDir == "." {
@@ -498,7 +559,7 @@ func DetectExistingToolDirs(projectDir string) []ToolTarget {
 		}
 		if _, err := os.Stat(filepath.Join(projectDir, toolDir)); err == nil {
 			detected = append(detected, ToolTarget{
-				Name:      string(name),
+				Name:      nameStr,
 				SkillsDir: agentConfig.ProjectDir,
 				Enabled:   true,
 			})

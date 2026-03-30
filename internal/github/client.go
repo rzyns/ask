@@ -28,6 +28,8 @@ const (
 	httpTimeoutShort = 5 * time.Second
 	// maxDescriptionReadBytes limits how much of SKILL.md we read for description extraction
 	maxDescriptionReadBytes = 4096
+	// maxResponseBodySize limits how much of an HTTP response body we read
+	maxResponseBodySize = 5 * 1024 * 1024 // 5MB
 )
 
 // Global cache instance, protected by cacheMu for concurrent access
@@ -162,14 +164,18 @@ func SearchTopic(topic, keyword string) ([]Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
 	}
 
 	var result SearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(limitedBody).Decode(&result); err != nil {
 		return nil, err
 	}
 
@@ -219,14 +225,18 @@ func SearchDir(owner, repo, path string) ([]Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
 	}
 
 	var contents []Content
-	if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
+	if err := json.NewDecoder(limitedBody).Decode(&contents); err != nil {
 		return nil, err
 	}
 
@@ -298,7 +308,10 @@ func fetchSkillDescription(owner, repo, skillPath string) string {
 	if err != nil {
 		return ""
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBodySize))
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return ""
@@ -436,7 +449,11 @@ func (c *Client) GetRepoInfo(owner, repo string) (*RepoInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
@@ -453,7 +470,7 @@ func (c *Client) GetRepoInfo(owner, repo string) (*RepoInfo, error) {
 			CreatedAt time.Time `json:"created_at"`
 		} `json:"owner"`
 	}
-	if decErr := json.NewDecoder(resp.Body).Decode(&raw); decErr != nil {
+	if decErr := json.NewDecoder(limitedBody).Decode(&raw); decErr != nil {
 		return nil, decErr
 	}
 
@@ -488,7 +505,11 @@ func (c *Client) fetchOwnerAge(owner string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
@@ -497,7 +518,7 @@ func (c *Client) fetchOwnerAge(owner string) (int, error) {
 	var user struct {
 		CreatedAt time.Time `json:"created_at"`
 	}
-	if decErr := json.NewDecoder(resp.Body).Decode(&user); decErr != nil {
+	if decErr := json.NewDecoder(limitedBody).Decode(&user); decErr != nil {
 		return 0, decErr
 	}
 
@@ -525,14 +546,18 @@ func FetchRepoDetails(owner, repo string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
 	}
 
 	var repoInfo Repository
-	if err := json.NewDecoder(resp.Body).Decode(&repoInfo); err != nil {
+	if err := json.NewDecoder(limitedBody).Decode(&repoInfo); err != nil {
 		return nil, err
 	}
 	return &repoInfo, nil

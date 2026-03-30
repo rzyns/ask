@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -26,32 +27,49 @@ type LockFile struct {
 	Skills  []LockEntry `yaml:"skills"`
 }
 
-// LoadLockFile loads the ask.lock file
-func LoadLockFile() (*LockFile, error) {
-	data, err := os.ReadFile(LockFileName)
+// maxLockFileSize limits the lock file size to prevent OOM on malformed files
+const maxLockFileSize = 1024 * 1024 // 1MB
+
+// loadLockFromPath loads a lock file from the given path with size validation.
+func loadLockFromPath(path string) (*LockFile, error) {
+	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Return empty lock file if doesn't exist
 			return &LockFile{Version: 1, Skills: []LockEntry{}}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("read lock file: %w", err)
+	}
+	if info.Size() > maxLockFileSize {
+		return nil, fmt.Errorf("lock file too large: %d bytes (max %d)", info.Size(), maxLockFileSize)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read lock file: %w", err)
 	}
 
 	var lock LockFile
 	if err := yaml.Unmarshal(data, &lock); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse lock file: %w", err)
 	}
 
 	return &lock, nil
 }
 
-// Save saves the lock file to disk
+// LoadLockFile loads the ask.lock file
+func LoadLockFile() (*LockFile, error) {
+	return loadLockFromPath(LockFileName)
+}
+
+// Save saves the lock file to disk atomically
 func (l *LockFile) Save() error {
 	data, err := yaml.Marshal(l)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal lock file: %w", err)
 	}
-	return os.WriteFile(LockFileName, data, 0600)
+	if err := atomicWriteFile(LockFileName, data, 0600); err != nil {
+		return fmt.Errorf("write lock file: %w", err)
+	}
+	return nil
 }
 
 // AddEntry adds or updates a lock entry
@@ -89,35 +107,23 @@ func (l *LockFile) GetEntry(name string) *LockEntry {
 
 // LoadGlobalLockFile loads the global lock file (~/.ask/ask.lock)
 func LoadGlobalLockFile() (*LockFile, error) {
-	lockPath := GetGlobalLockPath()
-	data, err := os.ReadFile(lockPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Return empty lock file if doesn't exist
-			return &LockFile{Version: 1, Skills: []LockEntry{}}, nil
-		}
-		return nil, err
-	}
-
-	var lock LockFile
-	if err := yaml.Unmarshal(data, &lock); err != nil {
-		return nil, err
-	}
-
-	return &lock, nil
+	return loadLockFromPath(GetGlobalLockPath())
 }
 
-// SaveGlobal saves the lock file to the global location (~/.ask/ask.lock)
+// SaveGlobal saves the lock file to the global location (~/.ask/ask.lock) atomically
 func (l *LockFile) SaveGlobal() error {
 	if err := EnsureGlobalDirExists(); err != nil {
-		return err
+		return fmt.Errorf("ensure global dir: %w", err)
 	}
 
 	data, err := yaml.Marshal(l)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal global lock file: %w", err)
 	}
-	return os.WriteFile(GetGlobalLockPath(), data, 0600)
+	if err := atomicWriteFile(GetGlobalLockPath(), data, 0600); err != nil {
+		return fmt.Errorf("write global lock file: %w", err)
+	}
+	return nil
 }
 
 // LoadLockFileByScope loads lock file based on global flag

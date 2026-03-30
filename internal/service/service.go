@@ -2,9 +2,11 @@
 package service
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -47,9 +49,12 @@ func (m *Manager) ReadPID() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	pid, err := strconv.Atoi(string(data))
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	if err != nil {
 		return 0, err
+	}
+	if pid <= 0 {
+		return 0, fmt.Errorf("invalid PID: %d", pid)
 	}
 	return pid, nil
 }

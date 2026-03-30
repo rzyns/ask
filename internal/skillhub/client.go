@@ -17,6 +17,9 @@ import (
 // SearchURL is the endpoint for quick search
 const SearchURL = "https://www.skillhub.club/api/search/quick"
 
+// maxResponseBodySize is the maximum number of bytes read from HTTP responses.
+const maxResponseBodySize = 2 * 1024 * 1024
+
 // Pre-compiled regexes for Resolve()
 var (
 	reGitHubHref    = regexp.MustCompile(`href="(https://github\.com/[^"]+)"`)
@@ -43,6 +46,7 @@ type searchResponse struct {
 // Client handles interaction with SkillHub
 type Client struct {
 	HTTPClient *http.Client
+	BaseURL    string // override for testing; empty means use default SearchURL
 }
 
 // NewClient creates a new SkillHub client
@@ -68,7 +72,11 @@ func (c *Client) Search(query string) ([]Skill, error) {
 		return nil, fmt.Errorf("search is not available in offline mode")
 	}
 
-	u, err := url.Parse(SearchURL)
+	baseURL := SearchURL
+	if c.BaseURL != "" {
+		baseURL = c.BaseURL + "/api/search/quick"
+	}
+	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -81,14 +89,18 @@ func (c *Client) Search(query string) ([]Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("SkillHub API returned status: %d", resp.StatusCode)
 	}
 
 	var result searchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(limitedBody).Decode(&result); err != nil {
 		return nil, err
 	}
 
@@ -100,18 +112,26 @@ func (c *Client) Resolve(slug string) (string, error) {
 	if config.IsOffline() {
 		return "", fmt.Errorf("skill resolution is not available in offline mode")
 	}
-	skillURL := fmt.Sprintf("https://www.skillhub.club/skills/%s", url.PathEscape(slug))
+	baseHost := "https://www.skillhub.club"
+	if c.BaseURL != "" {
+		baseHost = c.BaseURL
+	}
+	skillURL := fmt.Sprintf("%s/skills/%s", baseHost, url.PathEscape(slug))
 	resp, err := c.HTTPClient.Get(skillURL)
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	limitedBody := io.LimitReader(resp.Body, maxResponseBodySize)
+	defer func() {
+		_, _ = io.Copy(io.Discard, limitedBody)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to fetch skill page: %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
+	body, err := io.ReadAll(limitedBody)
 	if err != nil {
 		return "", err
 	}
@@ -126,21 +146,56 @@ func (c *Client) Resolve(slug string) (string, error) {
 		if idx := strings.Index(rawURL, "#"); idx != -1 {
 			rawURL = rawURL[:idx]
 		}
+		if err := validateResolvedURL(rawURL); err != nil {
+			return "", fmt.Errorf("resolved URL failed validation: %w", err)
+		}
 		return rawURL, nil
 	}
 
 	// Fallback: try to find repoUrl in Next.js hydration data or JSON
 	matchesJSON := reRepoURLJSON.FindStringSubmatch(bodyStr)
 	if len(matchesJSON) > 1 {
-		rawURL := matchesJSON[1]
-		return strings.ReplaceAll(rawURL, `\/`, "/"), nil
+		rawURL := strings.ReplaceAll(matchesJSON[1], `\/`, "/")
+		if err := validateResolvedURL(rawURL); err != nil {
+			return "", fmt.Errorf("resolved URL failed validation: %w", err)
+		}
+		return rawURL, nil
 	}
 
 	// Try one more pattern for escaped JSON
 	matchesEscaped := reRepoURLEscape.FindStringSubmatch(bodyStr)
 	if len(matchesEscaped) > 1 {
-		return matchesEscaped[1], nil
+		rawURL := matchesEscaped[1]
+		if err := validateResolvedURL(rawURL); err != nil {
+			return "", fmt.Errorf("resolved URL failed validation: %w", err)
+		}
+		return rawURL, nil
 	}
 
 	return "", fmt.Errorf("GitHub URL not found for skill: %s", slug)
+}
+
+// validateResolvedURL checks that a URL resolved from SkillHub is a valid GitHub repository URL.
+// This prevents potential SSRF or supply-chain attacks if SkillHub returns unexpected URLs.
+func validateResolvedURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("URL must use HTTPS scheme, got %q", parsed.Scheme)
+	}
+	if parsed.Host != "github.com" {
+		return fmt.Errorf("URL must be from github.com, got %q", parsed.Host)
+	}
+	// Must have at least owner/repo in path
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return fmt.Errorf("URL must contain owner/repo path")
+	}
+	// Reject path traversal
+	if strings.Contains(parsed.Path, "..") {
+		return fmt.Errorf("URL path contains path traversal")
+	}
+	return nil
 }

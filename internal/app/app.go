@@ -30,7 +30,7 @@ func (a *App) Startup(ctx context.Context) {
 		fmt.Println("Global config not found, initializing default...")
 		defaultCfg := config.DefaultConfig()
 		if err := defaultCfg.SaveGlobal(); err != nil {
-			fmt.Printf("Failed to initialize global config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to initialize global config: %v\n", err)
 		} else {
 			fmt.Printf("Initialized global config at %s\n", globalPath)
 		}
@@ -41,7 +41,7 @@ func (a *App) Startup(ctx context.Context) {
 	if err == nil && globalCfg.LastProjectRoot != "" {
 		// 2. Try to switch to LastProjectRoot
 		if err := os.Chdir(globalCfg.LastProjectRoot); err != nil {
-			fmt.Printf("Failed to switch to last project root: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to switch to last project root: %v\n", err)
 			// If failed, fall back to home
 			fallbackToHome()
 		} else {
@@ -56,7 +56,7 @@ func (a *App) Startup(ctx context.Context) {
 func fallbackToHome() {
 	if home, err := os.UserHomeDir(); err == nil {
 		if err := os.Chdir(home); err != nil {
-			fmt.Printf("Failed to switch to home dir: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to switch to home dir: %v\n", err)
 		} else {
 			fmt.Printf("Switched to home dir: %s\n", home)
 		}
