@@ -48,7 +48,11 @@ func runInteractiveInit(cmd *cobra.Command, _ []string) {
 	fmt.Println()
 
 	// --- Step 1: Detect and select agents ---
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+		os.Exit(1)
+	}
 	detected := config.DetectExistingToolDirs(cwd)
 	detectedSet := make(map[string]bool)
 	for _, d := range detected {
@@ -94,7 +98,7 @@ func runInteractiveInit(cmd *cobra.Command, _ []string) {
 		huhOpts = append(huhOpts, huh.NewOption(opt.display, opt.key))
 	}
 
-	err := huh.NewForm(
+	err = huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Which agents do you use?").
@@ -104,19 +108,19 @@ func runInteractiveInit(cmd *cobra.Command, _ []string) {
 		),
 	).Run()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	// --- Step 2: Create config and directories ---
 	skillsDir := config.DefaultSkillsDir
 	if err := os.MkdirAll(skillsDir, 0755); err != nil {
-		fmt.Printf("Error creating skills directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating skills directory: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := config.CreateConfigWithAgents(selectedAgents); err != nil {
-		fmt.Printf("Error creating ask.yaml: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating ask.yaml: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -175,16 +179,20 @@ func runInteractiveInit(cmd *cobra.Command, _ []string) {
 func runNonInteractiveInit() {
 	skillsDir := config.DefaultSkillsDir
 	if err := os.MkdirAll(skillsDir, 0755); err != nil {
-		fmt.Printf("Error creating skills directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating skills directory: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := config.CreateDefaultConfig(); err != nil {
-		fmt.Printf("Error creating ask.yaml: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating ask.yaml: %v\n", err)
 		os.Exit(1)
 	}
 
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+		os.Exit(1)
+	}
 	detected := config.DetectExistingToolDirs(cwd)
 
 	color.Green("✓ Initialized ASK project")
@@ -240,7 +248,7 @@ func installStarterPack(packName string, agents []string) {
 	for _, skillInput := range pack.Skills {
 		err := installer.Install(skillInput, opts)
 		if err != nil {
-			fmt.Printf("  ✗ %s: %v\n", skillInput, err)
+			fmt.Fprintf(os.Stderr, "  ✗ %s: %v\n", skillInput, err)
 			failed++
 		} else {
 			color.Green("  ✓ %s", skillInput)

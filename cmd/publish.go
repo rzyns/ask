@@ -50,7 +50,7 @@ func runPublish(cmd *cobra.Command, args []string) {
 		targetPath, err = os.Getwd()
 	}
 	if err != nil {
-		fmt.Printf("Error resolving path: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -74,7 +74,7 @@ func runPublish(cmd *cobra.Command, args []string) {
 	meta, err := skill.ParseSkillMD(targetPath)
 	if err != nil {
 		color.Red("FAIL")
-		fmt.Printf("    %v\n", err)
+		fmt.Fprintf(os.Stderr, "    %v\n", err)
 		os.Exit(1)
 	}
 
@@ -104,7 +104,7 @@ func runPublish(cmd *cobra.Command, args []string) {
 	result, err := skill.CheckSafety(targetPath)
 	if err != nil {
 		color.Red("FAIL")
-		fmt.Printf("    %v\n", err)
+		fmt.Fprintf(os.Stderr, "    %v\n", err)
 		os.Exit(1)
 	}
 
@@ -195,11 +195,11 @@ func runPublish(cmd *cobra.Command, args []string) {
 	if output != "" {
 		data, err := json.MarshalIndent(entry, "", "  ")
 		if err != nil {
-			fmt.Printf("Error marshaling registry entry: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error marshaling registry entry: %v\n", err)
 			os.Exit(1)
 		}
 		if err := os.WriteFile(output, data, 0600); err != nil {
-			fmt.Printf("Error writing registry entry: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error writing registry entry: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("\nRegistry entry saved to %s\n", output)
@@ -209,7 +209,7 @@ func runPublish(cmd *cobra.Command, args []string) {
 		fmt.Println()
 		data, err := json.MarshalIndent(entry, "  ", "  ")
 		if err != nil {
-			fmt.Printf("Error marshaling registry entry: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error marshaling registry entry: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("  %s\n", string(data))

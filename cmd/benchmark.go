@@ -28,7 +28,7 @@ var benchmarkCmd = &cobra.Command{
 		// 1. Search (Cold) - Use a temporary cache directory for benchmarking
 		tmpCacheDir, err := os.MkdirTemp("", "ask-bench-cache-*")
 		if err != nil {
-			fmt.Printf("Error creating temp cache: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error creating temp cache: %v\n", err)
 			return
 		}
 		defer func() { _ = os.RemoveAll(tmpCacheDir) }()

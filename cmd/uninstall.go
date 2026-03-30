@@ -44,7 +44,7 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 		// Validate agent names
 		for _, agent := range agents {
 			if !config.IsValidAgent(agent) {
-				fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
+				fmt.Fprintf(os.Stderr, "Error: Unknown agent '%s'. Supported agents: %s\n",
 					agent, strings.Join(config.GetSupportedAgentNames(), ", "))
 				os.Exit(1)
 			}
@@ -55,7 +55,7 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 		// Validate skill name to prevent path traversal
 		if targetName == "." || targetName == ".." || targetName == "" ||
 			strings.ContainsAny(targetName, `/\`) {
-			fmt.Printf("Error: Invalid skill name '%s'\n", skillName)
+			fmt.Fprintf(os.Stderr, "Error: Invalid skill name '%s'\n", skillName)
 			os.Exit(1)
 		}
 
@@ -84,9 +84,16 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 				scopeLabel = "global"
 			} else {
 				// Use active/detected directories
-				cfg, _ := config.LoadConfig()
+				cfg, cfgErr := config.LoadConfig()
+				if cfgErr != nil {
+					ui.Debug(fmt.Sprintf("Failed to load config: %v", cfgErr))
+				}
 				if cfg != nil {
-					wd, _ := os.Getwd()
+					wd, wdErr := os.Getwd()
+					if wdErr != nil {
+						fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", wdErr)
+						os.Exit(1)
+					}
 					targetDirs = cfg.GetActiveSkillsDirs(wd)
 				}
 				scopeLabel = "detected targets"
@@ -111,7 +118,7 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 				continue
 			}
 
-			if _, err := os.Stat(skillPath); !os.IsNotExist(err) {
+			if _, err := os.Stat(skillPath); err == nil {
 				// Check if the path is a symlink
 				if filesystem.IsSymlink(skillPath) {
 					ui.Debug(fmt.Sprintf("Removing symlink %s...", skillPath))
@@ -132,18 +139,22 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 						removedCount++
 					}
 				}
+			} else if !os.IsNotExist(err) {
+				ui.Warn(fmt.Sprintf("Cannot access %s: %v", skillPath, err))
 			}
 		}
 
 		// Remove source from central storage if --all is specified
 		if removeAll {
-			if _, err := os.Stat(centralPath); !os.IsNotExist(err) {
+			if _, err := os.Stat(centralPath); err == nil {
 				ui.Debug(fmt.Sprintf("Removing source %s...", centralPath))
 				if err := os.RemoveAll(centralPath); err != nil {
 					ui.Warn(fmt.Sprintf("Failed to remove source: %v", err))
 				} else {
 					removedCount++
 				}
+			} else if !os.IsNotExist(err) {
+				ui.Warn(fmt.Sprintf("Cannot access %s: %v", centralPath, err))
 			}
 
 			// Also update configuration when removing source

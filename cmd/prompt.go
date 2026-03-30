@@ -115,8 +115,12 @@ func runPrompt(_ *cobra.Command, args []string) {
 // discoverInstalledSkills finds all installed skills in known locations
 func discoverInstalledSkills() []string {
 	var paths []string
-	cwd, _ := os.Getwd()
-	home, _ := os.UserHomeDir()
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+		return nil
+	}
+	home, homeErr := os.UserHomeDir()
 
 	// Locations to scan
 	searchDirs := []string{
@@ -127,13 +131,13 @@ func discoverInstalledSkills() []string {
 	// Add agent-specific directories
 	for _, agentConfig := range config.SupportedAgents {
 		searchDirs = append(searchDirs, filepath.Join(cwd, agentConfig.ProjectDir))
-		if home != "" {
+		if homeErr == nil && home != "" {
 			searchDirs = append(searchDirs, filepath.Join(home, agentConfig.GlobalDir))
 		}
 	}
 
 	// Add global skills directory
-	if home != "" {
+	if homeErr == nil && home != "" {
 		searchDirs = append(searchDirs, filepath.Join(home, ".ask", "skills"))
 	}
 
@@ -157,7 +161,10 @@ func discoverInstalledSkills() []string {
 			skillPath := filepath.Join(dir, entry.Name())
 			if skill.FindSkillMD(skillPath) {
 				// Use absolute path for deduplication
-				absPath, _ := filepath.Abs(skillPath)
+				absPath, absErr := filepath.Abs(skillPath)
+				if absErr != nil {
+					continue
+				}
 				if !containsPath(paths, absPath) {
 					paths = append(paths, absPath)
 				}

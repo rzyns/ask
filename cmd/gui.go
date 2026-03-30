@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/wailsapp/wails/v2"
@@ -54,6 +55,7 @@ func startGUI() {
 	})
 
 	if err != nil {
-		log.Fatal("Error starting application: " + err.Error())
+		fmt.Fprintf(os.Stderr, "Error starting application: %v\n", err)
+		os.Exit(1)
 	}
 }

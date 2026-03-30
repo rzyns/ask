@@ -54,20 +54,7 @@ Use --global to update global skills.`,
 		}
 
 		// Build combined deduplicated skills list
-		allSkills := make([]string, 0, len(cfg.Skills)+len(cfg.SkillsInfo))
-		seen := make(map[string]bool)
-		for _, s := range cfg.Skills {
-			if !seen[s] {
-				seen[s] = true
-				allSkills = append(allSkills, s)
-			}
-		}
-		for _, si := range cfg.SkillsInfo {
-			if !seen[si.Name] {
-				seen[si.Name] = true
-				allSkills = append(allSkills, si.Name)
-			}
-		}
+		allSkills := cfg.GetAllSkillNames()
 
 		// Determine which skills to update
 		var skillsToUpdate []string
@@ -112,19 +99,19 @@ Use --global to update global skills.`,
 
 			ui.Debug(fmt.Sprintf("Updating %s...", skillName))
 
-			// Run git pull
+			// Run git pull (use --ff-only to avoid leaving broken rebase state)
 			pullCtx, pullCancel := context.WithTimeout(context.Background(), 60*time.Second)
-			gitCmd := exec.CommandContext(pullCtx, "git", "pull", "--rebase")
+			gitCmd := exec.CommandContext(pullCtx, "git", "pull", "--ff-only")
 			gitCmd.Dir = skillPath
 			gitCmd.Stdout = os.Stdout
 			gitCmd.Stderr = os.Stderr
 
-			if err := gitCmd.Run(); err != nil {
-				pullCancel()
-				ui.Warn(fmt.Sprintf("  Failed to update %s: %v", skillName, err))
+			runErr := gitCmd.Run()
+			pullCancel()
+			if runErr != nil {
+				ui.Warn(fmt.Sprintf("  Failed to update %s: %v", skillName, runErr))
 				continue
 			}
-			pullCancel()
 
 			ui.Debug(fmt.Sprintf("  Updated %s successfully!", skillName))
 		}

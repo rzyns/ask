@@ -104,7 +104,7 @@ If no pack is specified, lists all available packs.`,
 		for _, skillInput := range selectedPack.Skills {
 			err := installer.Install(skillInput, opts)
 			if err != nil {
-				fmt.Printf("  ✗ Failed: %s (%v)\n", skillInput, err)
+				fmt.Fprintf(os.Stderr, "  ✗ Failed: %s (%v)\n", skillInput, err)
 				failed++
 			} else {
 				fmt.Printf("  ✓ Installed: %s\n", skillInput)

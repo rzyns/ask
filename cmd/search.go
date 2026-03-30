@@ -195,8 +195,12 @@ func runSearch(cmd *cobra.Command, args []string) {
 
 	results := make(chan searchResult, len(cfg.Repos))
 
+	// Limit concurrent goroutines to avoid excessive parallel requests
+	sem := make(chan struct{}, 5)
 	for _, repo := range cfg.Repos {
 		go func(r config.Repo) {
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			var repos []github.Repository
 			var err error
 

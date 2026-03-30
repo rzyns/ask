@@ -31,7 +31,7 @@ If no repo name is specified, syncs all configured repositories.`,
 	Run: func(_ *cobra.Command, args []string) {
 		reposCache, err := cache.NewReposCache()
 		if err != nil {
-			fmt.Printf("Error initializing repos cache: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error initializing repos cache: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -96,9 +96,15 @@ If no repo name is specified, syncs all configured repositories.`,
 		)
 
 		for _, repo := range targetRepos {
-			repo := repo // Capture loop variable
 			g.Go(func() error {
 				repoURL := buildRepoURL(repo.URL)
+				if repoURL == "" {
+					ui.Warn(fmt.Sprintf("Skipping repo '%s': invalid URL", repo.Name))
+					if err := bar.Add(1); err != nil {
+						ui.Debug(fmt.Sprintf("Failed to update progress bar: %v", err))
+					}
+					return nil
+				}
 				repoName := repo.Name
 				if repoName == "" {
 					repoName = buildRepoName(repo.URL)
@@ -118,6 +124,19 @@ If no repo name is specified, syncs all configured repositories.`,
 				}
 				ui.UpdateDescription(bar, fmt.Sprintf("Synced %s", repo.Name))
 
+				// Fetch star count from GitHub API outside the lock
+				// to avoid holding the mutex during network I/O
+				var stars int
+				if err == nil {
+					owner, repoPath, parseErr := github.ParseRepoURL(repo.URL)
+					if parseErr == nil {
+						repoDetails, detailErr := github.FetchRepoDetails(owner, repoPath)
+						if detailErr == nil {
+							stars = repoDetails.StargazersCount
+						}
+					}
+				}
+
 				mu.Lock()
 				defer mu.Unlock()
 
@@ -133,15 +152,8 @@ If no repo name is specified, syncs all configured repositories.`,
 				}
 
 				successCount++
-
-				// Fetch star count from GitHub API
-				// This is also done inside the goroutine to parallelize it
-				owner, repoPath, err := github.ParseRepoURL(repo.URL)
-				if err == nil {
-					repoDetails, err := github.FetchRepoDetails(owner, repoPath)
-					if err == nil {
-						starCounts[repoName] = repoDetails.StargazersCount
-					}
+				if stars > 0 {
+					starCounts[repoName] = stars
 				}
 
 				return nil
@@ -150,7 +162,7 @@ If no repo name is specified, syncs all configured repositories.`,
 
 		// Wait for all goroutines to finish
 		if err := g.Wait(); err != nil {
-			fmt.Printf("Error during sync: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error during sync: %v\n", err)
 		}
 
 		fmt.Println() // Newline after progress bar

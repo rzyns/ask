@@ -72,7 +72,7 @@ Use --global to check global skills.`,
 			meta, err := skill.ParseSkillMD(skillPath)
 			if err != nil {
 				if !jsonOutput {
-					fmt.Printf("Warning: Could not parse SKILL.md: %v\n", err)
+					fmt.Fprintf(os.Stderr, "Warning: Could not parse SKILL.md: %v\n", err)
 				}
 			} else {
 				info.Name = meta.Name // Use name from metadata if available

@@ -47,20 +47,7 @@ Use --global to check global skills.`,
 		}
 
 		// Build combined deduplicated skills list
-		allSkills := make([]string, 0, len(cfg.Skills)+len(cfg.SkillsInfo))
-		seen := make(map[string]bool)
-		for _, s := range cfg.Skills {
-			if !seen[s] {
-				seen[s] = true
-				allSkills = append(allSkills, s)
-			}
-		}
-		for _, si := range cfg.SkillsInfo {
-			if !seen[si.Name] {
-				seen[si.Name] = true
-				allSkills = append(allSkills, si.Name)
-			}
-		}
+		allSkills := cfg.GetAllSkillNames()
 
 		lockFile, err := config.LoadLockFileByScope(global)
 		if err != nil || lockFile == nil {

@@ -109,6 +109,7 @@ func runServiceStart(_ *cobra.Command, _ []string) {
 	bgCmd.SysProcAttr = sysProcAttr()
 
 	if err := bgCmd.Start(); err != nil {
+		_ = logFile.Close()
 		ui.Error("Failed to start service: " + err.Error())
 		return
 	}

@@ -33,7 +33,7 @@ team members and CI/CD pipelines.`,
 
 		lockFile, err := config.LoadLockFileByScope(global)
 		if err != nil {
-			fmt.Printf("Error loading lock file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error loading lock file: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -88,12 +88,12 @@ team members and CI/CD pipelines.`,
 
 			err := installer.Install(input, opts)
 			if err != nil {
-				fmt.Printf("  %s %s: %v\n", color.RedString("✗"), entry.Name, err)
+				fmt.Fprintf(os.Stderr, "  %s %s: %v\n", color.RedString("✗"), entry.Name, err)
 				failed++
 			} else {
 				version := entry.Version
 				if version == "" && entry.Commit != "" {
-					version = entry.Commit[:minInt(7, len(entry.Commit))]
+					version = entry.Commit[:min(7, len(entry.Commit))]
 				}
 				if version != "" {
 					fmt.Printf("  %s %s (%s)\n", color.GreenString("✓"), entry.Name, version)
@@ -122,13 +122,6 @@ team members and CI/CD pipelines.`,
 			os.Exit(1)
 		}
 	},
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func init() {

@@ -44,7 +44,7 @@ func runTest(_ *cobra.Command, args []string) {
 		targetPath, err = os.Getwd()
 	}
 	if err != nil {
-		fmt.Printf("Error resolving path: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -71,7 +71,7 @@ func runTest(_ *cobra.Command, args []string) {
 	if err != nil || meta == nil {
 		color.Red("FAIL")
 		if err != nil {
-			fmt.Printf("    %v\n", err)
+			fmt.Fprintf(os.Stderr, "    %v\n", err)
 		}
 		failed++
 	} else {
@@ -119,7 +119,7 @@ func runTest(_ *cobra.Command, args []string) {
 	result, err := skill.CheckSafety(targetPath)
 	if err != nil {
 		color.Red("FAIL")
-		fmt.Printf("    %v\n", err)
+		fmt.Fprintf(os.Stderr, "    %v\n", err)
 		failed++
 	} else {
 		criticals := 0

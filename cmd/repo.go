@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +18,8 @@ import (
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/ui"
 )
+
+const maxResponseBodySize = 5 * 1024 * 1024 // 5MB
 
 var (
 	githubAPIBaseURL = "https://api.github.com"
@@ -61,7 +64,7 @@ Examples:
 		// Parse username/repo format
 		parts := strings.Split(input, "/")
 		if len(parts) < 2 {
-			fmt.Println("Error: Invalid format. Use: owner/repo")
+			fmt.Fprintln(os.Stderr, "Error: Invalid format. Use: owner/repo")
 			os.Exit(1)
 		}
 
@@ -79,10 +82,10 @@ Examples:
 		// Validate repository exists and is a valid skills repo
 		valid, repoType, detectedPath := validateSkillsRepo(owner, repo, path)
 		if !valid {
-			fmt.Println("Error: Repository does not appear to be a valid skills repository.")
-			fmt.Println("A valid skills repo should contain:")
-			fmt.Println("  - A 'skills/' directory with skill folders, or")
-			fmt.Println("  - Skills directly at root with SKILL.md files")
+			fmt.Fprintln(os.Stderr, "Error: Repository does not appear to be a valid skills repository.")
+			fmt.Fprintln(os.Stderr, "A valid skills repo should contain:")
+			fmt.Fprintln(os.Stderr, "  - A 'skills/' directory with skill folders, or")
+			fmt.Fprintln(os.Stderr, "  - Skills directly at root with SKILL.md files")
 			os.Exit(1)
 		}
 
@@ -93,7 +96,7 @@ Examples:
 				def := config.DefaultConfig()
 				cfg = &def
 			} else {
-				fmt.Printf("Error loading config: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 				os.Exit(1)
 			}
 		}
@@ -135,7 +138,7 @@ Examples:
 		cfg.Repos = append(cfg.Repos, newRepo)
 
 		if err := cfg.Save(); err != nil {
-			fmt.Printf("Error saving config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -149,7 +152,7 @@ Examples:
 			// Locate the executable
 			exe, err := os.Executable()
 			if err != nil {
-				fmt.Printf("Warning: Failed to locate executable for sync: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: Failed to locate executable for sync: %v\n", err)
 				return
 			}
 
@@ -158,7 +161,7 @@ Examples:
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				fmt.Printf("Error syncing repo: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error syncing repo: %v\n", err)
 				// Don't exit 1, as add was successful
 			}
 		} else {
@@ -184,7 +187,7 @@ Examples:
 				def := config.DefaultConfig()
 				cfg = &def
 			} else {
-				fmt.Printf("Error loading config: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 				os.Exit(1)
 			}
 		}
@@ -275,11 +278,11 @@ Examples:
 				// Use the found repo's name for display
 				repoName = targetRepo.Name
 			} else if len(matchedRepos) > 1 {
-				fmt.Printf("Error: Multiple repositories match '%s':\n", repoName)
+				fmt.Fprintf(os.Stderr, "Error: Multiple repositories match '%s':\n", repoName)
 				for _, r := range matchedRepos {
-					fmt.Printf("  - %s (URL: %s)\n", r.Name, r.URL)
+					fmt.Fprintf(os.Stderr, "  - %s (URL: %s)\n", r.Name, r.URL)
 				}
-				fmt.Println("Please specify the exact repository name.")
+				fmt.Fprintln(os.Stderr, "Please specify the exact repository name.")
 				os.Exit(1)
 			}
 		}
@@ -305,7 +308,7 @@ Examples:
 		fmt.Println()
 
 		if fetchErr != nil {
-			fmt.Printf("Error fetching skills: %v\n", fetchErr)
+			fmt.Fprintf(os.Stderr, "Error fetching skills: %v\n", fetchErr)
 			return
 		}
 
@@ -368,14 +371,17 @@ func fetchRepoContents(owner, repo, path string) ([]githubRepoContent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBodySize))
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
 	var contents []githubRepoContent
-	if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBodySize)).Decode(&contents); err != nil {
 		return nil, err
 	}
 
@@ -430,7 +436,10 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 	if err != nil {
 		return false, "", ""
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBodySize))
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return false, "", ""
 	}
@@ -466,7 +475,7 @@ var repoRemoveCmd = &cobra.Command{
 		name := args[0]
 		cfg, err := config.LoadConfig()
 		if err != nil {
-			fmt.Printf("Error loading config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -487,7 +496,7 @@ var repoRemoveCmd = &cobra.Command{
 
 		cfg.Repos = newRepos
 		if err := cfg.Save(); err != nil {
-			fmt.Printf("Error saving config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}
 

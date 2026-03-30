@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"time"
@@ -66,13 +69,13 @@ func runCheck(cmd *cobra.Command, args []string) {
 	if len(args) > 0 {
 		targetPath, err = filepath.Abs(args[0])
 		if err != nil {
-			fmt.Printf("Error resolving path: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
 		targetPath, err = os.Getwd()
 		if err != nil {
-			fmt.Printf("Error getting current directory: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -97,7 +100,7 @@ func runCheck(cmd *cobra.Command, args []string) {
 
 		result, err := checkSingleSkill(targetPath)
 		if err != nil {
-			fmt.Printf("Error checking skill: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error checking skill: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -115,12 +118,12 @@ func runCheck(cmd *cobra.Command, args []string) {
 		if format == "sarif" {
 			content, err := skill.GenerateSARIFReport(result, Version)
 			if err != nil {
-				fmt.Printf("Error generating SARIF report: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error generating SARIF report: %v\n", err)
 				os.Exit(1)
 			}
 			if outputFile != "" {
 				if err := os.WriteFile(outputFile, []byte(content), 0600); err != nil {
-					fmt.Printf("Error writing report: %v\n", err)
+					fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
 					os.Exit(1)
 				}
 				fmt.Fprintf(os.Stderr, "SARIF report saved to %s\n", outputFile)
@@ -198,12 +201,12 @@ func handleReport(result *skill.CheckResult, filename string) {
 
 	content, err := skill.GenerateReport(result, format)
 	if err != nil {
-		fmt.Printf("Error generating report: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error generating report: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := os.WriteFile(filename, []byte(content), 0600); err != nil {
-		fmt.Printf("Error writing report to %s: %v\n", filename, err)
+		fmt.Fprintf(os.Stderr, "Error writing report to %s: %v\n", filename, err)
 		os.Exit(1)
 	}
 
@@ -308,7 +311,11 @@ func scanProject(rootDir string, label string) {
 
 	foundSkills := 0
 	issuesFound := false
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+		return
+	}
 
 	// Aggregate results
 	// Use formatted path for display if it looks like a path
@@ -358,7 +365,10 @@ func scanProject(rootDir string, label string) {
 				// Check if this directory is a skill
 				if skill.FindSkillMD(path) {
 					// Use absolute path for uniqueness check
-					absPath, _ := filepath.Abs(path)
+					absPath, absErr := filepath.Abs(path)
+					if absErr != nil {
+						return nil // Skip this path on error
+					}
 					if scannedPaths[absPath] {
 						return filepath.SkipDir // Already scanned this skill
 					}
@@ -370,7 +380,7 @@ func scanProject(rootDir string, label string) {
 
 					result, err := checkSingleSkill(path)
 					if err != nil {
-						fmt.Printf("  Error checking skill: %v\n", err)
+						fmt.Fprintf(os.Stderr, "  Error checking skill: %v\n", err)
 						return nil
 					}
 
@@ -432,10 +442,13 @@ func runWatchMode(targetPath, severityFilter string) {
 	// Run initial check
 	printWatchResult("initial scan", targetPath, severityFilter)
 
-	err := skill.WatchAndCheck(targetPath, func(event string, result *skill.CheckResult, checkErr error) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	err := skill.WatchAndCheck(ctx, targetPath, func(event string, result *skill.CheckResult, checkErr error) {
 		timestamp := time.Now().Format("15:04:05")
 		if checkErr != nil {
-			fmt.Printf("[%s] %s error: %v\n", color.YellowString(timestamp), event, checkErr)
+			fmt.Fprintf(os.Stderr, "[%s] %s error: %v\n", color.YellowString(timestamp), event, checkErr)
 			return
 		}
 
@@ -488,8 +501,8 @@ func runWatchMode(targetPath, severityFilter string) {
 		}
 	})
 
-	if err != nil {
-		fmt.Printf("Watch error: %v\n", err)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		fmt.Fprintf(os.Stderr, "Watch error: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -498,7 +511,7 @@ func printWatchResult(event, targetPath, severityFilter string) {
 	timestamp := time.Now().Format("15:04:05")
 	result, err := skill.CheckSafety(targetPath)
 	if err != nil {
-		fmt.Printf("[%s] %s error: %v\n", color.YellowString(timestamp), event, err)
+		fmt.Fprintf(os.Stderr, "[%s] %s error: %v\n", color.YellowString(timestamp), event, err)
 		return
 	}
 

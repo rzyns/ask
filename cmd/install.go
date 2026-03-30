@@ -63,7 +63,7 @@ const maxInputLength = 255
 func runInstall(cmd *cobra.Command, args []string) {
 	// Check for offline mode
 	if offline, _ := cmd.Flags().GetBool("offline"); offline || config.IsOffline() {
-		fmt.Println("Error: Cannot install skills in offline mode.")
+		fmt.Fprintln(os.Stderr, "Error: Cannot install skills in offline mode.")
 		os.Exit(1)
 	}
 
@@ -76,7 +76,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 	// Validate agent names
 	for _, agent := range agents {
 		if !config.IsValidAgent(agent) {
-			fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
+			fmt.Fprintf(os.Stderr, "Error: Unknown agent '%s'. Supported agents: %s\n",
 				agent, strings.Join(config.GetSupportedAgentNames(), ", "))
 			os.Exit(1)
 		}
@@ -158,7 +158,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		}
 
 		if len(skillArgs) == 0 {
-			fmt.Println("No skills specified and no ask.lock or ask.yaml found with skills.")
+			fmt.Fprintln(os.Stderr, "No skills specified and no ask.lock or ask.yaml found with skills.")
 			os.Exit(1)
 		}
 	}
@@ -186,9 +186,8 @@ func runInstall(cmd *cobra.Command, args []string) {
 		}
 
 		if targetRepo == nil {
-			fmt.Printf("Error: Repository '%s' not found in configuration. Use 'ask repo list' to see available repositories.\n", repoName)
+			fmt.Fprintf(os.Stderr, "Error: Repository '%s' not found in configuration. Use 'ask repo list' to see available repositories.\n", repoName)
 			os.Exit(1)
-			return
 		}
 
 		fmt.Printf("Fetching skills from repo '%s'...\n", repoName)
@@ -203,7 +202,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		}
 
 		if err != nil {
-			fmt.Printf("Failed to fetch skills from repo '%s': %v\n", repoName, err)
+			fmt.Fprintf(os.Stderr, "Failed to fetch skills from repo '%s': %v\n", repoName, err)
 			os.Exit(1)
 		}
 
@@ -224,7 +223,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 					}
 				}
 				if !found {
-					fmt.Printf("Warning: Skill '%s' not found in repo '%s'\n", wanted, repoName)
+					fmt.Fprintf(os.Stderr, "Warning: Skill '%s' not found in repo '%s'\n", wanted, repoName)
 					failed = append(failed, wanted)
 				}
 			}
@@ -239,7 +238,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		// Existing logic for mixed args (repo matched or skill matched)
 		for _, input := range skillArgs {
 			if len(input) > maxInputLength {
-				fmt.Printf("Error: Input '%s...' is too long (max %d chars)\n", input[:20], maxInputLength)
+				fmt.Fprintf(os.Stderr, "Error: Input '%s...' is too long (max %d chars)\n", input[:20], maxInputLength)
 				failed = append(failed, input)
 				continue
 			}
@@ -277,7 +276,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 				}
 
 				if err != nil {
-					fmt.Printf("Failed to fetch skills from repo '%s': %v\n", input, err)
+					fmt.Fprintf(os.Stderr, "Failed to fetch skills from repo '%s': %v\n", input, err)
 					failed = append(failed, input)
 					continue
 				}
@@ -303,7 +302,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		if cfg.Enterprise.RequireLock {
 			lockFile, lockErr := config.LoadLockFile()
 			if lockErr != nil || len(lockFile.Skills) == 0 {
-				fmt.Println("Enterprise policy: ask.lock is required. Run 'ask lock-install' instead.")
+				fmt.Fprintln(os.Stderr, "Enterprise policy: ask.lock is required. Run 'ask lock-install' instead.")
 				os.Exit(1)
 			}
 		}
@@ -317,11 +316,11 @@ func runInstall(cmd *cobra.Command, args []string) {
 				}
 			}
 			if len(blocked) > 0 {
-				fmt.Printf("Enterprise policy: the following sources are not allowed:\n")
+				fmt.Fprintf(os.Stderr, "Enterprise policy: the following sources are not allowed:\n")
 				for _, b := range blocked {
-					fmt.Printf("  - %s\n", b)
+					fmt.Fprintf(os.Stderr, "  - %s\n", b)
 				}
-				fmt.Printf("Allowed sources: %s\n", strings.Join(cfg.Enterprise.AllowedSources, ", "))
+				fmt.Fprintf(os.Stderr, "Allowed sources: %s\n", strings.Join(cfg.Enterprise.AllowedSources, ", "))
 				os.Exit(1)
 			}
 		}
@@ -343,7 +342,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		err := installer.Install(input, opts)
 		if err != nil {
 			failed = append(failed, input)
-			fmt.Printf("Failed to install %s: %v\n", input, err)
+			fmt.Fprintf(os.Stderr, "Failed to install %s: %v\n", input, err)
 		} else {
 			succeeded = append(succeeded, input)
 		}
@@ -360,8 +359,11 @@ func runInstall(cmd *cobra.Command, args []string) {
 		} else if global {
 			targetDisplay = "global"
 		} else {
-			wd, _ := os.Getwd()
-			detected := config.DetectExistingToolDirs(wd)
+			wd, wdErr := os.Getwd()
+			detected := []config.ToolTarget{}
+			if wdErr == nil {
+				detected = config.DetectExistingToolDirs(wd)
+			}
 			if len(detected) > 0 {
 				var names []string
 				for _, t := range detected {

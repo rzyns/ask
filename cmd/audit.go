@@ -82,7 +82,7 @@ func runAudit(cmd *cobra.Command, _ []string) {
 			fmt.Printf("No skills directory found at %s\n", skillsDir)
 			return
 		}
-		fmt.Printf("Error reading skills directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error reading skills directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -144,45 +144,30 @@ func runAudit(cmd *cobra.Command, _ []string) {
 	}
 
 	// Output
+	writeReport := func(content string) {
+		if output != "" {
+			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing report: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Audit report saved to %s\n", output)
+		} else {
+			fmt.Println(content)
+		}
+	}
+
 	switch format {
 	case "json":
 		data, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
-			fmt.Printf("Error marshaling report: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error marshaling report: %v\n", err)
 			os.Exit(1)
 		}
-		content := string(data)
-		if output != "" {
-			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
-				fmt.Printf("Error writing report: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Audit report saved to %s\n", output)
-		} else {
-			fmt.Println(content)
-		}
+		writeReport(string(data))
 	case "markdown", "md":
-		content := generateAuditMarkdown(report)
-		if output != "" {
-			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
-				fmt.Printf("Error writing report: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Audit report saved to %s\n", output)
-		} else {
-			fmt.Println(content)
-		}
+		writeReport(generateAuditMarkdown(report))
 	case "html":
-		content := generateAuditHTML(report)
-		if output != "" {
-			if err := os.WriteFile(output, []byte(content), 0600); err != nil {
-				fmt.Printf("Error writing report: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Audit report saved to %s\n", output)
-		} else {
-			fmt.Println(content)
-		}
+		writeReport(generateAuditHTML(report))
 	default:
 		// Console output
 		fmt.Println("Security Audit Report")
@@ -230,13 +215,13 @@ func runAudit(cmd *cobra.Command, _ []string) {
 func generateAuditMarkdown(report AuditReport) string {
 	var sb strings.Builder
 	sb.WriteString("# Security Audit Report\n\n")
-	sb.WriteString(fmt.Sprintf("Generated: %s | ASK v%s\n\n", report.GeneratedAt.Format(time.RFC3339), report.Version))
+	fmt.Fprintf(&sb, "Generated: %s | ASK v%s\n\n", report.GeneratedAt.Format(time.RFC3339), report.Version)
 	sb.WriteString("## Summary\n\n")
 	sb.WriteString("| Metric | Count |\n|--------|-------|\n")
-	sb.WriteString(fmt.Sprintf("| Total skills | %d |\n", report.TotalSkills))
-	sb.WriteString(fmt.Sprintf("| Critical | %d |\n", report.CriticalCount))
-	sb.WriteString(fmt.Sprintf("| Warnings | %d |\n", report.WarningCount))
-	sb.WriteString(fmt.Sprintf("| Info | %d |\n\n", report.InfoCount))
+	fmt.Fprintf(&sb, "| Total skills | %d |\n", report.TotalSkills)
+	fmt.Fprintf(&sb, "| Critical | %d |\n", report.CriticalCount)
+	fmt.Fprintf(&sb, "| Warnings | %d |\n", report.WarningCount)
+	fmt.Fprintf(&sb, "| Info | %d |\n\n", report.InfoCount)
 	sb.WriteString("## Skills\n\n")
 	for _, s := range report.Skills {
 		status := "✓"
@@ -246,17 +231,17 @@ func generateAuditMarkdown(report AuditReport) string {
 		case "warning":
 			status = "!"
 		}
-		sb.WriteString(fmt.Sprintf("### %s %s\n\n", status, s.Name))
+		fmt.Fprintf(&sb, "### %s %s\n\n", status, s.Name)
 		if s.URL != "" {
-			sb.WriteString(fmt.Sprintf("- URL: %s\n", s.URL))
+			fmt.Fprintf(&sb, "- URL: %s\n", s.URL)
 		}
 		if s.Version != "" {
-			sb.WriteString(fmt.Sprintf("- Version: %s\n", s.Version))
+			fmt.Fprintf(&sb, "- Version: %s\n", s.Version)
 		}
 		if len(s.Findings) > 0 {
-			sb.WriteString(fmt.Sprintf("- Findings: %d\n\n", len(s.Findings)))
+			fmt.Fprintf(&sb, "- Findings: %d\n\n", len(s.Findings))
 			for _, f := range s.Findings {
-				sb.WriteString(fmt.Sprintf("  - [%s] %s (%s:%d)\n", f.Severity, f.Description, f.File, f.Line))
+				fmt.Fprintf(&sb, "  - [%s] %s (%s:%d)\n", f.Severity, f.Description, f.File, f.Line)
 			}
 		} else {
 			sb.WriteString("- No issues found\n")
@@ -304,15 +289,15 @@ func generateAuditHTML(report AuditReport) string {
 <body>
 `)
 	sb.WriteString("<h1>Security Audit Report</h1>\n")
-	sb.WriteString(fmt.Sprintf(`<p class="meta">Generated: %s &middot; ASK v%s</p>`+"\n",
-		report.GeneratedAt.Format("2006-01-02 15:04:05"), htmlEscape(report.Version)))
+	fmt.Fprintf(&sb, `<p class="meta">Generated: %s &middot; ASK v%s</p>`+"\n",
+		report.GeneratedAt.Format("2006-01-02 15:04:05"), htmlEscape(report.Version))
 
 	// Summary cards
 	sb.WriteString(`<div class="summary">` + "\n")
-	sb.WriteString(fmt.Sprintf(`<div class="card total"><div class="number">%d</div><div class="label">Total Skills</div></div>`+"\n", report.TotalSkills))
-	sb.WriteString(fmt.Sprintf(`<div class="card critical"><div class="number">%d</div><div class="label">Critical</div></div>`+"\n", report.CriticalCount))
-	sb.WriteString(fmt.Sprintf(`<div class="card warning"><div class="number">%d</div><div class="label">Warnings</div></div>`+"\n", report.WarningCount))
-	sb.WriteString(fmt.Sprintf(`<div class="card info"><div class="number">%d</div><div class="label">Info</div></div>`+"\n", report.InfoCount))
+	fmt.Fprintf(&sb, `<div class="card total"><div class="number">%d</div><div class="label">Total Skills</div></div>`+"\n", report.TotalSkills)
+	fmt.Fprintf(&sb, `<div class="card critical"><div class="number">%d</div><div class="label">Critical</div></div>`+"\n", report.CriticalCount)
+	fmt.Fprintf(&sb, `<div class="card warning"><div class="number">%d</div><div class="label">Warnings</div></div>`+"\n", report.WarningCount)
+	fmt.Fprintf(&sb, `<div class="card info"><div class="number">%d</div><div class="label">Info</div></div>`+"\n", report.InfoCount)
 	sb.WriteString("</div>\n")
 
 	// Skills
@@ -329,8 +314,8 @@ func generateAuditHTML(report AuditReport) string {
 			badgeClass = "badge-warning"
 			badgeText = "Warning"
 		}
-		sb.WriteString(fmt.Sprintf(`<div class="skill-header"><span class="skill-name">%s</span><span class="badge %s">%s</span></div>`+"\n",
-			htmlEscape(s.Name), badgeClass, badgeText))
+		fmt.Fprintf(&sb, `<div class="skill-header"><span class="skill-name">%s</span><span class="badge %s">%s</span></div>`+"\n",
+			htmlEscape(s.Name), badgeClass, badgeText)
 
 		var meta []string
 		if s.Version != "" {
@@ -340,10 +325,15 @@ func generateAuditHTML(report AuditReport) string {
 			meta = append(meta, "source: "+htmlEscape(s.Source))
 		}
 		if s.URL != "" {
-			meta = append(meta, fmt.Sprintf(`<a href="%s">%s</a>`, htmlEscape(s.URL), htmlEscape(s.URL)))
+			// Only allow http/https URLs in href to prevent javascript: XSS
+			if strings.HasPrefix(s.URL, "https://") || strings.HasPrefix(s.URL, "http://") {
+				meta = append(meta, fmt.Sprintf(`<a href="%s">%s</a>`, htmlEscape(s.URL), htmlEscape(s.URL)))
+			} else {
+				meta = append(meta, htmlEscape(s.URL))
+			}
 		}
 		if len(meta) > 0 {
-			sb.WriteString(fmt.Sprintf(`<div class="skill-meta">%s</div>`+"\n", strings.Join(meta, " &middot; ")))
+			fmt.Fprintf(&sb, `<div class="skill-meta">%s</div>`+"\n", strings.Join(meta, " &middot; "))
 		}
 
 		for _, f := range s.Findings {
@@ -354,8 +344,8 @@ func generateAuditHTML(report AuditReport) string {
 			case skill.SeverityWarning:
 				findingClass = "finding-warning"
 			}
-			sb.WriteString(fmt.Sprintf(`<div class="finding %s">[%s] %s <code>%s:%d</code></div>`+"\n",
-				findingClass, f.Severity, htmlEscape(f.Description), htmlEscape(f.File), f.Line))
+			fmt.Fprintf(&sb, `<div class="finding %s">[%s] %s <code>%s:%d</code></div>`+"\n",
+				findingClass, htmlEscape(string(f.Severity)), htmlEscape(f.Description), htmlEscape(f.File), f.Line)
 		}
 		sb.WriteString("</div>\n")
 	}

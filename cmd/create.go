@@ -39,18 +39,18 @@ func runCreate(cmd *cobra.Command, args []string) {
 	// Validate name
 	match, _ := regexp.MatchString("^[a-zA-Z0-9-]+$", name)
 	if !match {
-		fmt.Println("Error: Skill name must contain only alphanumeric characters and dashes.")
+		fmt.Fprintln(os.Stderr, "Error: Skill name must contain only alphanumeric characters and dashes.")
 		os.Exit(1)
 	}
 
 	// Check if directory already exists
 	cwd, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("Error getting current working directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error getting current working directory: %v\n", err)
 		os.Exit(1)
 	}
 	if _, err := os.Stat(filepath.Join(cwd, name)); err == nil {
-		fmt.Printf("Error: Directory '%s' already exists.\n", name)
+		fmt.Fprintf(os.Stderr, "Error: Directory '%s' already exists.\n", name)
 		os.Exit(1)
 	}
 
@@ -59,7 +59,7 @@ func runCreate(cmd *cobra.Command, args []string) {
 	data := skill.TemplateData{
 		Name:        name,
 		Description: "A new skill for AI Agents",
-		Author:      skill.GetGitAuthorExported(),
+		Author:      skill.GetGitAuthor(),
 		Version:     "0.1.0",
 		Tags:        []string{"agent-skill"},
 	}
@@ -84,14 +84,14 @@ func runCreate(cmd *cobra.Command, args []string) {
 	fmt.Printf("Creating skill '%s'...\n", name)
 
 	if err := skill.CreateSkillTemplateWithData(data, cwd); err != nil {
-		fmt.Printf("Error creating skill: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating skill: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Create .askcheck.yaml
 	checkContent := "# ASK security check configuration\nignore: []\nignore_paths:\n  - assets/**\nrules: []\n"
 	if err := os.WriteFile(filepath.Join(cwd, name, ".askcheck.yaml"), []byte(checkContent), 0600); err != nil {
-		fmt.Printf("Warning: Failed to create .askcheck.yaml: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: Failed to create .askcheck.yaml: %v\n", err)
 	}
 
 	fmt.Printf("\n✓ Created skill '%s'!\n\n", name)

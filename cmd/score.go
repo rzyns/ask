@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -69,7 +70,7 @@ func runScore(cmd *cobra.Command, args []string) {
 		fmt.Printf("Resolving %s...\n", target)
 		tmpDir, cloneErr := cloneForScore(target)
 		if cloneErr != nil {
-			fmt.Printf("Error: cannot resolve '%s' as local path or GitHub repo: %v\n", target, cloneErr)
+			fmt.Fprintf(os.Stderr, "Error: cannot resolve '%s' as local path or GitHub repo: %v\n", target, cloneErr)
 			os.Exit(1)
 		}
 		defer func() { _ = os.RemoveAll(tmpDir) }()
@@ -82,7 +83,7 @@ func runScore(cmd *cobra.Command, args []string) {
 	// Run scoring
 	result, err := skill.ScoreSkill(skillPath, publisher)
 	if err != nil {
-		fmt.Printf("Error computing score: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error computing score: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -128,7 +129,7 @@ func runBatchScore(cmd *cobra.Command, args []string) {
 		fmt.Printf("Cloning %s for batch scoring...\n", target)
 		cloned, cloneErr := cloneForScore(target)
 		if cloneErr != nil {
-			fmt.Printf("Error: cannot resolve '%s': %v\n", target, cloneErr)
+			fmt.Fprintf(os.Stderr, "Error: cannot resolve '%s': %v\n", target, cloneErr)
 			os.Exit(1)
 		}
 		tmpDir = cloned
@@ -337,7 +338,7 @@ func cloneForScore(target string) (string, error) {
 		url = "https://github.com/" + target
 	}
 
-	cloneErr := git.Clone(url, tmpDir)
+	cloneErr := git.Clone(context.Background(), url, tmpDir)
 	if cloneErr != nil {
 		_ = os.RemoveAll(tmpDir)
 		return "", cloneErr

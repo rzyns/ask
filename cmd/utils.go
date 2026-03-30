@@ -23,12 +23,12 @@ func ensureInitialized() bool {
 func runInit() bool {
 	skillsDir := config.DefaultSkillsDir
 	if err := os.MkdirAll(skillsDir, 0755); err != nil {
-		fmt.Printf("Error creating skills directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating skills directory: %v\n", err)
 		return false
 	}
 
 	if err := config.CreateDefaultConfig(); err != nil {
-		fmt.Printf("Error creating ask.yaml: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error creating ask.yaml: %v\n", err)
 		return false
 	}
 

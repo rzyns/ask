@@ -38,7 +38,7 @@ func runList(cmd *cobra.Command, _ []string) {
 	// Validate agent names
 	for _, agent := range agents {
 		if !config.IsValidAgent(agent) {
-			fmt.Printf("Error: Unknown agent '%s'. Supported agents: %s\n",
+			fmt.Fprintf(os.Stderr, "Error: Unknown agent '%s'. Supported agents: %s\n",
 				agent, strings.Join(config.GetSupportedAgentNames(), ", "))
 			os.Exit(1)
 		}
@@ -129,7 +129,7 @@ func showAgentSkills(agentName, dir, scope string, jsonOutput bool) []SkillListI
 			if os.IsNotExist(err) {
 				fmt.Println("  (directory not created)")
 			} else {
-				fmt.Printf("  Error reading directory: %v\n", err)
+				fmt.Fprintf(os.Stderr, "  Error reading directory: %v\n", err)
 			}
 			fmt.Println()
 		}
@@ -228,7 +228,7 @@ func showSkills(scope string, global bool, jsonOutput bool) []SkillListItem {
 				return nil
 			}
 			if !global {
-				fmt.Printf("Error loading config: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 			}
 		}
 		return nil
