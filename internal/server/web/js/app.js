@@ -282,11 +282,11 @@ function renderAgentSettings() {
 
         item.innerHTML = `
           <div class="agent-info">
-            <span class="agent-name">${displayName}</span>
-            <span class="agent-path">${agent.skills_dir}</span>
+            <span class="agent-name">${escapeHtml(displayName)}</span>
+            <span class="agent-path">${escapeHtml(agent.skills_dir)}</span>
           </div>
           <label class="switch">
-            <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="toggleAgent('${agent.name}', this.checked)">
+            <input type="checkbox" ${agent.enabled ? 'checked' : ''} onchange="toggleAgent('${escapeHtml(agent.name)}', this.checked)">
             <span class="slider"></span>
           </label>
         `;
@@ -663,7 +663,7 @@ async function performInstall() {
 async function uninstallSkill(name) {
     const confirmed = await showConfirm(
         'Uninstall Skill',
-        `Are you sure you want to uninstall <strong>${name}</strong>? This action cannot be undone.`
+        `Are you sure you want to uninstall "${name}"? This action cannot be undone.`
     );
     if (!confirmed) return;
 
@@ -709,7 +709,7 @@ async function addRepo(url) {
 async function removeRepo(name) {
     const confirmed = await showConfirm(
         'Remove Repository',
-        `Are you sure you want to remove <strong>${name}</strong> from your configured repositories?`
+        `Are you sure you want to remove "${name}" from your configured repositories?`
     );
     if (!confirmed) return;
 
@@ -774,7 +774,7 @@ async function viewSkillGuide(name) {
         // Just displaying as pre-wrapped text is often enough for simple guides
         contentEl.textContent = data.content;
     } catch (err) {
-        contentEl.innerHTML = `<div class="error-message">Failed to load guide: ${err.message}. <br>Make sure SKILL.md exists in the skill directory.</div>`;
+        contentEl.innerHTML = `<div class="error-message">Failed to load guide: ${escapeHtml(err.message)}. <br>Make sure SKILL.md exists in the skill directory.</div>`;
     }
 }
 
@@ -859,8 +859,8 @@ function displayRecentSkills(container, skills) {
         card.innerHTML = `
             <img src="${iconUrl}" class="recent-skill-icon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'">
             <div>
-                <div class="recent-skill-name">${skill.name}</div>
-                <div class="recent-skill-agents">${agentText}</div>
+                <div class="recent-skill-name">${escapeHtml(skill.name)}</div>
+                <div class="recent-skill-agents">${escapeHtml(agentText)}</div>
             </div>
         `;
         container.appendChild(card);
@@ -1031,25 +1031,25 @@ function renderReposList() {
             <img src="${iconUrl}" class="repo-icon" 
                  style="width:24px; height:24px; border-radius:4px;"
                  onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'">
-            <strong>${repo.name}</strong>
+            <strong>${escapeHtml(repo.name)}</strong>
         </div>
       </td>
       <td class="url-cell">
         <div style="display:flex; align-items:center; gap:0.5rem;">
-            <a href="${repo.url.startsWith('http') ? repo.url : 'https://github.com/' + repo.url}" target="_blank" class="repo-link" title="${repo.url}">
-                ${repo.url} ↗
+            <a href="${repo.url.startsWith('http') ? escapeHtml(repo.url) : 'https://github.com/' + escapeHtml(repo.url)}" target="_blank" class="repo-link" title="${escapeHtml(repo.url)}">
+                ${escapeHtml(repo.url)} ↗
             </a>
         </div>
       </td>
       <td>${repo.stars !== undefined ? repo.stars : '-'}</td>
       <td>
         <div class="repo-actions" style="display:flex; gap:0.5rem;">
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
-                    onclick="syncRepo('${repo.name}')" title="Sync this repository">Sync</button>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
-                    onclick="viewRepoSkills('${repo.name}')" title="View skills in this repository">Skills</button>
-            <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" 
-                    onclick="removeRepo('${repo.name}')" title="Remove repository">Remove</button>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                    onclick="syncRepo('${escapeHtml(repo.name)}')" title="Sync this repository">Sync</button>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                    onclick="viewRepoSkills('${escapeHtml(repo.name)}')" title="View skills in this repository">Skills</button>
+            <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                    onclick="removeRepo('${escapeHtml(repo.name)}')" title="Remove repository">Remove</button>
         </div>
       </td>
     `;
@@ -1078,7 +1078,8 @@ async function viewRepoSkills(repoName) {
 async function clearCache() {
     try {
         const response = await fetch('/api/cache/clear', {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
         });
         if (response.ok) {
             showToast('Cache cleared successfully', 'success');
@@ -1156,8 +1157,8 @@ function getIcon(item) {
         return `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${emoji}</text></svg>`;
     }
 
-    // Metric 2: Explicit Icon URL (backend provided)
-    if (item.icon_url) return item.icon_url;
+    // Metric 2: Explicit Icon URL (backend provided, sanitized)
+    if (item.icon_url && (item.icon_url.startsWith('https://') || item.icon_url.startsWith('data:'))) return item.icon_url;
 
     // Metric 3: Repo Owner Avatar (highest quality for GitHub repos)
     // Check item.repo (e.g. "owner/repo")
@@ -1260,7 +1261,7 @@ async function performScan() {
 
     } catch (err) {
         showToast(err.message, 'error');
-        listEl.innerHTML = `<div style="padding:1rem; color:var(--danger-color)">Error: ${err.message}</div>`;
+        listEl.innerHTML = `<div style="padding:1rem; color:var(--danger-color)">Error: ${escapeHtml(err.message)}</div>`;
     } finally {
         btn.disabled = false;
         btn.textContent = 'Scan';
@@ -1294,9 +1295,9 @@ function renderScanResults(skills) {
                 <input type="checkbox" class="scan-check" data-idx="${idx}" onchange="updateImportButton()">
             </div>
             <div class="scan-result-info">
-                <div class="scan-result-name">${name}</div>
-                <div class="scan-result-path">${skill.path}</div>
-                <div style="font-size:0.75rem; color:var(--text-muted)">${skill.meta ? (skill.meta.description || 'No description') : 'No metadata'}</div>
+                <div class="scan-result-name">${escapeHtml(name)}</div>
+                <div class="scan-result-path">${escapeHtml(skill.path)}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted)">${skill.meta ? escapeHtml(skill.meta.description || 'No description') : 'No metadata'}</div>
             </div>
         `;
         listEl.appendChild(item);
@@ -1437,7 +1438,7 @@ async function fetchSkillFiles(skillName) {
         renderFileNode(rootNode, rootEl, skillName);
 
     } catch (err) {
-        rootEl.innerHTML = `<div style="color:var(--error-color); padding:1rem">Failed to load files: ${err.message}</div>`;
+        rootEl.innerHTML = `<div style="color:var(--error-color); padding:1rem">Failed to load files: ${escapeHtml(err.message)}</div>`;
     }
 }
 
@@ -1447,11 +1448,14 @@ function renderFileNode(node, container, skillName) {
     const icon = isDir ? '📁' : '📄';
 
     el.innerHTML = `
-        <div class="file-tree-item" onclick="handleFileClick(this, '${skillName}', '${node.path}', ${isDir})">
+        <div class="file-tree-item" data-skill="${escapeHtml(skillName)}" data-path="${escapeHtml(node.path)}" data-isdir="${isDir}">
             <span class="file-icon">${icon}</span>
-            <span>${node.name}</span>
+            <span>${escapeHtml(node.name)}</span>
         </div>
     `;
+    el.querySelector('.file-tree-item').addEventListener('click', function() {
+        handleFileClick(this, skillName, node.path, isDir);
+    });
     container.appendChild(el);
 
     if (isDir && node.children) {
@@ -1509,7 +1513,7 @@ function renderSyncBadges(skillName) {
         const badge = document.createElement('div');
         badge.className = `sync-badge ${isInstalled ? 'active' : ''}`;
         badge.innerHTML = `
-            <span>${agent.name}</span>
+            <span>${escapeHtml(agent.name)}</span>
             <span>${isInstalled ? '✓' : '○'}</span>
         `;
         // Make clickable to toggle sync?
@@ -1560,7 +1564,7 @@ function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<span>${message}</span>`;
+    toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
 
     container.appendChild(toast);
 
@@ -1605,7 +1609,7 @@ function showConfirm(title, message) {
     return new Promise((resolve) => {
         confirmResolve = resolve;
         document.getElementById('confirm-title').textContent = title;
-        document.getElementById('confirm-message').innerHTML = message;
+        document.getElementById('confirm-message').textContent = message;
         openModal('confirm-modal');
     });
 }

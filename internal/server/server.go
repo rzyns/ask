@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,6 +57,7 @@ func (s *Server) Start() error {
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	s.mu.Lock()
@@ -112,15 +114,23 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // OpenBrowser opens the default browser to the server URL
-func OpenBrowser(url string) error {
+func OpenBrowser(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("only http and https URLs are supported")
+	}
+
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("open", u.String())
 	case "linux":
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.Command("xdg-open", u.String())
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", url)
+		cmd = exec.Command("cmd", "/c", "start", "", strings.ReplaceAll(u.String(), "&", "^&"))
 	default:
 		return fmt.Errorf("unsupported platform")
 	}
@@ -187,7 +197,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 				strings.HasPrefix(origin, "http://127.0.0.1:") ||
 				strings.HasPrefix(origin, "http://127.0.0.1/") ||
 				origin == "http://127.0.0.1" ||
-				strings.HasPrefix(origin, "app://") { // Allow wails/electron type apps if needed
+				origin == "app://wails.localhost" || origin == "app://ask" { // Allow only known app origins
 				allowed = true
 			}
 		} else {
@@ -195,7 +205,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 			allowed = true
 		}
 
-		if allowed {
+		if allowed && origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -218,6 +228,34 @@ func limitRequestBody(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 	}
+}
+
+// requireJSONContentType checks that POST requests have Content-Type: application/json.
+// This prevents blind CSRF attacks because cross-origin requests with non-simple
+// content types trigger a CORS preflight that our CORS policy will reject.
+// Returns true if the request is valid; writes an error response and returns false otherwise.
+func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return true
+	}
+	ct := strings.TrimSpace(r.Header.Get("Content-Type"))
+	// Accept "application/json" optionally followed by parameters (e.g., "; charset=utf-8")
+	if ct != "application/json" && !strings.HasPrefix(ct, "application/json;") {
+		jsonError(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+		return false
+	}
+	return true
+}
+
+// getExecutable returns the path to the current executable, writing an error
+// response and returning false if the lookup fails.
+func getExecutable(w http.ResponseWriter) (string, bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+		return "", false
+	}
+	return exe, true
 }
 
 // JSON response helpers

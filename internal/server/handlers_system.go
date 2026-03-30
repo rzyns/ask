@@ -29,6 +29,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	cfg, err := config.LoadConfig()
 	initialized := true
 	if err != nil {
@@ -52,12 +55,10 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		Initialized: initialized,
 	}
 
-	// Get current working directory for ProjectRoot (read-lock to avoid race with Chdir)
-	s.cwdMu.RLock()
+	// Get current working directory for ProjectRoot
 	if cwd, err := os.Getwd(); err == nil {
 		info.ProjectRoot = cwd
 	}
-	s.cwdMu.RUnlock()
 
 	jsonResponse(w, info)
 }
@@ -68,6 +69,12 @@ func (s *Server) handleCacheClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
+
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
 
 	// Clear Repos Cache
 	reposCache, err := cache.New(cache.GetReposCacheDir(), 0)
@@ -94,6 +101,9 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req struct {
 		Agent       string `json:"agent"`
@@ -106,6 +116,16 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If ProjectRoot is being changed, acquire the write lock upfront to
+	// avoid a TOCTOU gap between reading the config and calling os.Chdir.
+	if req.ProjectRoot != "" {
+		s.cwdMu.Lock()
+		defer s.cwdMu.Unlock()
+	} else {
+		s.cwdMu.RLock()
+		defer s.cwdMu.RUnlock()
+	}
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -113,7 +133,8 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 			def := config.DefaultConfig()
 			cfg = &def
 		} else {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("Failed to load config: %v", err)
+			jsonError(w, "Failed to load configuration", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -135,11 +156,9 @@ func (s *Server) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "Invalid project root: not a valid directory", http.StatusBadRequest)
 			return
 		}
-		// Lock CWD changes to prevent concurrent handlers from seeing wrong directory
-		s.cwdMu.Lock()
-		defer s.cwdMu.Unlock()
 		if err := os.Chdir(req.ProjectRoot); err != nil {
-			jsonError(w, "Failed to change directory: "+err.Error(), http.StatusBadRequest)
+			log.Printf("Failed to change directory to %s: %v", req.ProjectRoot, err)
+			jsonError(w, "Failed to change project root", http.StatusBadRequest)
 			return
 		}
 		// RELOAD config from the new directory to ensure we are editing the correct file
@@ -247,6 +266,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {

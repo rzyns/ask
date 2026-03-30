@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -25,6 +27,9 @@ func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -74,11 +79,17 @@ func (s *Server) handleRepos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRepoAdd(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req struct {
 		URL  string `json:"url"`
@@ -100,30 +111,38 @@ func (s *Server) handleRepoAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate URL format: must be HTTPS URL or owner/repo shorthand
-	if !strings.HasPrefix(req.URL, "https://") && !strings.HasPrefix(req.URL, "http://") {
+	if !strings.HasPrefix(req.URL, "https://") {
 		// Allow owner/repo shorthand (e.g., "yeasy/awesome-agent-skills")
 		parts := strings.SplitN(req.URL, "/", 3)
 		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
-			jsonError(w, "Repository URL must be an HTTP(S) URL or owner/repo format", http.StatusBadRequest)
+			jsonError(w, "Repository URL must be an HTTPS URL or owner/repo format", http.StatusBadRequest)
+			return
+		}
+		// Reject path traversal in shorthand format
+		if strings.Contains(req.URL, "..") {
+			jsonError(w, "Invalid repository URL", http.StatusBadRequest)
 			return
 		}
 	}
 
 	// Execute repo add command
-	exe, err := os.Executable()
-	if err != nil {
-		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+	exe, ok := getExecutable(w)
+	if !ok {
 		return
 	}
-	args := []string{"repo", "add", req.URL}
+	args := []string{"repo", "add"}
 	if req.Sync {
 		args = append(args, "--sync")
 	}
+	args = append(args, "--", req.URL)
 
-	cmd := exec.Command(exe, args...)
+	ctx, cancel := context.WithTimeout(r.Context(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Add repo failed: %s", string(output)), http.StatusInternalServerError)
+		log.Printf("repo add failed: %s", string(output))
+		jsonError(w, "Add repo failed. Check server logs for details.", http.StatusInternalServerError)
 		return
 	}
 
@@ -135,11 +154,17 @@ func (s *Server) handleRepoAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRepoRemove(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req struct {
 		Name string `json:"name"`
@@ -155,15 +180,17 @@ func (s *Server) handleRepoRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute repo remove command
-	exe, err := os.Executable()
-	if err != nil {
-		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+	exe, ok := getExecutable(w)
+	if !ok {
 		return
 	}
-	cmd := exec.Command(exe, "repo", "remove", req.Name)
+	ctx, cancel := context.WithTimeout(r.Context(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, "repo", "remove", "--", req.Name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Remove repo failed: %s", string(output)), http.StatusInternalServerError)
+		log.Printf("repo remove failed: %s", string(output))
+		jsonError(w, "Remove repo failed. Check server logs for details.", http.StatusInternalServerError)
 		return
 	}
 
@@ -175,23 +202,33 @@ func (s *Server) handleRepoRemove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRepoSync(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	// Parse optional body for specific repo name
 	var req struct {
 		Name string `json:"name"`
 	}
-	// Ignore decode error as body might be empty (sync all)
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Empty body is OK (sync all), but reject malformed JSON
+		if r.ContentLength > 0 {
+			jsonError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+	}
 
 	// Execute repo sync command
-	exe, err := os.Executable()
-	if err != nil {
-		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+	exe, ok := getExecutable(w)
+	if !ok {
 		return
 	}
 
@@ -201,13 +238,16 @@ func (s *Server) handleRepoSync(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		args = append(args, req.Name)
+		args = append(args, "--", req.Name)
 	}
 
-	cmd := exec.Command(exe, args...)
+	ctx, cancel := context.WithTimeout(r.Context(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Sync failed: %s", string(output)), http.StatusInternalServerError)
+		log.Printf("repo sync failed: %s", string(output))
+		jsonError(w, "Sync failed. Check server logs for details.", http.StatusInternalServerError)
 		return
 	}
 

@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
@@ -16,8 +19,39 @@ import (
 	"github.com/yeasy/ask/internal/skill"
 )
 
+// subprocessTimeout is the maximum time allowed for subprocess execution in HTTP handlers.
+const subprocessTimeout = 2 * time.Minute
+
 // maxSkillFileSize is the maximum file size allowed when reading skill file content (1MB)
 const maxSkillFileSize = 1024 * 1024
+
+// readFileNoSymlink safely reads a file, rejecting symlinks and enforcing a size limit.
+// It uses O_NOFOLLOW on Unix and Lstat on Windows to prevent symlink-based path traversal.
+func readFileNoSymlink(path string, maxSize int64) ([]byte, error) {
+	// Pre-open Lstat check covers Windows where O_NOFOLLOW is unavailable.
+	if isSymlink(path) {
+		return nil, fmt.Errorf("symlink rejected: %w", os.ErrPermission)
+	}
+
+	f, err := os.OpenFile(path, os.O_RDONLY|openNoFollow, 0)
+	if err != nil {
+		if os.IsPermission(err) || isSymlinkError(err) {
+			return nil, fmt.Errorf("symlink rejected: %w", os.ErrPermission)
+		}
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat failed: %w", err)
+	}
+	if info.Size() > maxSize {
+		return nil, fmt.Errorf("file too large (%d bytes)", info.Size())
+	}
+
+	return io.ReadAll(io.LimitReader(f, maxSize))
+}
 
 // SkillInfo represents a skill for API responses
 type SkillInfo struct {
@@ -39,7 +73,9 @@ func getRepoFromGitConfig(path string) string {
 }
 
 func parseGitConfigForRepo(gitConfigPath string) string {
-	data, err := os.ReadFile(gitConfigPath)
+	// Use readFileNoSymlink to atomically open without following symlinks,
+	// avoiding TOCTOU race between Lstat and ReadFile.
+	data, err := readFileNoSymlink(gitConfigPath, 1024*1024)
 	if err != nil {
 		return ""
 	}
@@ -73,6 +109,9 @@ func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -273,7 +312,15 @@ func (s *Server) handleSkillSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := r.URL.Query().Get("q")
+	if len(query) > 255 {
+		jsonError(w, "Query too long (max 255 characters)", http.StatusBadRequest)
+		return
+	}
 	repoFilter := r.URL.Query().Get("repo")
+	if len(repoFilter) > 255 {
+		jsonError(w, "Repo filter too long (max 255 characters)", http.StatusBadRequest)
+		return
+	}
 	topic := "agent-skill"
 
 	results := make([]SearchResult, 0)
@@ -351,11 +398,17 @@ type InstallRequest struct {
 }
 
 func (s *Server) handleSkillInstall(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req InstallRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -369,12 +422,11 @@ func (s *Server) handleSkillInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute install command
-	exe, err := os.Executable()
-	if err != nil {
-		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+	exe, ok := getExecutable(w)
+	if !ok {
 		return
 	}
-	args := []string{"skill", "install", req.Name}
+	args := []string{"skill", "install"}
 	if req.Agent != "" {
 		if _, ok := config.ResolveAgentType(req.Agent); !ok {
 			jsonError(w, "Invalid agent name: "+req.Agent, http.StatusBadRequest)
@@ -382,11 +434,15 @@ func (s *Server) handleSkillInstall(w http.ResponseWriter, r *http.Request) {
 		}
 		args = append(args, "--agent", req.Agent)
 	}
+	args = append(args, "--", req.Name)
 
-	cmd := exec.Command(exe, args...)
+	ctx, cancel := context.WithTimeout(r.Context(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Install failed: %s", string(output)), http.StatusInternalServerError)
+		log.Printf("skill install failed: %s", string(output))
+		jsonError(w, "Install failed. Check server logs for details.", http.StatusInternalServerError)
 		return
 	}
 
@@ -398,11 +454,17 @@ func (s *Server) handleSkillInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSkillUninstall(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req struct {
 		Name string `json:"name"`
@@ -418,15 +480,17 @@ func (s *Server) handleSkillUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute uninstall command with --all to fully remove
-	exe, err := os.Executable()
-	if err != nil {
-		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+	exe, ok := getExecutable(w)
+	if !ok {
 		return
 	}
-	cmd := exec.Command(exe, "skill", "uninstall", "--all", req.Name)
+	ctx, cancel := context.WithTimeout(r.Context(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, "skill", "uninstall", "--all", "--", req.Name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Uninstall failed: %s", string(output)), http.StatusInternalServerError)
+		log.Printf("skill uninstall failed: %s", string(output))
+		jsonError(w, "Uninstall failed. Check server logs for details.", http.StatusInternalServerError)
 		return
 	}
 
@@ -438,11 +502,17 @@ func (s *Server) handleSkillUninstall(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req struct {
 		Path string `json:"path"`
@@ -464,10 +534,14 @@ func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify path exists
-	info, err := os.Stat(cleanPath)
+	// Verify path exists (use Lstat to avoid following symlinks)
+	info, err := os.Lstat(cleanPath)
 	if err != nil {
 		jsonError(w, "Path does not exist or is not accessible", http.StatusBadRequest)
+		return
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		jsonError(w, "Symlinks are not allowed", http.StatusBadRequest)
 		return
 	}
 	if !info.IsDir() {
@@ -478,7 +552,8 @@ func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
 	// Call scan logic (limit depth to 3 for performance)
 	results, err := skill.ScanDirectory(cleanPath, 3)
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Scan failed: %v", err), http.StatusInternalServerError)
+		log.Printf("skill scan failed: %v", err)
+		jsonError(w, "Scan failed", http.StatusInternalServerError)
 		return
 	}
 
@@ -488,11 +563,17 @@ func (s *Server) handleSkillScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	if r.Method != http.MethodPost {
 		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	limitRequestBody(w, r)
+	if !requireJSONContentType(w, r) {
+		return
+	}
 
 	var req struct {
 		SrcPath string `json:"src_path"`
@@ -506,6 +587,12 @@ func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
 	if req.SrcPath == "" {
 		jsonError(w, "Source path is required", http.StatusBadRequest)
 		return
+	}
+	if req.Name != "" {
+		if err := validateSkillName(req.Name); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	if strings.HasPrefix(req.SrcPath, "-") {
@@ -522,20 +609,22 @@ func (s *Server) handleSkillImport(w http.ResponseWriter, r *http.Request) {
 
 	// Use CLI logic to install from local path
 	// ask install /path/to/skill
-	exe, err := os.Executable()
-	if err != nil {
-		jsonError(w, "Failed to get executable path", http.StatusInternalServerError)
+	exe, ok := getExecutable(w)
+	if !ok {
 		return
 	}
 
-	args := []string{"skill", "install", cleanSrcPath}
+	args := []string{"skill", "install", "--", cleanSrcPath}
 	// TODO: req.Name is currently ignored. The skill name is derived from the directory name.
 	// To support renaming, the install CLI would need to be extended with a --name flag.
 
-	cmd := exec.Command(exe, args...)
+	ctx, cancel := context.WithTimeout(r.Context(), subprocessTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Import failed: %s", string(output)), http.StatusInternalServerError)
+		log.Printf("skill import failed: %s", string(output))
+		jsonError(w, "Import failed. Check server logs for details.", http.StatusInternalServerError)
 		return
 	}
 
@@ -561,8 +650,15 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	// Mode: "tree" (default) or "content"
 	mode := r.URL.Query().Get("mode")
+	if mode != "" && mode != "tree" && mode != "content" {
+		jsonError(w, "Invalid mode: must be 'tree' or 'content'", http.StatusBadRequest)
+		return
+	}
 	skillName := r.URL.Query().Get("skill")
 
 	if skillName == "" {
@@ -578,10 +674,15 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 	// Find the skill path
 	// Reuse logic from handleSkills or just simple lookup?
 	// Let's re-use simple lookup for now.
-	cfg, _ := config.LoadConfig()
-	if cfg == nil {
-		def := config.DefaultConfig()
-		cfg = &def
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		if os.IsNotExist(err) {
+			def := config.DefaultConfig()
+			cfg = &def
+		} else {
+			jsonError(w, "Failed to load config", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Check installed locations
@@ -589,6 +690,12 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 	toolTargets := cfg.GetEnabledToolTargets()
 	for _, target := range toolTargets {
 		p := filepath.Join(target.SkillsDir, skillName)
+		// Verify path stays within the skills directory
+		absBase, err1 := filepath.Abs(target.SkillsDir)
+		absP, err2 := filepath.Abs(p)
+		if err1 != nil || err2 != nil || !strings.HasPrefix(absP, absBase+string(filepath.Separator)) {
+			continue
+		}
 		if skill.FindSkillMD(p) {
 			skillPath = p
 			break
@@ -597,9 +704,14 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 
 	// Also check Global if not found?
 	if skillPath == "" {
-		p := filepath.Join(config.GetGlobalSkillsDir(), skillName)
-		if skill.FindSkillMD(p) {
-			skillPath = p
+		globalDir := config.GetGlobalSkillsDir()
+		p := filepath.Join(globalDir, skillName)
+		absBase, err1 := filepath.Abs(globalDir)
+		absP, err2 := filepath.Abs(p)
+		if err1 == nil && err2 == nil && strings.HasPrefix(absP, absBase+string(filepath.Separator)) {
+			if skill.FindSkillMD(p) {
+				skillPath = p
+			}
 		}
 	}
 
@@ -631,26 +743,15 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Symlink Security Check
-		fileInfo, err := os.Lstat(absPath)
+		data, err := readFileNoSymlink(absPath, maxSkillFileSize)
 		if err != nil {
-			jsonError(w, "File not found", http.StatusNotFound)
-			return
-		}
-		if fileInfo.Mode()&os.ModeSymlink != 0 {
-			jsonError(w, "Symlinks are not allowed", http.StatusForbidden)
-			return
-		}
-
-		// Size Check
-		if fileInfo.Size() > maxSkillFileSize {
-			jsonError(w, "File too large (>1MB)", http.StatusBadRequest)
-			return
-		}
-
-		data, err := os.ReadFile(absPath)
-		if err != nil {
-			jsonError(w, fmt.Sprintf("Read failed: %v", err), http.StatusNotFound)
+			if os.IsPermission(err) {
+				jsonError(w, "Symlinks are not allowed", http.StatusForbidden)
+			} else if os.IsNotExist(err) {
+				jsonError(w, "File not found", http.StatusNotFound)
+			} else {
+				jsonError(w, "Read failed", http.StatusInternalServerError)
+			}
 			return
 		}
 
@@ -662,16 +763,34 @@ func (s *Server) handleSkillFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Default: Return File Tree
-	rootNode, err := buildFileTree(skillPath, "")
+	rootNode, err := buildFileTree(skillPath, "", 0)
 	if err != nil {
-		jsonError(w, fmt.Sprintf("Tree build failed: %v", err), http.StatusInternalServerError)
+		log.Printf("file tree build failed for %s: %v", skillName, err)
+		jsonError(w, "Failed to build file tree", http.StatusInternalServerError)
 		return
 	}
 
 	jsonResponse(w, rootNode)
 }
 
-func buildFileTree(basePath string, relPath string) (*FileNode, error) {
+// maxTreeDepth limits directory recursion in buildFileTree to prevent
+// stack overflow or excessive memory use from deeply nested directories.
+const maxTreeDepth = 10
+
+// maxTreeNodes limits the total number of nodes returned by buildFileTree
+// to prevent excessive memory and bandwidth usage from large directories.
+const maxTreeNodes = 1000
+
+func buildFileTree(basePath string, relPath string, depth int) (*FileNode, error) {
+	nodeCount := 0
+	return buildFileTreeInner(basePath, relPath, depth, &nodeCount)
+}
+
+func buildFileTreeInner(basePath string, relPath string, depth int, nodeCount *int) (*FileNode, error) {
+	if *nodeCount >= maxTreeNodes {
+		return nil, fmt.Errorf("too many files (max %d)", maxTreeNodes)
+	}
+	*nodeCount++
 	absPath := filepath.Join(basePath, relPath)
 	info, err := os.Lstat(absPath) // Use Lstat to detect symlinks
 	if err != nil {
@@ -694,6 +813,9 @@ func buildFileTree(basePath string, relPath string) (*FileNode, error) {
 
 	if info.IsDir() {
 		node.Type = "dir"
+		if depth >= maxTreeDepth {
+			return node, nil // Stop recursion at max depth
+		}
 		entries, err := os.ReadDir(absPath)
 		if err != nil {
 			return node, nil // Return empty dir if read fails
@@ -706,7 +828,7 @@ func buildFileTree(basePath string, relPath string) (*FileNode, error) {
 				continue
 			}
 			childRel := filepath.Join(relPath, entry.Name())
-			childNode, err := buildFileTree(basePath, childRel)
+			childNode, err := buildFileTreeInner(basePath, childRel, depth+1, nodeCount)
 			if err == nil {
 				children = append(children, childNode)
 			}
@@ -723,6 +845,9 @@ func (s *Server) handleSkillReadme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.cwdMu.RLock()
+	defer s.cwdMu.RUnlock()
+
 	name := r.URL.Query().Get("name")
 	if err := validateSkillName(name); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
@@ -731,16 +856,58 @@ func (s *Server) handleSkillReadme(w http.ResponseWriter, r *http.Request) {
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		jsonError(w, "Failed to load config", http.StatusInternalServerError)
+		if os.IsNotExist(err) {
+			def := config.DefaultConfig()
+			cfg = &def
+		} else {
+			jsonError(w, "Failed to load config", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Search tool target directories first, then fall back to global directory
+	var skillPath string
+	toolTargets := cfg.GetEnabledToolTargets()
+	for _, target := range toolTargets {
+		p := filepath.Join(target.SkillsDir, name)
+		// Verify path stays within the skills directory
+		absBase, err1 := filepath.Abs(target.SkillsDir)
+		absP, err2 := filepath.Abs(p)
+		if err1 != nil || err2 != nil || !strings.HasPrefix(absP, absBase+string(filepath.Separator)) {
+			continue
+		}
+		if skill.FindSkillMD(p) {
+			skillPath = p
+			break
+		}
+	}
+
+	// Also check global directory if not found
+	if skillPath == "" {
+		globalDir := config.GetGlobalSkillsDir()
+		p := filepath.Join(globalDir, name)
+		absBase, err1 := filepath.Abs(globalDir)
+		absP, err2 := filepath.Abs(p)
+		if err1 == nil && err2 == nil && strings.HasPrefix(absP, absBase+string(filepath.Separator)) {
+			if skill.FindSkillMD(p) {
+				skillPath = p
+			}
+		}
+	}
+
+	if skillPath == "" {
+		jsonError(w, "Skill not found", http.StatusNotFound)
 		return
 	}
 
-	skillsDir := cfg.GetSkillsDir()
-	skillPath := filepath.Join(skillsDir, name)
-
-	// Check if skill exists
-	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
+	// Check if skill exists (use Lstat to avoid following symlinks)
+	info, err := os.Lstat(skillPath)
+	if err != nil {
 		jsonError(w, "Skill not found", http.StatusNotFound)
+		return
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		jsonError(w, "Symlinks are not allowed", http.StatusForbidden)
 		return
 	}
 
@@ -761,20 +928,13 @@ func (s *Server) handleSkillReadme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check file size before reading
-	readmeInfo, err := os.Stat(readmePath)
+	content, err := readFileNoSymlink(readmePath, maxSkillFileSize)
 	if err != nil {
-		jsonError(w, "Failed to access documentation", http.StatusInternalServerError)
-		return
-	}
-	if readmeInfo.Size() > maxSkillFileSize {
-		jsonError(w, "Documentation file too large", http.StatusBadRequest)
-		return
-	}
-
-	content, err := os.ReadFile(readmePath)
-	if err != nil {
-		jsonError(w, "Failed to read documentation", http.StatusInternalServerError)
+		if os.IsPermission(err) {
+			jsonError(w, "Symlinks are not allowed", http.StatusForbidden)
+		} else {
+			jsonError(w, "Failed to read documentation", http.StatusInternalServerError)
+		}
 		return
 	}
 
