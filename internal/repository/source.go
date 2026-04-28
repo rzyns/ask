@@ -10,20 +10,20 @@ import (
 )
 
 type repositorySource interface {
-	Search(ctx context.Context, repo config.Repo, keyword string) ([]github.Repository, error)
-	Fetch(repo config.Repo) ([]github.Repository, error)
+	Search(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error)
+	Fetch(repo config.Repo) ([]SkillCandidate, error)
 }
 
 type sourceFuncSet struct {
-	search func(ctx context.Context, repo config.Repo, keyword string) ([]github.Repository, error)
-	fetch  func(repo config.Repo) ([]github.Repository, error)
+	search func(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error)
+	fetch  func(repo config.Repo) ([]SkillCandidate, error)
 }
 
-func (s sourceFuncSet) Search(ctx context.Context, repo config.Repo, keyword string) ([]github.Repository, error) {
+func (s sourceFuncSet) Search(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
 	return s.search(ctx, repo, keyword)
 }
 
-func (s sourceFuncSet) Fetch(repo config.Repo) ([]github.Repository, error) {
+func (s sourceFuncSet) Fetch(repo config.Repo) ([]SkillCandidate, error) {
 	return s.fetch(repo)
 }
 
@@ -74,18 +74,24 @@ func SearchSkills(ctx context.Context, repo config.Repo, keyword string) ([]gith
 	if err != nil {
 		return nil, err
 	}
-	return source.Search(ctx, repo, keyword)
+	candidates, err := source.Search(ctx, repo, keyword)
+	if err != nil {
+		return nil, err
+	}
+	return candidatesToRepositories(candidates), nil
 }
 
-func searchTopicSource(_ context.Context, repo config.Repo, keyword string) ([]github.Repository, error) {
-	return searchTopicFunc(repo.URL, keyword)
+func searchTopicSource(_ context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
+	repos, err := searchTopicFunc(repo.URL, keyword)
+	return repositoriesToCandidates(repos), err
 }
 
-func fetchTopicSource(repo config.Repo) ([]github.Repository, error) {
-	return searchTopicFunc(repo.URL, "")
+func fetchTopicSource(repo config.Repo) ([]SkillCandidate, error) {
+	repos, err := searchTopicFunc(repo.URL, "")
+	return repositoriesToCandidates(repos), err
 }
 
-func searchDirSource(_ context.Context, repo config.Repo, keyword string) ([]github.Repository, error) {
+func searchDirSource(_ context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
 	parts := strings.Split(repo.URL, "/")
 	if len(parts) < 2 {
 		return nil, nil
@@ -100,7 +106,7 @@ func searchDirSource(_ context.Context, repo config.Repo, keyword string) ([]git
 
 	repos, err := searchDirFunc(owner, repoName, path)
 	if err != nil || keyword == "" {
-		return repos, err
+		return repositoriesToCandidates(repos), err
 	}
 
 	// Filter client-side by keyword.
@@ -111,14 +117,14 @@ func searchDirSource(_ context.Context, repo config.Repo, keyword string) ([]git
 			filtered = append(filtered, rp)
 		}
 	}
-	return filtered, nil
+	return repositoriesToCandidates(filtered), nil
 }
 
-func fetchDirSource(repo config.Repo) ([]github.Repository, error) {
+func fetchDirSource(repo config.Repo) ([]SkillCandidate, error) {
 	// Try git-based discovery first (recursive and more reliable for deep structures)
 	skills, err := fetchSkillsViaGitFunc(repo)
 	if err == nil && len(skills) > 0 {
-		return skills, nil
+		return repositoriesToCandidates(skills), nil
 	}
 
 	// Fallback to API if git failed (e.g. no git installed) or found nothing
@@ -130,23 +136,28 @@ func fetchDirSource(repo config.Repo) ([]github.Repository, error) {
 		if len(parts) >= 3 {
 			path = strings.Join(parts[2:], "/")
 		}
-		return searchDirFunc(owner, name, path)
+		repos, err := searchDirFunc(owner, name, path)
+		return repositoriesToCandidates(repos), err
 	}
 	return nil, fmt.Errorf("invalid repository URL format: %s", repo.URL)
 }
 
-func searchRegistrySource(_ context.Context, repo config.Repo, keyword string) ([]github.Repository, error) {
-	return fetchSkillsFromRegistryFunc(repo.URL, keyword)
+func searchRegistrySource(_ context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
+	repos, err := fetchSkillsFromRegistryFunc(repo.URL, keyword)
+	return repositoriesToCandidates(repos), err
 }
 
-func fetchRegistrySource(repo config.Repo) ([]github.Repository, error) {
-	return fetchSkillsFromRegistryFunc(repo.URL, "")
+func fetchRegistrySource(repo config.Repo) ([]SkillCandidate, error) {
+	repos, err := fetchSkillsFromRegistryFunc(repo.URL, "")
+	return repositoriesToCandidates(repos), err
 }
 
-func searchSkillHubSource(_ context.Context, _ config.Repo, keyword string) ([]github.Repository, error) {
-	return fetchSkillsFromSkillHubFunc(keyword, "")
+func searchSkillHubSource(_ context.Context, _ config.Repo, keyword string) ([]SkillCandidate, error) {
+	repos, err := fetchSkillsFromSkillHubFunc(keyword, "")
+	return repositoriesToCandidates(repos), err
 }
 
-func fetchSkillHubSource(config.Repo) ([]github.Repository, error) {
-	return fetchSkillsFromSkillHubFunc("", "")
+func fetchSkillHubSource(config.Repo) ([]SkillCandidate, error) {
+	repos, err := fetchSkillsFromSkillHubFunc("", "")
+	return repositoriesToCandidates(repos), err
 }

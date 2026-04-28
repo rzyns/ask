@@ -25,7 +25,11 @@ func FetchSkills(repo config.Repo) ([]github.Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	return source.Fetch(repo)
+	candidates, err := source.Fetch(repo)
+	if err != nil {
+		return nil, err
+	}
+	return candidatesToRepositories(candidates), nil
 }
 
 // FetchSkillsViaGit clones a repo and discovers skills locally (no API needed)
