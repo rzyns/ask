@@ -1,14 +1,19 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
 
 	"github.com/yeasy/ask/internal/config"
 )
+
+var fetchHermesIndexHTTPFunc = fetchHermesIndexHTTP
 
 type hermesIndex struct {
 	Skills []hermesIndexSkill `json:"skills"`
@@ -35,6 +40,38 @@ func parseHermesIndex(r io.Reader) ([]hermesIndexSkill, error) {
 		return nil, err
 	}
 	return index.Skills, nil
+}
+
+func searchHermesSource(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
+	return fetchHermesIndex(ctx, repo, keyword)
+}
+
+func fetchHermesSource(repo config.Repo) ([]SkillCandidate, error) {
+	return fetchHermesIndex(context.Background(), repo, "")
+}
+
+func fetchHermesIndex(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
+	skills, err := fetchHermesIndexHTTPFunc(ctx, repo.URL)
+	if err != nil {
+		return nil, err
+	}
+	return hermesIndexSkillsToCandidates(skills, keyword), nil
+}
+
+func fetchHermesIndexHTTP(ctx context.Context, indexURL string) ([]hermesIndexSkill, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("failed to fetch Hermes index: %s", response.Status)
+	}
+	return parseHermesIndex(response.Body)
 }
 
 func hermesIndexSkillsToCandidates(skills []hermesIndexSkill, keyword string) []SkillCandidate {

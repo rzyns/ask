@@ -53,6 +53,10 @@ func sourceForRepo(repo config.Repo) (repositorySource, error) {
 			search: searchSkillHubSource,
 			fetch:  fetchSkillHubSource,
 		},
+		config.RepoTypeHermes: sourceFuncSet{
+			search: searchHermesSource,
+			fetch:  fetchHermesSource,
+		},
 	}
 
 	source, ok := sources[repo.Type]
