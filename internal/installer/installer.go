@@ -36,6 +36,60 @@ type InstallOptions struct {
 	depth     int    // current recursion depth (internal use only)
 }
 
+type installTarget struct {
+	repoURL       string
+	subDir        string
+	skillName     string
+	branch        string
+	version       string
+	originalInput string
+	input         string
+}
+
+func resolveDirectInstallTarget(input string) (installTarget, bool, error) {
+	target := installTarget{originalInput: input, input: input}
+
+	if idx := strings.LastIndex(input, "@"); idx != -1 && !strings.HasPrefix(input, "git@") {
+		target.version = input[idx+1:]
+		input = input[:idx]
+		target.input = input
+	}
+
+	if parsedURL, parsedBranch, parsedSubDir, parsedName, ok := github.ParseBrowserURL(input); ok {
+		target.repoURL = parsedURL
+		target.branch = parsedBranch
+		target.subDir = parsedSubDir
+		target.skillName = parsedName
+		return target, true, nil
+	}
+
+	isURL := strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") || strings.HasPrefix(input, "git@")
+	if isURL {
+		target.repoURL = input
+		urlParts := strings.Split(strings.TrimSuffix(target.repoURL, ".git"), "/")
+		target.skillName = urlParts[len(urlParts)-1]
+		return target, true, nil
+	}
+
+	parts := strings.Split(input, "/")
+	if len(parts) > 2 {
+		owner := parts[0]
+		repo := parts[1]
+		target.subDir = strings.Join(parts[2:], "/")
+		target.skillName = parts[len(parts)-1]
+		target.repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+		return target, true, nil
+	}
+	if len(parts) >= 2 {
+		target.repoURL = "https://github.com/" + input
+		urlParts := strings.Split(strings.TrimSuffix(target.repoURL, ".git"), "/")
+		target.skillName = urlParts[len(urlParts)-1]
+		return target, true, nil
+	}
+
+	return target, false, nil
+}
+
 // Install installs a single skill
 func Install(input string, opts InstallOptions) error {
 	if strings.TrimSpace(input) == "" {
@@ -61,178 +115,194 @@ func Install(input string, opts InstallOptions) error {
 
 	var repoURL, subDir, skillName, branch, localSourcePath string
 
-	// First, check if it's a GitHub browser URL with /tree/
-	if parsedURL, parsedBranch, parsedSubDir, parsedName, ok := github.ParseBrowserURL(input); ok {
-		repoURL = parsedURL
-		branch = parsedBranch
-		subDir = parsedSubDir
-		skillName = parsedName
+	directTarget, directOK, err := resolveDirectInstallTarget(originalInput)
+	if err != nil {
+		return err
+	}
+	directParts := strings.Split(directTarget.input, "/")
+	directIsURL := strings.HasPrefix(directTarget.input, "http://") || strings.HasPrefix(directTarget.input, "https://") || strings.HasPrefix(directTarget.input, "git@")
+	directIsSafeToUse := directOK && (directIsURL || len(directParts) > 2)
+	if directIsSafeToUse {
+		version = directTarget.version
+		input = directTarget.input
+		repoURL = directTarget.repoURL
+		branch = directTarget.branch
+		subDir = directTarget.subDir
+		skillName = directTarget.skillName
 	} else {
-		// Check if it's a direct URL or shorthand
-		isURL := strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") || strings.HasPrefix(input, "git@")
+		// First, check if it's a GitHub browser URL with /tree/
+		if parsedURL, parsedBranch, parsedSubDir, parsedName, ok := github.ParseBrowserURL(input); ok {
+			repoURL = parsedURL
+			branch = parsedBranch
+			subDir = parsedSubDir
+			skillName = parsedName
+		} else {
+			// Check if it's a direct URL or shorthand
+			isURL := strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") || strings.HasPrefix(input, "git@")
 
-		if !isURL {
-			parts := strings.Split(input, "/")
-			if len(parts) > 2 {
-				// It's a subdirectory install: owner/repo/path/to/skill
-				owner := parts[0]
-				repo := parts[1]
-				subDir = strings.Join(parts[2:], "/")
-				skillName = parts[len(parts)-1]
-				repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
-			} else if len(parts) >= 2 {
-				// Potential RepoName/SkillName from cache (e.g. "anthropics-skills/browser-use")
-				// or Standard install: owner/repo (e.g. "browser-use/browser-use")
+			if !isURL {
+				parts := strings.Split(input, "/")
+				if len(parts) > 2 {
+					// It's a subdirectory install: owner/repo/path/to/skill
+					owner := parts[0]
+					repo := parts[1]
+					subDir = strings.Join(parts[2:], "/")
+					skillName = parts[len(parts)-1]
+					repoURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+				} else if len(parts) >= 2 {
+					// Potential RepoName/SkillName from cache (e.g. "anthropics-skills/browser-use")
+					// or Standard install: owner/repo (e.g. "browser-use/browser-use")
 
-				foundInCache := false
+					foundInCache := false
 
-				repoName := parts[0]
-				skillNamePart := parts[1]
+					repoName := parts[0]
+					skillNamePart := parts[1]
 
-				reposCache, cacheErr := cache.NewReposCache()
-				if cacheErr == nil && reposCache != nil && reposCache.HasRepo(repoName) {
-					// Check for staleness (24 hours)
-					// Only refresh if NOT in offline mode
-					if !config.IsOffline() && reposCache.IsStale(repoName, 24*time.Hour) {
-						ui.Debug(fmt.Sprintf("Repo '%s' is stale, refreshing...", repoName))
-						// We need to fetch the repo URL from config to refresh
-						var refreshURL string
-						if opts.Config != nil {
-							for _, r := range opts.Config.Repos {
-								if r.Name == repoName {
-									refreshURL = r.URL
-									break
+					reposCache, cacheErr := cache.NewReposCache()
+					if cacheErr == nil && reposCache != nil && reposCache.HasRepo(repoName) {
+						// Check for staleness (24 hours)
+						// Only refresh if NOT in offline mode
+						if !config.IsOffline() && reposCache.IsStale(repoName, 24*time.Hour) {
+							ui.Debug(fmt.Sprintf("Repo '%s' is stale, refreshing...", repoName))
+							// We need to fetch the repo URL from config to refresh
+							var refreshURL string
+							if opts.Config != nil {
+								for _, r := range opts.Config.Repos {
+									if r.Name == repoName {
+										refreshURL = r.URL
+										break
+									}
+								}
+							}
+							// If URL found, trigger fetch (which pulls/syncs)
+							if refreshURL != "" {
+								refreshRepo := config.Repo{Name: repoName, URL: refreshURL, Type: "dir"}
+								if _, fetchErr := repository.FetchSkills(refreshRepo); fetchErr != nil {
+									ui.Debug(fmt.Sprintf("Failed to refresh repo '%s': %v (using stale cache)", repoName, fetchErr))
+								}
+								// Re-load cache after sync
+								newCache, cacheErr := cache.NewReposCache()
+								if cacheErr == nil {
+									reposCache = newCache
 								}
 							}
 						}
-						// If URL found, trigger fetch (which pulls/syncs)
-						if refreshURL != "" {
-							refreshRepo := config.Repo{Name: repoName, URL: refreshURL, Type: "dir"}
-							if _, fetchErr := repository.FetchSkills(refreshRepo); fetchErr != nil {
-								ui.Debug(fmt.Sprintf("Failed to refresh repo '%s': %v (using stale cache)", repoName, fetchErr))
-							}
-							// Re-load cache after sync
-							newCache, cacheErr := cache.NewReposCache()
-							if cacheErr == nil {
-								reposCache = newCache
-							}
-						}
-					}
 
-					// Repo exists in cache, check if skill exists in it
-					skills, err := reposCache.ListSkills(repoName)
-					if err == nil {
-						for _, s := range skills {
-							if s.Name == skillNamePart {
-								ui.Debug(fmt.Sprintf("Found skill '%s' in cached repo '%s'", skillNamePart, repoName))
+						// Repo exists in cache, check if skill exists in it
+						skills, err := reposCache.ListSkills(repoName)
+						if err == nil {
+							for _, s := range skills {
+								if s.Name == skillNamePart {
+									ui.Debug(fmt.Sprintf("Found skill '%s' in cached repo '%s'", skillNamePart, repoName))
 
-								// Resolve URL and subDir
-								repoInfos, err := reposCache.LoadIndex()
-								if err == nil {
-									for _, info := range repoInfos {
-										if info.Name == s.RepoName {
-											repoURL = info.URL
+									// Resolve URL and subDir
+									repoInfos, err := reposCache.LoadIndex()
+									if err == nil {
+										for _, info := range repoInfos {
+											if info.Name == s.RepoName {
+												repoURL = info.URL
 
-											// If URL is missing in index (bug fix), lookup from config
-											if repoURL == "" && opts.Config != nil {
-												for _, r := range opts.Config.Repos {
-													// Calculate derived name as used in sync
-													derivedName := r.Name
-													if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
-														parts := strings.Split(r.URL, "/")
-														if len(parts) >= 2 {
-															derivedName = parts[0] + "-" + parts[1]
-														}
-													} else {
-														derivedName = strings.ReplaceAll(r.URL, "/", "-")
-													}
-
-													if r.Name == s.RepoName || derivedName == s.RepoName {
+												// If URL is missing in index (bug fix), lookup from config
+												if repoURL == "" && opts.Config != nil {
+													for _, r := range opts.Config.Repos {
+														// Calculate derived name as used in sync
+														derivedName := r.Name
 														if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
 															parts := strings.Split(r.URL, "/")
 															if len(parts) >= 2 {
-																repoURL = fmt.Sprintf("https://github.com/%s/%s.git", parts[0], parts[1])
+																derivedName = parts[0] + "-" + parts[1]
 															}
 														} else {
-															repoURL = r.URL
+															derivedName = strings.ReplaceAll(r.URL, "/", "-")
 														}
-														break
+
+														if r.Name == s.RepoName || derivedName == s.RepoName {
+															if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
+																parts := strings.Split(r.URL, "/")
+																if len(parts) >= 2 {
+																	repoURL = fmt.Sprintf("https://github.com/%s/%s.git", parts[0], parts[1])
+																}
+															} else {
+																repoURL = r.URL
+															}
+															break
+														}
 													}
 												}
-											}
 
-											localSourcePath = s.Path
-											rel, err := filepath.Rel(info.LocalPath, s.Path)
-											if err == nil && rel != "." {
-												subDir = rel
+												localSourcePath = s.Path
+												rel, err := filepath.Rel(info.LocalPath, s.Path)
+												if err == nil && rel != "." {
+													subDir = rel
+												}
+												skillName = s.Name
+												foundInCache = true
+												break
 											}
-											skillName = s.Name
-											foundInCache = true
-											break
 										}
 									}
+									if foundInCache {
+										break
+									}
 								}
-								if foundInCache {
+							}
+						}
+					}
+
+					if !foundInCache {
+						// Fallback: Check if it's a known repo in config
+						configMatch := false
+						if opts.Config != nil {
+							for _, r := range opts.Config.Repos {
+								if r.Name == parts[0] {
+									// Found matching repo config
+									if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
+										repoParts := strings.Split(r.URL, "/")
+										if len(repoParts) >= 2 {
+											repoURL = fmt.Sprintf("https://github.com/%s/%s.git", repoParts[0], repoParts[1])
+										}
+									} else {
+										repoURL = r.URL
+									}
+
+									baseSubDir := ""
+									if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
+										repoParts := strings.Split(r.URL, "/")
+										if len(repoParts) > 2 {
+											baseSubDir = strings.Join(repoParts[2:], "/")
+										}
+									}
+
+									if baseSubDir != "" {
+										subDir = filepath.Join(baseSubDir, parts[1])
+									} else {
+										subDir = parts[1]
+									}
+
+									skillName = parts[1]
+									configMatch = true
+
+									// We skip the background sync trigger here to simplify the installer package logic
+									// It belonged more to the CLI coordination layer, or could be passed as a callback
 									break
 								}
 							}
 						}
-					}
-				}
 
-				if !foundInCache {
-					// Fallback: Check if it's a known repo in config
-					configMatch := false
-					if opts.Config != nil {
-						for _, r := range opts.Config.Repos {
-							if r.Name == parts[0] {
-								// Found matching repo config
-								if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
-									repoParts := strings.Split(r.URL, "/")
-									if len(repoParts) >= 2 {
-										repoURL = fmt.Sprintf("https://github.com/%s/%s.git", repoParts[0], repoParts[1])
-									}
-								} else {
-									repoURL = r.URL
-								}
-
-								baseSubDir := ""
-								if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
-									repoParts := strings.Split(r.URL, "/")
-									if len(repoParts) > 2 {
-										baseSubDir = strings.Join(repoParts[2:], "/")
-									}
-								}
-
-								if baseSubDir != "" {
-									subDir = filepath.Join(baseSubDir, parts[1])
-								} else {
-									subDir = parts[1]
-								}
-
-								skillName = parts[1]
-								configMatch = true
-
-								// We skip the background sync trigger here to simplify the installer package logic
-								// It belonged more to the CLI coordination layer, or could be passed as a callback
-								break
-							}
+						if !configMatch {
+							// Standard install: owner/repo
+							repoURL = "https://github.com/" + input
+							urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
+							skillName = urlParts[len(urlParts)-1]
 						}
 					}
-
-					if !configMatch {
-						// Standard install: owner/repo
-						repoURL = "https://github.com/" + input
-						urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
-						skillName = urlParts[len(urlParts)-1]
-					}
 				}
+			} else {
+				// It's a URL
+				repoURL = input
+				urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
+				skillName = urlParts[len(urlParts)-1]
 			}
-		} else {
-			// It's a URL
-			repoURL = input
-			urlParts := strings.Split(strings.TrimSuffix(repoURL, ".git"), "/")
-			skillName = urlParts[len(urlParts)-1]
 		}
 	}
 
