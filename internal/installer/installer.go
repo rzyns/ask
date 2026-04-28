@@ -37,13 +37,14 @@ type InstallOptions struct {
 }
 
 type installTarget struct {
-	repoURL       string
-	subDir        string
-	skillName     string
-	branch        string
-	version       string
-	originalInput string
-	input         string
+	repoURL         string
+	subDir          string
+	skillName       string
+	branch          string
+	version         string
+	originalInput   string
+	input           string
+	localSourcePath string
 }
 
 func resolveDirectInstallTarget(input string) (installTarget, bool, error) {
@@ -88,6 +89,130 @@ func resolveDirectInstallTarget(input string) (installTarget, bool, error) {
 	}
 
 	return target, false, nil
+}
+
+func resolveTwoPartInstallTarget(input string, opts InstallOptions) (installTarget, bool, error) {
+	target := installTarget{originalInput: input, input: input}
+	parts := strings.Split(input, "/")
+	if len(parts) != 2 {
+		return target, false, nil
+	}
+
+	repoName := parts[0]
+	skillNamePart := parts[1]
+
+	reposCache, cacheErr := cache.NewReposCache()
+	if cacheErr == nil && reposCache != nil && reposCache.HasRepo(repoName) {
+		skills, err := reposCache.ListSkills(repoName)
+		if err == nil {
+			for _, s := range skills {
+				if s.Name != skillNamePart {
+					continue
+				}
+				repoInfos, err := reposCache.LoadIndex()
+				if err != nil {
+					break
+				}
+				for _, info := range repoInfos {
+					if info.Name != s.RepoName {
+						continue
+					}
+					target.repoURL = resolveCachedRepoURL(info, s.RepoName, opts.Config)
+					target.localSourcePath = s.Path
+					if rel, err := filepath.Rel(info.LocalPath, s.Path); err == nil && rel != "." {
+						target.subDir = rel
+					}
+					target.skillName = s.Name
+					return target, true, nil
+				}
+			}
+		}
+	}
+
+	if opts.Config != nil {
+		for _, r := range opts.Config.Repos {
+			if r.Name != repoName {
+				continue
+			}
+			target.repoURL = repoURLFromConfigURL(r.URL)
+			baseSubDir := baseSubDirFromConfigURL(r.URL)
+			if baseSubDir != "" {
+				target.subDir = filepath.Join(baseSubDir, skillNamePart)
+			} else {
+				target.subDir = skillNamePart
+			}
+			target.skillName = skillNamePart
+			return target, true, nil
+		}
+	}
+
+	target.repoURL = "https://github.com/" + input
+	target.skillName = skillNamePart
+	return target, true, nil
+}
+
+func resolveBareCachedSkillInput(input string) (string, bool, error) {
+	reposCache, err := cache.NewReposCache()
+	if err != nil {
+		return "", false, nil
+	}
+	skills, _ := reposCache.SearchSkills(input)
+	var exactMatches []cache.SkillEntry
+	for _, s := range skills {
+		if s.Name == input {
+			exactMatches = append(exactMatches, s)
+		}
+	}
+	if len(exactMatches) > 1 {
+		return "", false, fmt.Errorf("ambiguous skill name '%s'. Please specify the repository like 'RepoName/SkillName'", input)
+	}
+	if len(exactMatches) == 1 {
+		s := exactMatches[0]
+		return fmt.Sprintf("%s/%s", s.RepoName, s.Name), true, nil
+	}
+	return "", false, nil
+}
+
+func resolveCachedRepoURL(info cache.RepoInfo, repoName string, cfg *config.Config) string {
+	if info.URL != "" || cfg == nil {
+		return info.URL
+	}
+	for _, r := range cfg.Repos {
+		derivedName := r.Name
+		if !strings.HasPrefix(r.URL, "http://") && !strings.HasPrefix(r.URL, "https://") {
+			parts := strings.Split(r.URL, "/")
+			if len(parts) >= 2 {
+				derivedName = parts[0] + "-" + parts[1]
+			}
+		} else {
+			derivedName = strings.ReplaceAll(r.URL, "/", "-")
+		}
+		if r.Name == repoName || derivedName == repoName {
+			return repoURLFromConfigURL(r.URL)
+		}
+	}
+	return ""
+}
+
+func repoURLFromConfigURL(url string) string {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		parts := strings.Split(url, "/")
+		if len(parts) >= 2 {
+			return fmt.Sprintf("https://github.com/%s/%s.git", parts[0], parts[1])
+		}
+	}
+	return url
+}
+
+func baseSubDirFromConfigURL(url string) string {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return ""
+	}
+	parts := strings.Split(url, "/")
+	if len(parts) > 2 {
+		return strings.Join(parts[2:], "/")
+	}
+	return ""
 }
 
 // Install installs a single skill

@@ -1,10 +1,13 @@
 package installer
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
 )
 
@@ -53,6 +56,94 @@ func TestInstall_SpecialCharactersInInput(t *testing.T) {
 	longInput := strings.Repeat("a", 300)
 	err = Install(longInput, opts)
 	assert.Error(t, err)
+}
+
+func TestResolveTwoPartInstallTarget(t *testing.T) {
+	t.Run("cache hit uses cached source path and index URL", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		repoRoot := setupCachedSkill(t, "anthropics-skills", "browser-use", "https://github.com/anthropics/skills.git")
+
+		got, ok, err := resolveTwoPartInstallTarget("anthropics-skills/browser-use", InstallOptions{})
+
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.Equal(t, installTarget{
+			repoURL:         "https://github.com/anthropics/skills.git",
+			subDir:          "browser-use",
+			skillName:       "browser-use",
+			originalInput:   "anthropics-skills/browser-use",
+			input:           "anthropics-skills/browser-use",
+			localSourcePath: filepath.Join(repoRoot, "browser-use"),
+		}, got)
+	})
+
+	t.Run("configured repo alias with base subdirectory", func(t *testing.T) {
+		got, ok, err := resolveTwoPartInstallTarget("anthropics/browser-use", InstallOptions{
+			Config: &config.Config{Repos: []config.Repo{{Name: "anthropics", Type: config.RepoTypeDir, URL: "anthropics/skills/skills"}}},
+		})
+
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.Equal(t, installTarget{
+			repoURL:       "https://github.com/anthropics/skills.git",
+			subDir:        filepath.Join("skills", "browser-use"),
+			skillName:     "browser-use",
+			originalInput: "anthropics/browser-use",
+			input:         "anthropics/browser-use",
+		}, got)
+	})
+
+	t.Run("standard owner repo fallback", func(t *testing.T) {
+		got, ok, err := resolveTwoPartInstallTarget("owner/repo", InstallOptions{})
+
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.Equal(t, installTarget{
+			repoURL:       "https://github.com/owner/repo",
+			skillName:     "repo",
+			originalInput: "owner/repo",
+			input:         "owner/repo",
+		}, got)
+	})
+}
+
+func TestResolveBareCachedSkillInput(t *testing.T) {
+	t.Run("single exact cache match resolves to repo skill input", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		setupCachedSkill(t, "anthropics-skills", "browser-use", "https://github.com/anthropics/skills.git")
+
+		got, ok, err := resolveBareCachedSkillInput("browser-use")
+
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.Equal(t, "anthropics-skills/browser-use", got)
+	})
+
+	t.Run("ambiguous exact cache matches return existing ambiguity error", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		setupCachedSkill(t, "repo-one", "browser-use", "https://github.com/acme/one.git")
+		setupCachedSkill(t, "repo-two", "browser-use", "https://github.com/acme/two.git")
+
+		got, ok, err := resolveBareCachedSkillInput("browser-use")
+
+		assert.Error(t, err)
+		assert.False(t, ok)
+		assert.Empty(t, got)
+		assert.EqualError(t, err, "ambiguous skill name 'browser-use'. Please specify the repository like 'RepoName/SkillName'")
+	})
+}
+
+func setupCachedSkill(t *testing.T, repoName, skillName, repoURL string) string {
+	t.Helper()
+	reposCache, err := cache.NewReposCache()
+	assert.NoError(t, err)
+
+	repoRoot := filepath.Join(os.Getenv("HOME"), ".ask", "repos", repoName)
+	assert.NoError(t, os.MkdirAll(filepath.Join(repoRoot, skillName), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(repoRoot, skillName, "SKILL.md"), []byte("---\nname: "+skillName+"\n---\n"), 0644))
+
+	assert.NoError(t, reposCache.SaveIndexWithStars(map[string]int{repoName: 0}, map[string]string{repoName: repoURL}))
+	return repoRoot
 }
 
 func TestResolveDirectInstallTarget(t *testing.T) {
