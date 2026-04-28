@@ -21,35 +21,11 @@ const gitCloneTimeout = 5 * time.Minute
 
 // FetchSkills returns a list of skills available in the given repository
 func FetchSkills(repo config.Repo) ([]github.Repository, error) {
-	switch repo.Type {
-	case config.RepoTypeTopic:
-		return github.SearchTopic(repo.URL, "")
-	case config.RepoTypeDir:
-		// Try git-based discovery first (recursive and more reliable for deep structures)
-		skills, err := FetchSkillsViaGit(repo)
-		if err == nil && len(skills) > 0 {
-			return skills, nil
-		}
-
-		// Fallback to API if git failed (e.g. no git installed) or found nothing
-		parts := strings.Split(repo.URL, "/")
-		if len(parts) >= 2 {
-			owner := parts[0]
-			name := parts[1]
-			path := ""
-			if len(parts) >= 3 {
-				path = strings.Join(parts[2:], "/")
-			}
-			return github.SearchDir(owner, name, path)
-		}
-		return nil, fmt.Errorf("invalid repository URL format: %s", repo.URL)
-	case config.RepoTypeRegistry:
-		return FetchSkillsFromRegistry(repo.URL, "")
-	case config.RepoTypeSkillHub:
-		return FetchSkillsFromSkillHub("", "")
-	default:
-		return nil, fmt.Errorf("unknown repository type: %s", repo.Type)
+	source, err := sourceForRepo(repo)
+	if err != nil {
+		return nil, err
 	}
+	return source.Fetch(repo)
 }
 
 // FetchSkillsViaGit clones a repo and discovers skills locally (no API needed)
