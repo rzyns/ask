@@ -237,39 +237,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 				return
 			}
 			defer func() { <-sem }()
-			var repos []github.Repository
-			var err error
-
-			switch r.Type {
-			case "topic":
-				repos, err = github.SearchTopic(r.URL, keyword)
-			case "dir":
-				parts := strings.Split(r.URL, "/")
-				if len(parts) >= 2 {
-					owner := parts[0]
-					repoName := parts[1]
-					path := ""
-					if len(parts) > 2 {
-						path = strings.Join(parts[2:], "/")
-					}
-					repos, err = github.SearchDir(owner, repoName, path)
-
-					// Filter client-side by keyword
-					if err == nil && keyword != "" {
-						var filtered []github.Repository
-						for _, rp := range repos {
-							if strings.Contains(strings.ToLower(rp.Name), strings.ToLower(keyword)) {
-								filtered = append(filtered, rp)
-							}
-						}
-						repos = filtered
-					}
-				}
-			case "registry":
-				repos, err = repository.FetchSkillsFromRegistry(r.URL, keyword)
-			case "skillhub":
-				repos, err = repository.FetchSkillsFromSkillHub(keyword, "")
-			}
+			repos, err := repository.SearchSkills(searchCtx, r, keyword)
 
 			// Set source name for each repo
 			for i := range repos {
