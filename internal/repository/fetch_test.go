@@ -1,10 +1,14 @@
 package repository
 
 import (
+	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/yeasy/ask/internal/config"
 )
 
 func createFile(t *testing.T, baseDir, path, content string) {
@@ -14,6 +18,73 @@ func createFile(t *testing.T, baseDir, path, content string) {
 	}
 	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
 		t.Fatalf("failed to write file: %v", err)
+	}
+}
+
+func TestFetchSkillsUnknownTypeReturnsError(t *testing.T) {
+	_, err := FetchSkills(config.Repo{Type: "bogus"})
+	if err == nil {
+		t.Fatal("expected error for unknown repository type")
+	}
+	if got := err.Error(); !strings.Contains(got, "unknown repository type: bogus") {
+		t.Fatalf("expected unknown type error, got %q", got)
+	}
+}
+
+func TestFetchSkillsDirInvalidURLReturnsError(t *testing.T) {
+	_, err := FetchSkills(config.Repo{
+		Type: config.RepoTypeDir,
+		URL:  "owneronly",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid dir repository URL")
+	}
+	if got := err.Error(); !strings.Contains(got, "invalid repository URL format: owneronly") {
+		t.Fatalf("expected invalid repository URL format error, got %q", got)
+	}
+}
+
+func TestFetchSkillsViaGitNonDirReturnsError(t *testing.T) {
+	_, err := FetchSkillsViaGit(config.Repo{Type: config.RepoTypeRegistry})
+	if err == nil {
+		t.Fatal("expected error for non-dir repository type")
+	}
+	if got := err.Error(); !strings.Contains(got, "git fetch only supports 'dir' type repos") {
+		t.Fatalf("expected non-dir git fetch error, got %q", got)
+	}
+}
+
+func TestFetchSkillsRegistryDispatchReturnsRegistryEntries(t *testing.T) {
+	config.SetOffline(false)
+
+	index := validRegistryIndex()
+	data, err := json.Marshal(index)
+	if err != nil {
+		t.Fatalf("failed to marshal test index: %v", err)
+	}
+
+	_, cleanup := setupTestServer(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+	})
+	defer cleanup()
+
+	results, err := FetchSkills(config.Repo{
+		Type: config.RepoTypeRegistry,
+		URL:  "owner/repo/registry/index.json",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+	if results[0].Name != "code-review" {
+		t.Fatalf("expected first registry entry code-review, got %q", results[0].Name)
+	}
+	if results[1].Name != "docker-helper" {
+		t.Fatalf("expected second registry entry docker-helper, got %q", results[1].Name)
 	}
 }
 
