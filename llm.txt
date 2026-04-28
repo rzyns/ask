@@ -171,7 +171,8 @@ Skills are automatically installed to detected agent directories:
 - Cursor: `.cursor/skills/`
 - Codex: `.codex/skills/`
 - Windsurf: `.windsurf/skills/`
-- And 15 more agents supported (19 total)
+- Hermes: `.hermes/skills/` (global installs use `~/.hermes/skills`; project-local installs may require configuring Hermes `skills.external_dirs`)
+- And 15 more agents supported (20 total)
 
 ## Environment Variables
 

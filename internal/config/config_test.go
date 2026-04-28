@@ -264,21 +264,31 @@ func TestDetectExistingToolDirs(t *testing.T) {
 	// Setup temp dir
 	dir := t.TempDir()
 
-	// Create .claude directory (mocking existing project)
+	// Create .claude and .hermes directories (mocking existing project)
 	err := os.Mkdir(filepath.Join(dir, ".claude"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create .claude dir: %v", err)
 	}
+	err = os.Mkdir(filepath.Join(dir, ".hermes"), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create .hermes dir: %v", err)
+	}
 
 	detected := DetectExistingToolDirs(dir)
 	foundClaude := false
+	foundHermes := false
 	for _, target := range detected {
 		if target.Name == "claude" {
 			foundClaude = true
-			break
+		}
+		if target.Name == "hermes" && target.SkillsDir == ".hermes/skills" {
+			foundHermes = true
 		}
 	}
 	if !foundClaude {
 		t.Error("Expected 'claude' to be detected in " + dir)
+	}
+	if !foundHermes {
+		t.Error("Expected 'hermes' with skills dir '.hermes/skills' to be detected in " + dir)
 	}
 }

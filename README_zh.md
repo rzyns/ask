@@ -7,7 +7,7 @@
 <h3 align="center">一条命令，所有智能体。</h3>
 
 <p align="center">
-  安装一次 — 自动同步到 Claude、Cursor、Codex、Copilot、Windsurf、Gemini、OpenClaw 等 19 个智能体。
+  安装一次 — 自动同步到 Claude、Cursor、Codex、Copilot、Windsurf、Gemini、Hermes、OpenClaw 等 20 个智能体。
 </p>
 
 <p align="center">
@@ -54,7 +54,7 @@ $ ask install browser-use
 
 | 特性 | 说明 |
 | :--- | :--- |
-| **🤖 19 个智能体，一个 CLI** | 一次安装，自动同步到 Claude、Cursor、Codex、Copilot、Windsurf、Gemini CLI、OpenClaw 等 19 个智能体。不绑定厂商。 |
+| **🤖 20 个智能体，一个 CLI** | 一次安装，自动同步到 Claude、Cursor、Codex、Copilot、Windsurf、Gemini CLI、Hermes、OpenClaw 等 20 个智能体。不绑定厂商。 |
 | **📦 版本锁定** | `ask.lock` 精确锁定 commit，确保可复现构建。`ask lock-install` 类似 `npm ci`，专为 CI/CD 设计。 |
 | **🛡️ 安全扫描** | 15+ 条内置规则检测密钥泄漏、危险命令和恶意代码。支持 SARIF 格式输出，集成 GitHub Code Scanning。 |
 | **🔍 精选注册表** | 搜索 [官方注册表](https://github.com/yeasy/awesome-agent-skills)、GitHub 仓库和社区源。 |
@@ -145,6 +145,7 @@ ask install mcp-builder@v1.0.0
 
 # 为指定 Agent 安装
 ask install mcp-builder --agent claude
+ask install mcp-builder --agent hermes
 ask install mcp-builder --agent claude,cursor
 
 # 安全检查
@@ -162,6 +163,10 @@ ask skill install --repo anthropics pdf
 # 安装指定仓库下的所有技能
 ask skill install --repo anthropics
 ```
+
+### Hermes 说明
+
+Hermes 默认加载 `$HERMES_HOME/skills`（通常是 `~/.hermes/skills`）。ASK 全局安装（`--agent hermes --global`）会使用该目录；项目本地安装会写入 `.hermes/skills`，如需 Hermes 自动加载，请在 Hermes 配置中将该项目绝对路径加入 `skills.external_dirs`。
 
 ## 📋 命令参考
 
@@ -287,7 +292,7 @@ ask completion fish > ~/.config/fish/completions/ask.fish
 
 |  | ASK | Claude 原生 | Cursor Rules |
 | :--- | :---: | :---: | :---: |
-| **多智能体支持** | ✅ 19 个 | 仅 Claude | 仅 Cursor |
+| **多智能体支持** | ✅ 20 个 | 仅 Claude | 仅 Cursor |
 | **版本锁定** | ✅ `ask.lock` | ❌ | ❌ |
 | **安全扫描** | ✅ 15+ 规则 | ❌ | ❌ |
 | **离线模式** | ✅ | ❌ | ❌ |

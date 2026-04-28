@@ -24,7 +24,7 @@ You can also specify versions: owner/repo@v1.0.0
 
 If no arguments are provided, it will attempt to restore skills from ask.lock or ask.yaml in the current directory.
 
-Use --agent (-a) to specify target agents (e.g., claude, cursor, codex).
+Use --agent (-a) to specify target agents (e.g., claude, cursor, codex, hermes).
 Multiple agents can be specified by repeating the flag.
 If no agent is specified, skills are installed to .agent/skills/ by default.`,
 	Example: `  # Install from GitHub shorthand
@@ -36,9 +36,11 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
   # Install to specific agents
   ask skill install pdf --agent claude --agent cursor
   ask skill install pdf -a claude -a cursor
+  ask skill install pdf --agent hermes
   
   # Install globally for an agent
   ask skill install pdf --agent claude --global
+  ask skill install pdf --agent hermes --global
   
   # Install multiple skills at once
   ask skill install pdf docx mcp-builder
@@ -389,7 +391,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 }
 
 func registerInstallFlags(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP("agent", "a", []string{}, "Target agent(s) to install for (e.g. claude, cursor)")
+	cmd.Flags().StringSliceP("agent", "a", []string{}, "Target agent(s) to install for (e.g. claude, cursor, hermes)")
 	cmd.Flags().StringP("repo", "r", "", "Install skill(s) from a specific repository")
 	cmd.Flags().Bool("skip-score", false, "Skip trust score check before installing")
 	cmd.Flags().String("min-score", "D", "Minimum acceptable trust grade (A/B/C/D/F)")

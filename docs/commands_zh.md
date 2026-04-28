@@ -87,6 +87,7 @@ ask skill install <skill>@v1.0.0             # 安装特定版本
 ask skill install owner/repo                 # 从 GitHub 仓库安装
 ask skill install owner/repo/path/to/skill   # 从子目录安装
 ask skill install <skill> --agent claude,cursor  # 为特定 Agent 安装
+ask skill install <skill> --agent hermes         # 为 Hermes 安装（本地为 .hermes/skills）
 ```
 
 **示例：**
@@ -98,7 +99,7 @@ ask skill install anthropics/skills/computer-use  # 指定路径
 ```
 
 **参数：**
-- `--agent, -a`: 安装到特定的 Agent（支持 19 种，如 claude, cursor, codex）
+- `--agent, -a`: 安装到特定的 Agent（支持 20 种，如 claude, cursor, codex, hermes）
 - `--global, -g`: 安装到全局目录 (~/.ask/skills)
 - `--repo, -r`: 从指定仓库安装技能
 - `--skip-score`: 跳过安装前的信任评分检查
@@ -108,6 +109,8 @@ ask skill install anthropics/skills/computer-use  # 指定路径
 - 下载技能到 `.agent/skills/<name>/` (或 Agent 特定目录)
 - 添加条目到 `ask.yaml`
 - 在 `ask.lock` 中记录版本信息
+
+**Hermes 说明：** Hermes 默认加载 `$HERMES_HOME/skills`（通常是 `~/.hermes/skills`）。使用 `--agent hermes --global` 会安装到该默认位置；项目本地安装会写入 `.hermes/skills`，如需 Hermes 自动加载，请将该项目本地目录的绝对路径加入 Hermes 的 `skills.external_dirs`。
 
 ---
 

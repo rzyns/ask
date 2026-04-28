@@ -87,6 +87,7 @@ ask skill install <skill>@v1.0.0             # Install specific version
 ask skill install owner/repo                 # Install from GitHub repo
 ask skill install owner/repo/path/to/skill   # Install from subdirectory
 ask skill install <skill> --agent claude,cursor  # Install for specific agents
+ask skill install <skill> --agent hermes         # Install for Hermes (.hermes/skills locally)
 ```
 
 **Examples:**
@@ -98,7 +99,7 @@ ask skill install anthropics/skills/computer-use  # From path
 ```
 
 **Flags:**
-- `--agent, -a`: Install to specific agent(s) (19 agents supported, e.g., claude, cursor, codex)
+- `--agent, -a`: Install to specific agent(s) (20 agents supported, e.g., claude, cursor, codex, hermes)
 - `--global, -g`: Install to global directory (~/.ask/skills)
 - `--repo, -r`: Install skill(s) from a specific repository
 - `--skip-score`: Skip trust score check before installing
@@ -108,6 +109,8 @@ ask skill install anthropics/skills/computer-use  # From path
 - Downloads the skill to `.agent/skills/<name>/` (or agent-specific directories)
 - Adds entry to `ask.yaml`
 - Records version info in `ask.lock`
+
+**Hermes note:** Hermes loads `$HERMES_HOME/skills` by default (usually `~/.hermes/skills`). Use `--agent hermes --global` for that default location. Project-local ASK installs go to `.hermes/skills`; configure Hermes `skills.external_dirs` with the absolute project-local path for automatic loading.
 
 ---
 

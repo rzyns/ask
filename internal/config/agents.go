@@ -50,6 +50,8 @@ const (
 	AgentCodeBuddy AgentType = "codebuddy"
 	// AgentOpenClaw represents the OpenClaw agent
 	AgentOpenClaw AgentType = "openclaw"
+	// AgentHermes represents the Hermes Agent
+	AgentHermes AgentType = "hermes"
 )
 
 // AgentConfig holds directory paths for an agent
@@ -176,6 +178,12 @@ var SupportedAgents = map[AgentType]AgentConfig{
 		GlobalDir:  ".openclaw/workspace/skills",
 		Aliases:    []string{"openclaw-ai"},
 	},
+	AgentHermes: {
+		Name:       "Hermes",
+		ProjectDir: ".hermes/skills",
+		GlobalDir:  ".hermes/skills",
+		Aliases:    []string{"hermes-agent"},
+	},
 }
 
 // GetSupportedAgentNames returns a list of all supported agent type names
@@ -232,6 +240,12 @@ func GetAgentSkillsDir(agent AgentType, global bool) (string, error) {
 	}
 
 	if global {
+		if agent == AgentHermes {
+			if hermesHome := os.Getenv("HERMES_HOME"); hermesHome != "" {
+				return filepath.Join(hermesHome, "skills"), nil
+			}
+		}
+
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
@@ -263,11 +277,12 @@ func GetAllAgentSkillsDirs() []string {
 	}
 
 	// Add global directories
-	home, err := os.UserHomeDir()
-	if err == nil {
-		for _, config := range SupportedAgents {
-			add(filepath.Join(home, config.GlobalDir))
+	for agent := range SupportedAgents {
+		dir, err := GetAgentSkillsDir(agent, true)
+		if err != nil {
+			continue
 		}
+		add(dir)
 	}
 
 	return dirs

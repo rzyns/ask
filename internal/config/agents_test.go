@@ -14,7 +14,7 @@ func TestGetSupportedAgentNames(t *testing.T) {
 	}
 
 	// Should contain known agents
-	knownAgents := []string{"claude", "cursor", "codex", "gemini", "copilot"}
+	knownAgents := []string{"claude", "cursor", "codex", "gemini", "copilot", "hermes"}
 	for _, known := range knownAgents {
 		found := false
 		for _, name := range names {
@@ -52,6 +52,7 @@ func TestIsValidAgent(t *testing.T) {
 		{"direct agent codex", "codex", true},
 		{"direct agent gemini", "gemini", true},
 		{"direct agent copilot", "copilot", true},
+		{"direct agent hermes", "hermes", true},
 		{"direct agent windsurf", "windsurf", true},
 		{"alias claude-code", "claude-code", true},
 		{"alias openai-codex", "openai-codex", true},
@@ -59,6 +60,7 @@ func TestIsValidAgent(t *testing.T) {
 		{"alias github-copilot", "github-copilot", true},
 		{"alias kilocode", "kilocode", true},
 		{"alias openclaw-ai", "openclaw-ai", true},
+		{"alias hermes-agent", "hermes-agent", true},
 		{"invalid agent", "nonexistent-agent", false},
 		{"empty string", "", false},
 		{"uppercase agent", "Claude", false},
@@ -86,6 +88,7 @@ func TestResolveAgentType(t *testing.T) {
 		{"direct name cursor", "cursor", AgentCursor, true},
 		{"direct name codex", "codex", AgentCodex, true},
 		{"direct name gemini", "gemini", AgentGemini, true},
+		{"direct name hermes", "hermes", AgentHermes, true},
 		{"alias claude-code", "claude-code", AgentClaude, true},
 		{"alias openai-codex", "openai-codex", AgentCodex, true},
 		{"alias gemini-cli", "gemini-cli", AgentGemini, true},
@@ -93,6 +96,7 @@ func TestResolveAgentType(t *testing.T) {
 		{"alias gemini-antigravity", "gemini-antigravity", AgentAntigravity, true},
 		{"alias kiro-cli", "kiro-cli", AgentKiro, true},
 		{"alias openclaw-ai", "openclaw-ai", AgentOpenClaw, true},
+		{"alias hermes-agent", "hermes-agent", AgentHermes, true},
 		{"invalid name", "nonexistent", "", false},
 		{"empty string", "", "", false},
 		{"uppercase", "Claude", "", false},
@@ -180,6 +184,42 @@ func TestGetAgentSkillsDir(t *testing.T) {
 		}
 	})
 
+	t.Run("project dir for hermes", func(t *testing.T) {
+		dir, err := GetAgentSkillsDir(AgentHermes, false)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if dir != ".hermes/skills" {
+			t.Errorf("Expected '.hermes/skills', got %q", dir)
+		}
+	})
+
+	t.Run("global dir for hermes", func(t *testing.T) {
+		t.Setenv("HERMES_HOME", "")
+		dir, err := GetAgentSkillsDir(AgentHermes, true)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		expected := filepath.Join(home, ".hermes/skills")
+		if dir != expected {
+			t.Errorf("Expected %q, got %q", expected, dir)
+		}
+	})
+
+	t.Run("global dir for hermes respects HERMES_HOME", func(t *testing.T) {
+		hermesHome := t.TempDir()
+		t.Setenv("HERMES_HOME", hermesHome)
+
+		dir, err := GetAgentSkillsDir(AgentHermes, true)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		expected := filepath.Join(hermesHome, "skills")
+		if dir != expected {
+			t.Errorf("Expected %q, got %q", expected, dir)
+		}
+	})
+
 	t.Run("unsupported agent", func(t *testing.T) {
 		_, err := GetAgentSkillsDir(AgentType("nonexistent"), false)
 		if err == nil {
@@ -196,6 +236,7 @@ func TestGetAgentSkillsDir(t *testing.T) {
 }
 
 func TestGetAllAgentSkillsDirs(t *testing.T) {
+	t.Setenv("HERMES_HOME", "")
 	dirs := GetAllAgentSkillsDirs()
 
 	if len(dirs) == 0 {
@@ -226,6 +267,17 @@ func TestGetAllAgentSkillsDirs(t *testing.T) {
 		t.Error("Expected '.claude/skills' project dir in directories list")
 	}
 
+	foundHermesProject := false
+	for _, dir := range dirs {
+		if dir == ".hermes/skills" {
+			foundHermesProject = true
+			break
+		}
+	}
+	if !foundHermesProject {
+		t.Error("Expected '.hermes/skills' project dir in directories list")
+	}
+
 	// Should include global directories (home-prefixed)
 	home, err := os.UserHomeDir()
 	if err == nil {
@@ -240,6 +292,33 @@ func TestGetAllAgentSkillsDirs(t *testing.T) {
 		if !foundClaudeGlobal {
 			t.Errorf("Expected global dir %q in directories list", expected)
 		}
+
+		foundHermesGlobal := false
+		expectedHermes := filepath.Join(home, ".hermes/skills")
+		for _, dir := range dirs {
+			if dir == expectedHermes {
+				foundHermesGlobal = true
+				break
+			}
+		}
+		if !foundHermesGlobal {
+			t.Errorf("Expected global dir %q in directories list", expectedHermes)
+		}
+	}
+
+	hermesHome := t.TempDir()
+	t.Setenv("HERMES_HOME", hermesHome)
+	dirs = GetAllAgentSkillsDirs()
+	expectedHermesHomeDir := filepath.Join(hermesHome, "skills")
+	foundHermesHomeGlobal := false
+	for _, dir := range dirs {
+		if dir == expectedHermesHomeDir {
+			foundHermesHomeGlobal = true
+			break
+		}
+	}
+	if !foundHermesHomeGlobal {
+		t.Errorf("Expected HERMES_HOME global dir %q in directories list", expectedHermesHomeDir)
 	}
 
 	// Verify no duplicates
