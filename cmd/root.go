@@ -17,11 +17,13 @@ var (
 	logLevel string
 )
 
-// Custom help template with subcommand details at the end
-var rootHelpTemplate = `ASK v` + Version + `
-{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+// Custom help template with extra root command details.
+// Cobra inherits help templates through the command tree, so root-only content
+// must be guarded to avoid leaking the root catalog into subcommand help.
+var rootHelpTemplate = `{{if eq .CommandPath "ask"}}ASK v` + Version + `
+{{end}}{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
 
-{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}
+{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}{{if eq .CommandPath "ask"}}
 Skill Commands (ask skill <command>):
   search      Search for skills across all sources
   install     Install one or more skills
@@ -54,7 +56,7 @@ System Commands:
   version      Show current version
 
 Supported Agents: %s
-`
+{{end}}`
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

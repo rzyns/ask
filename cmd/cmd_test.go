@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -166,5 +167,83 @@ func TestInitCommandHelp(t *testing.T) {
 	output := buf.String()
 	if !bytes.Contains([]byte(output), []byte("Initialize")) {
 		t.Error("expected init help to contain 'Initialize'")
+	}
+}
+
+func TestSubcommandHelpDoesNotShowRootCatalog(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		contains []string
+	}{
+		{
+			name: "init short help",
+			args: []string{"init", "-h"},
+			contains: []string{
+				"Initialize a new Agent Skills Kit project",
+				"Usage:\n  ask init [flags]",
+				"-y, --yes",
+			},
+		},
+		{
+			name: "init long help",
+			args: []string{"init", "--help"},
+			contains: []string{
+				"Initialize a new Agent Skills Kit project",
+				"Usage:\n  ask init [flags]",
+				"-y, --yes",
+			},
+		},
+		{
+			name: "nested skill install help",
+			args: []string{"skill", "install", "--help"},
+			contains: []string{
+				"Download and install skills into agent-specific directories",
+				"Usage:\n  ask skill install [url...] [flags]",
+				"--min-score string",
+			},
+		},
+		{
+			name: "nested repo add help",
+			args: []string{"repo", "add", "--help"},
+			contains: []string{
+				"Add a GitHub repository as a skill source",
+				"Usage:\n  ask repo add <owner/repo|URL> [flags]",
+				"--sync",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := rootCmd
+			cmd.SetArgs(tt.args)
+
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("command help failed: %v", err)
+			}
+
+			output := buf.String()
+			for _, want := range tt.contains {
+				if !strings.Contains(output, want) {
+					t.Errorf("expected help output to contain %q\noutput:\n%s", want, output)
+				}
+			}
+
+			for _, forbidden := range []string{
+				"Skill Commands (ask skill <command>):",
+				"Repository Commands (ask repo <command>):",
+				"System Commands:",
+				"Supported Agents:",
+			} {
+				if strings.Contains(output, forbidden) {
+					t.Errorf("expected subcommand help not to contain root catalog section %q\noutput:\n%s", forbidden, output)
+				}
+			}
+		})
 	}
 }
