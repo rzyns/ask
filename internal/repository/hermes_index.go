@@ -22,6 +22,7 @@ type hermesIndex struct {
 type hermesIndexSkill struct {
 	ID               string `json:"id"`
 	Slug             string `json:"slug"`
+	Identifier       string `json:"identifier"`
 	Name             string `json:"name"`
 	Description      string `json:"description"`
 	Source           string `json:"source"`
@@ -114,6 +115,9 @@ func hermesGitHubPath(skill hermesIndexSkill) (string, bool) {
 	if githubPath, ok := normalizeHermesBareGitHubPath(skill.ResolvedGitHubID); ok {
 		return githubPath, true
 	}
+	if githubPath, ok := normalizeOfficialHermesPath(skill); ok {
+		return githubPath, true
+	}
 	if githubPath, ok := normalizeHermesRepoPath(skill.Repo, skill.Path); ok {
 		return githubPath, true
 	}
@@ -126,11 +130,37 @@ func hermesGitHubPath(skill hermesIndexSkill) (string, bool) {
 	return normalizeHermesGitHubRef(skill.URL, false)
 }
 
+func normalizeOfficialHermesPath(skill hermesIndexSkill) (string, bool) {
+	if !strings.EqualFold(strings.TrimSpace(skill.Source), "official") {
+		return "", false
+	}
+	skillPath := strings.Trim(strings.TrimSpace(skill.Path), "/")
+	if skillPath == "" {
+		identifier := strings.Trim(strings.TrimSpace(skill.Identifier), "/")
+		if strings.HasPrefix(identifier, "official/") {
+			skillPath = strings.TrimPrefix(identifier, "official/")
+		}
+	}
+	if skillPath == "" || strings.Contains(skillPath, "://") || strings.Contains(skillPath, "@") {
+		return "", false
+	}
+	parts := compactPathSegments(strings.Split(skillPath, "/"))
+	if len(parts) < 2 {
+		return "", false
+	}
+	for _, part := range parts {
+		if strings.ContainsAny(part, `\\:`) || part == "." || part == ".." {
+			return "", false
+		}
+	}
+	return "NousResearch/hermes-agent/optional-skills/" + strings.Join(parts, "/"), true
+}
+
 func normalizeHermesRepoPath(repo, skillPath string) (string, bool) {
 	repo = strings.TrimSpace(repo)
 	skillPath = strings.Trim(strings.TrimSpace(skillPath), "/")
 	if repo == "" {
-		return normalizeHermesBareGitHubPath(skillPath)
+		return "", false
 	}
 
 	var repoPath string

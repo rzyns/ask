@@ -62,6 +62,7 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		input := args[0]
+		global, _ := cmd.Flags().GetBool("global")
 
 		// Parse username/repo format
 		parts := strings.Split(input, "/")
@@ -92,7 +93,7 @@ Examples:
 		}
 
 		// Load or create config
-		cfg, err := config.LoadConfig()
+		cfg, err := loadConfigForCommand(cmd)
 		if err != nil {
 			if os.IsNotExist(err) {
 				def := config.DefaultConfig()
@@ -139,7 +140,7 @@ Examples:
 		}
 		cfg.Repos = append(cfg.Repos, newRepo)
 
-		if err := cfg.Save(); err != nil {
+		if err := saveConfigForCommand(cmd, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}
@@ -159,7 +160,11 @@ Examples:
 			}
 
 			// We can run sync in foreground here since user explicitly asked for it
-			cmd := exec.Command(exe, "repo", "sync", repoName)
+			syncArgs := []string{"repo", "sync", repoName}
+			if global {
+				syncArgs = append(syncArgs, "--global")
+			}
+			cmd := exec.Command(exe, syncArgs...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
@@ -182,8 +187,8 @@ If a repository name is provided, list all skills available in that repository.
 Examples:
   ask repo list                # List all configured repositories
   ask repo list anthropics     # List skills in 'anthropics' repository`,
-	Run: func(_ *cobra.Command, args []string) {
-		cfg, err := config.LoadConfig()
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg, err := loadConfigForCommand(cmd)
 		if err != nil {
 			if os.IsNotExist(err) {
 				def := config.DefaultConfig()
@@ -219,14 +224,10 @@ Examples:
 			_, _ = fmt.Fprintln(w, "NAME\tTYPE\tSTARS\tURL")
 			_, _ = fmt.Fprintln(w, "----\t----\t-----\t---")
 			for _, r := range cfg.Repos {
-				// Build full GitHub URL
-				var fullURL string
 				var stars string
 				if r.Type == "topic" {
-					fullURL = fmt.Sprintf("https://github.com/topics/%s", r.URL)
 					stars = "-" // Topics don't have star counts
 				} else {
-					fullURL = fmt.Sprintf("https://github.com/%s", r.URL)
 					// Use cached star count
 					repoName := buildRepoName(r.URL)
 					if cachedStars, ok := starCache[repoName]; ok && cachedStars > 0 {
@@ -235,7 +236,7 @@ Examples:
 						stars = "-"
 					}
 				}
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r.Name, r.Type, stars, fullURL)
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r.Name, r.Type, stars, repoDisplayURL(r))
 			}
 			_ = w.Flush()
 			fmt.Printf("\nTotal: %d repositories\n", len(cfg.Repos))
@@ -475,15 +476,25 @@ func validateSkillsRepo(owner, repo, path string) (bool, string, string) {
 	return false, "", ""
 }
 
+func repoDisplayURL(repo config.Repo) string {
+	if strings.Contains(repo.URL, "://") {
+		return repo.URL
+	}
+	if repo.Type == "topic" {
+		return fmt.Sprintf("https://github.com/topics/%s", repo.URL)
+	}
+	return fmt.Sprintf("https://github.com/%s", repo.URL)
+}
+
 // repoRemoveCmd represents the repo remove command
 var repoRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
 	Short: "Remove a skill repository",
 	Long:  `Remove a configured skill repository source.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		cfg, err := config.LoadConfig()
+		cfg, err := loadConfigForCommand(cmd)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 			os.Exit(1)
@@ -505,7 +516,7 @@ var repoRemoveCmd = &cobra.Command{
 		}
 
 		cfg.Repos = newRepos
-		if err := cfg.Save(); err != nil {
+		if err := saveConfigForCommand(cmd, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}

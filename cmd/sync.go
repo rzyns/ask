@@ -28,7 +28,7 @@ If no repo name is specified, syncs all configured repositories.`,
 	Example: `  ask repo sync              # Sync all configured repos
   ask repo sync anthropics   # Sync only anthropics repo
   ask repo sync openai       # Sync only openai repo`,
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		reposCache, err := cache.NewReposCache()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error initializing repos cache: %v\n", err)
@@ -36,7 +36,7 @@ If no repo name is specified, syncs all configured repositories.`,
 		}
 
 		// Load config to get repo list
-		cfg, err := config.LoadConfig()
+		cfg, err := loadConfigForCommand(cmd)
 		if err != nil {
 			// Use default config if not initialized
 			def := config.DefaultConfig()

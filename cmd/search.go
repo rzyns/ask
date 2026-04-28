@@ -51,11 +51,12 @@ func runSearch(cmd *cobra.Command, args []string) {
 
 	forceLocal, _ := cmd.Flags().GetBool("local")
 	forceRemote, _ := cmd.Flags().GetBool("remote")
+	global, _ := cmd.Flags().GetBool("global")
 	minStars, _ := cmd.Flags().GetInt("min-stars")
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 
 	// Load config or use default
-	cfg, err := config.LoadConfig()
+	cfg, err := loadConfigForCommand(cmd)
 	if err != nil {
 		def := config.DefaultConfig()
 		cfg = &def
@@ -128,7 +129,11 @@ func runSearch(cmd *cobra.Command, args []string) {
 					// Run sync synchronously for the first time
 					syncCtx, syncCancel := context.WithTimeout(context.Background(), 5*time.Minute)
 					defer syncCancel()
-					cmd := exec.CommandContext(syncCtx, exe, "repo", "sync")
+					syncArgs := []string{"repo", "sync"}
+					if global {
+						syncArgs = append(syncArgs, "--global")
+					}
+					cmd := exec.CommandContext(syncCtx, exe, syncArgs...)
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					syncErr := cmd.Run()
@@ -162,7 +167,11 @@ func runSearch(cmd *cobra.Command, args []string) {
 					if err == nil {
 						// Background sync: start child process and wait to prevent zombie
 						bgSyncCtx, bgSyncCancel := context.WithTimeout(context.Background(), 5*time.Minute)
-						cmd := exec.CommandContext(bgSyncCtx, exe, "repo", "sync")
+						bgSyncArgs := []string{"repo", "sync"}
+						if global {
+							bgSyncArgs = append(bgSyncArgs, "--global")
+						}
+						cmd := exec.CommandContext(bgSyncCtx, exe, bgSyncArgs...)
 						if err := cmd.Start(); err == nil {
 							go func() {
 								defer bgSyncCancel()
@@ -194,12 +203,16 @@ func runSearch(cmd *cobra.Command, args []string) {
 				searchSource = "local"
 
 				if len(allRepos) > 0 || forceLocal {
-					// Display results from local cache
-					displaySearchResults(allRepos, installedSkills, searchSource, minStars, jsonOutput)
-					if forceLocal && len(allRepos) == 0 {
-						fmt.Println("\nTip: Run 'ask repo sync' to populate local cache.")
+					remoteOnlyRepos := remoteReposAfterLocalCacheHit(cfg.Repos)
+					if forceLocal || len(remoteOnlyRepos) == 0 {
+						// Display results from local cache
+						displaySearchResults(allRepos, installedSkills, searchSource, minStars, jsonOutput)
+						if forceLocal && len(allRepos) == 0 {
+							fmt.Println("\nTip: Run 'ask repo sync' to populate local cache.")
+						}
+						return
 					}
-					return
+					cfg.Repos = remoteOnlyRepos
 				}
 				// No local results and not forced local, fall through to remote
 			}
@@ -267,6 +280,16 @@ func runSearch(cmd *cobra.Command, args []string) {
 	}
 
 	displaySearchResults(allRepos, installedSkills, searchSource, minStars, jsonOutput)
+}
+
+func remoteReposAfterLocalCacheHit(repos []config.Repo) []config.Repo {
+	remoteOnlyRepos := make([]config.Repo, 0, len(repos))
+	for _, repo := range repos {
+		if repo.Type == config.RepoTypeHermes {
+			remoteOnlyRepos = append(remoteOnlyRepos, repo)
+		}
+	}
+	return remoteOnlyRepos
 }
 
 func displaySearchResults(repos []github.Repository, installedSkills map[string]bool, source string, minStars int, jsonOutput bool) {

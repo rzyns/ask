@@ -384,16 +384,26 @@ func mergeDefaults(cfg *Config) {
 
 // LoadConfig loads the current ask.yaml configuration
 func LoadConfig() (*Config, error) {
-	return loadConfigFromPath("ask.yaml")
+	return LoadConfigFromPath("ask.yaml")
+}
+
+// LoadConfigFromPath loads configuration from an explicit path.
+func LoadConfigFromPath(path string) (*Config, error) {
+	return loadConfigFromPath(path)
 }
 
 // Save saves the configuration to ask.yaml atomically
 func (c *Config) Save() error {
+	return c.SaveToPath("ask.yaml")
+}
+
+// SaveToPath saves the configuration to an explicit path atomically.
+func (c *Config) SaveToPath(path string) error {
 	data, err := yaml.Marshal(c)
 	if err != nil {
 		return err
 	}
-	return filesystem.AtomicWriteFile("ask.yaml", data, 0600)
+	return filesystem.AtomicWriteFile(path, data, 0600)
 }
 
 // RemoveSkill removes a skill from the configuration

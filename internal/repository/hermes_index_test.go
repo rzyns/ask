@@ -78,6 +78,25 @@ func TestHermesIndexCandidateMappingUsesExplicitNameAndRepoPath(t *testing.T) {
 	}
 }
 
+func TestHermesIndexCandidateMappingResolvesOfficialPathToHermesRepo(t *testing.T) {
+	skills := []hermesIndexSkill{{
+		Name:        "gitnexus-explorer",
+		Description: "Index a codebase with GitNexus",
+		Source:      "official",
+		Identifier:  "official/research/gitnexus-explorer",
+		Path:        "research/gitnexus-explorer",
+	}}
+
+	candidates := hermesIndexSkillsToCandidates(skills, "nexus")
+	if len(candidates) != 1 {
+		t.Fatalf("expected official Hermes candidate, got %d: %#v", len(candidates), candidates)
+	}
+	want := "NousResearch/hermes-agent/optional-skills/research/gitnexus-explorer"
+	if candidates[0].FullName != want || candidates[0].Install.Value != want {
+		t.Fatalf("expected official install path %q, got full=%q install=%q", want, candidates[0].FullName, candidates[0].Install.Value)
+	}
+}
+
 func TestHermesIndexCandidateMappingFiltersKeywordCaseInsensitively(t *testing.T) {
 	skills := []hermesIndexSkill{
 		{Name: "Alpha", Description: "First", ResolvedGitHubID: "owner/repo/skills/alpha"},
