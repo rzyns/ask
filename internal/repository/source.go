@@ -18,9 +18,9 @@ func SearchSkills(ctx context.Context, repo config.Repo, keyword string) ([]gith
 	}
 
 	switch repo.Type {
-	case "topic":
+	case config.RepoTypeTopic:
 		return github.SearchTopic(repo.URL, keyword)
-	case "dir":
+	case config.RepoTypeDir:
 		parts := strings.Split(repo.URL, "/")
 		if len(parts) < 2 {
 			return nil, nil
@@ -47,9 +47,9 @@ func SearchSkills(ctx context.Context, repo config.Repo, keyword string) ([]gith
 			}
 		}
 		return filtered, nil
-	case "registry":
+	case config.RepoTypeRegistry:
 		return FetchSkillsFromRegistry(repo.URL, keyword)
-	case "skillhub":
+	case config.RepoTypeSkillHub:
 		return FetchSkillsFromSkillHub(keyword, "")
 	default:
 		return nil, fmt.Errorf("unknown repository type: %s", repo.Type)

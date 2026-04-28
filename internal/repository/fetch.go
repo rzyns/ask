@@ -22,9 +22,9 @@ const gitCloneTimeout = 5 * time.Minute
 // FetchSkills returns a list of skills available in the given repository
 func FetchSkills(repo config.Repo) ([]github.Repository, error) {
 	switch repo.Type {
-	case "topic":
+	case config.RepoTypeTopic:
 		return github.SearchTopic(repo.URL, "")
-	case "dir":
+	case config.RepoTypeDir:
 		// Try git-based discovery first (recursive and more reliable for deep structures)
 		skills, err := FetchSkillsViaGit(repo)
 		if err == nil && len(skills) > 0 {
@@ -43,9 +43,9 @@ func FetchSkills(repo config.Repo) ([]github.Repository, error) {
 			return github.SearchDir(owner, name, path)
 		}
 		return nil, fmt.Errorf("invalid repository URL format: %s", repo.URL)
-	case "registry":
+	case config.RepoTypeRegistry:
 		return FetchSkillsFromRegistry(repo.URL, "")
-	case "skillhub":
+	case config.RepoTypeSkillHub:
 		return FetchSkillsFromSkillHub("", "")
 	default:
 		return nil, fmt.Errorf("unknown repository type: %s", repo.Type)
@@ -54,7 +54,7 @@ func FetchSkills(repo config.Repo) ([]github.Repository, error) {
 
 // FetchSkillsViaGit clones a repo and discovers skills locally (no API needed)
 func FetchSkillsViaGit(repo config.Repo) ([]github.Repository, error) {
-	if repo.Type != "dir" {
+	if repo.Type != config.RepoTypeDir {
 		return nil, fmt.Errorf("git fetch only supports 'dir' type repos")
 	}
 
@@ -211,7 +211,7 @@ func FetchSkillsFromSkillHub(query string, _ string) ([]github.Repository, error
 			Description:     desc,
 			HTMLURL:         s.Slug, // Using Slug as the "URL" that install command receives
 			StargazersCount: s.Stars,
-			Source:          "skillhub",
+			Source:          config.RepoTypeSkillHub,
 		}
 		repos = append(repos, repo)
 	}

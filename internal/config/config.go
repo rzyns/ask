@@ -26,10 +26,17 @@ func SetOffline(offline bool) {
 	offlineMode.Store(offline)
 }
 
+const (
+	RepoTypeTopic    = "topic"
+	RepoTypeDir      = "dir"
+	RepoTypeRegistry = "registry"
+	RepoTypeSkillHub = "skillhub"
+)
+
 // Repo represents a skill repository
 type Repo struct {
 	Name    string `yaml:"name"`
-	Type    string `yaml:"type"`                     // "topic", "dir", "registry", or "skillhub"
+	Type    string `yaml:"type"`                     // one of RepoTypeTopic, RepoTypeDir, RepoTypeRegistry, RepoTypeSkillHub
 	URL     string `yaml:"url"`                      // GitHub topic or "owner/repo/path"
 	Token   string `yaml:"token,omitempty" json:"-"` // Per-repo auth token (private repos)
 	BaseURL string `yaml:"base_url,omitempty"`       // GitHub Enterprise base URL

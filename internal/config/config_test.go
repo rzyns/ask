@@ -21,6 +21,20 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestRepoTypeConstantsMatchPersistedValues(t *testing.T) {
+	cases := map[string]string{
+		"topic":    RepoTypeTopic,
+		"dir":      RepoTypeDir,
+		"registry": RepoTypeRegistry,
+		"skillhub": RepoTypeSkillHub,
+	}
+	for want, got := range cases {
+		if got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	}
+}
+
 func TestDefaultReposConfiguration(t *testing.T) {
 	config := DefaultConfig()
 
