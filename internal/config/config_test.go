@@ -27,6 +27,7 @@ func TestRepoTypeConstantsMatchPersistedValues(t *testing.T) {
 		"dir":      RepoTypeDir,
 		"registry": RepoTypeRegistry,
 		"skillhub": RepoTypeSkillHub,
+		"hermes":   RepoTypeHermes,
 	}
 	for want, got := range cases {
 		if got != want {

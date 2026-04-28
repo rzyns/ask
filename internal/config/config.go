@@ -31,6 +31,7 @@ const (
 	RepoTypeDir      = "dir"
 	RepoTypeRegistry = "registry"
 	RepoTypeSkillHub = "skillhub"
+	RepoTypeHermes   = "hermes"
 )
 
 // Repo represents a skill repository
