@@ -133,6 +133,64 @@ func TestResolveBareCachedSkillInput(t *testing.T) {
 	})
 }
 
+func TestInstall_UsesResolverHelperSeams(t *testing.T) {
+	t.Run("two-part input installs from resolved target", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		source := setupLocalSkillSource(t, "resolved-skill")
+		called := false
+		oldTwoPart := resolveTwoPartInstallTargetForInstall
+		resolveTwoPartInstallTargetForInstall = func(input string, opts InstallOptions) (installTarget, bool, error) {
+			called = true
+			assert.Equal(t, "repo/resolved-skill", input)
+			return installTarget{repoURL: "", skillName: "resolved-skill", localSourcePath: source, originalInput: input, input: input}, true, nil
+		}
+		defer func() { resolveTwoPartInstallTargetForInstall = oldTwoPart }()
+
+		err := Install("repo/resolved-skill", InstallOptions{Global: true, SkipScore: true})
+
+		assert.NoError(t, err)
+		assert.True(t, called)
+	})
+
+	t.Run("bare cached input recurses through resolved two-part input", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		source := setupLocalSkillSource(t, "browser-use")
+		bareCalled := false
+		twoPartCalled := false
+		oldBare := resolveBareCachedSkillInputForInstall
+		oldTwoPart := resolveTwoPartInstallTargetForInstall
+		resolveBareCachedSkillInputForInstall = func(input string) (string, bool, error) {
+			bareCalled = true
+			assert.Equal(t, "browser-use", input)
+			return "anthropics-skills/browser-use", true, nil
+		}
+		resolveTwoPartInstallTargetForInstall = func(input string, opts InstallOptions) (installTarget, bool, error) {
+			twoPartCalled = true
+			assert.Equal(t, "anthropics-skills/browser-use", input)
+			assert.Equal(t, 1, opts.depth)
+			return installTarget{repoURL: "", skillName: "browser-use", localSourcePath: source, originalInput: input, input: input}, true, nil
+		}
+		defer func() {
+			resolveBareCachedSkillInputForInstall = oldBare
+			resolveTwoPartInstallTargetForInstall = oldTwoPart
+		}()
+
+		err := Install("browser-use", InstallOptions{Global: true, SkipScore: true})
+
+		assert.NoError(t, err)
+		assert.True(t, bareCalled)
+		assert.True(t, twoPartCalled)
+	})
+}
+
+func setupLocalSkillSource(t *testing.T, skillName string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), skillName)
+	assert.NoError(t, os.MkdirAll(dir, 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+skillName+"\ndescription: test skill\n---\n"), 0644))
+	return dir
+}
+
 func setupCachedSkill(t *testing.T, repoName, skillName, repoURL string) string {
 	t.Helper()
 	reposCache, err := cache.NewReposCache()
