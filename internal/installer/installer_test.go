@@ -183,6 +183,26 @@ func TestInstall_UsesResolverHelperSeams(t *testing.T) {
 	})
 }
 
+func TestInstall_ReplaceExistingRefusesResolvedNameMismatch(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	source := setupLocalSkillSource(t, "new-skill")
+	oldTwoPart := resolveTwoPartInstallTargetForInstall
+	resolveTwoPartInstallTargetForInstall = func(input string, opts InstallOptions) (installTarget, bool, error) {
+		return installTarget{repoURL: "", skillName: "old-skill", localSourcePath: source, originalInput: input, input: input}, true, nil
+	}
+	defer func() { resolveTwoPartInstallTargetForInstall = oldTwoPart }()
+
+	err := Install("repo/old-skill", InstallOptions{
+		Global:              true,
+		SkipScore:           true,
+		ReplaceExisting:     true,
+		ReplaceExistingName: "old-skill",
+	})
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing to replace Hermes skill")
+}
+
 func TestInstall_HermesAgentWritesProvenanceLockMetadata(t *testing.T) {
 	home := t.TempDir()
 	hermesHome := filepath.Join(t.TempDir(), "hermes-home")

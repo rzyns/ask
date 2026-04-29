@@ -33,13 +33,18 @@ const gitOpTimeout = 30 * time.Second
 
 // InstallOptions contains options for installing a skill
 type InstallOptions struct {
-	Global         bool
-	Agents         []string
-	Config         *config.Config
-	SkipScore      bool   // Skip trust score check
-	MinScore       string // Minimum acceptable grade (A/B/C/D/F), default "D"
-	SourceMetadata *InstallSourceMetadata
-	depth          int // current recursion depth (internal use only)
+	Global                   bool
+	Agents                   []string
+	Config                   *config.Config
+	SkipScore                bool   // Skip trust score check
+	MinScore                 string // Minimum acceptable grade (A/B/C/D/F), default "D"
+	SourceMetadata           *InstallSourceMetadata
+	ReplaceExisting          bool   // Replace existing ASK-managed source/target during updates
+	ReplaceExistingName      string // Expected installed skill name when replacing
+	ReplaceExistingSource    string // Expected central source path when replacing
+	ReplaceExistingTarget    string // Expected agent target path when replacing
+	SuppressGenericLockEntry bool   // Do not write/update the legacy name-only lock entry
+	depth                    int    // current recursion depth (internal use only)
 }
 
 type InstallSourceMetadata struct {
@@ -466,9 +471,11 @@ func Install(input string, opts InstallOptions) error {
 	// Check if already installed (fast path using initial name;
 	// re-checked after SKILL.md may override skillName)
 	initialSkillName := skillName
-	if allExist := checkAllExist(targetDirs, skillName); allExist {
-		fmt.Printf("Skill %s is already installed in all target directories\n", skillName)
-		return nil
+	if !opts.ReplaceExisting {
+		if allExist := checkAllExist(targetDirs, skillName); allExist {
+			fmt.Printf("Skill %s is already installed in all target directories\n", skillName)
+			return nil
+		}
 	}
 
 	// Clone to temp
@@ -591,8 +598,12 @@ func Install(input string, opts InstallOptions) error {
 		skillDescription = "Skill installed from " + originalInput
 	}
 
+	if opts.ReplaceExisting && opts.ReplaceExistingName != "" && skillName != opts.ReplaceExistingName {
+		return fmt.Errorf("refusing to replace Hermes skill %q with resolved skill %q", opts.ReplaceExistingName, skillName)
+	}
+
 	// Re-check "already installed" if SKILL.md changed the effective name
-	if skillName != initialSkillName {
+	if skillName != initialSkillName && !opts.ReplaceExisting {
 		if allExist := checkAllExist(targetDirs, skillName); allExist {
 			fmt.Printf("Skill %s is already installed in all target directories\n", skillName)
 			return nil
@@ -619,10 +630,20 @@ func Install(input string, opts InstallOptions) error {
 		}
 	}
 	centralPath := filepath.Join(centralDir, skillName)
+	if opts.ReplaceExisting && opts.ReplaceExistingSource != "" && filepath.Clean(centralPath) != filepath.Clean(opts.ReplaceExistingSource) {
+		return fmt.Errorf("refusing to replace source %s; expected managed source %s", centralPath, opts.ReplaceExistingSource)
+	}
 
 	sourceExists := false
 	if _, err := os.Stat(centralPath); err == nil {
 		sourceExists = true
+	}
+
+	if sourceExists && opts.ReplaceExisting {
+		if err := os.RemoveAll(centralPath); err != nil {
+			return fmt.Errorf("failed to replace central storage %s: %w", centralPath, err)
+		}
+		sourceExists = false
 	}
 
 	if !sourceExists {
@@ -641,13 +662,23 @@ func Install(input string, opts InstallOptions) error {
 			continue
 		}
 
+		if opts.ReplaceExisting && opts.ReplaceExistingTarget != "" && filepath.Clean(destPath) != filepath.Clean(opts.ReplaceExistingTarget) {
+			return fmt.Errorf("refusing to replace target %s; expected managed target %s", destPath, opts.ReplaceExistingTarget)
+		}
+
 		if _, err := os.Stat(destPath); err == nil {
-			if filesystem.IsSymlink(destPath) {
-				ui.Debug("  → Already linked in " + destPath)
+			if opts.ReplaceExisting && !filesystem.IsSymlink(destPath) {
+				if err := os.RemoveAll(destPath); err != nil {
+					return fmt.Errorf("failed to replace skill target %s: %w", destPath, err)
+				}
 			} else {
-				ui.Debug("  → Already installed in " + destPath)
+				if filesystem.IsSymlink(destPath) {
+					ui.Debug("  → Already linked in " + destPath)
+				} else {
+					ui.Debug("  → Already installed in " + destPath)
+				}
+				continue
 			}
-			continue
 		}
 
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -718,7 +749,9 @@ func Install(input string, opts InstallOptions) error {
 			Version:     version,
 			InstalledAt: time.Now(),
 		}
-		lockFile.AddEntry(lockEntry)
+		if !opts.SuppressGenericLockEntry {
+			lockFile.AddEntry(lockEntry)
+		}
 		for _, dir := range targetDirs {
 			agentName := targetAgents[filepath.Clean(dir)]
 			if agentName != string(config.AgentHermes) {

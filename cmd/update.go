@@ -6,10 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/hermes"
+	"github.com/yeasy/ask/internal/installer"
 	"github.com/yeasy/ask/internal/ui"
 )
 
@@ -28,100 +31,165 @@ Use --global to update global skills.`,
   
   # Update global skills
   ask skill update --global`,
-	Run: func(cmd *cobra.Command, args []string) {
-		global, _ := cmd.Flags().GetBool("global")
+	RunE: runUpdate,
+}
 
-		// Ensure project is initialized for non-global operations
-		if !global {
-			if !ensureInitialized() {
-				return
+var installHermesUpdate = installer.Install
+
+func init() {
+	skillCmd.AddCommand(updateCmd)
+	registerUpdateFlags(updateCmd)
+}
+
+func registerUpdateFlags(cmd *cobra.Command) {
+	cmd.Flags().StringP("agent", "a", "", "target agent for update (use 'hermes' for Hermes-aware updates)")
+	cmd.Flags().Bool("force", false, "force update despite local modifications when supported")
+}
+
+func runUpdate(cmd *cobra.Command, args []string) error {
+	agent, _ := cmd.Flags().GetString("agent")
+	if strings.EqualFold(strings.TrimSpace(agent), string(config.AgentHermes)) {
+		return runHermesUpdate(cmd, args)
+	}
+	return runGenericUpdate(cmd, args)
+}
+
+func runHermesUpdate(cmd *cobra.Command, args []string) error {
+	global, _ := cmd.Flags().GetBool("global")
+	force, _ := cmd.Flags().GetBool("force")
+	if !global {
+		if !ensureInitialized() {
+			return nil
+		}
+	}
+	cfg, err := config.LoadConfigByScope(global)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	lockFile, err := config.LoadLockFileByScope(global)
+	if err != nil {
+		return fmt.Errorf("load lock file: %w", err)
+	}
+	plan, err := hermes.PlanUpdate(hermes.UpdateOptions{LockFile: lockFile, Names: args, Force: force})
+	if err != nil {
+		return err
+	}
+	for _, skipped := range plan.Skipped {
+		ui.Warn(fmt.Sprintf("Skipping %s: %s", skipped.Entry.Name, skipped.Reason))
+	}
+	for _, blocked := range plan.Blocked {
+		ui.Warn(fmt.Sprintf("Refusing %s: %s", blocked.Entry.Name, blocked.Reason))
+	}
+	if len(plan.Updateable) == 0 {
+		fmt.Println("No Hermes skills to update.")
+		return nil
+	}
+	for _, candidate := range plan.Updateable {
+		fmt.Printf("Updating Hermes skill %s...\n", candidate.Entry.Name)
+		if err := installHermesUpdate(candidate.Input, installer.InstallOptions{
+			Global:                   global,
+			Agents:                   []string{string(config.AgentHermes)},
+			Config:                   cfg,
+			SkipScore:                true,
+			ReplaceExisting:          true,
+			ReplaceExistingName:      candidate.Entry.Name,
+			ReplaceExistingSource:    candidate.Entry.SourcePath,
+			ReplaceExistingTarget:    candidate.Entry.TargetPath,
+			SuppressGenericLockEntry: true,
+			SourceMetadata: &installer.InstallSourceMetadata{
+				Source:           candidate.SourceMetadata.Source,
+				SourceIdentifier: candidate.SourceMetadata.SourceIdentifier,
+				UpdateStrategy:   candidate.SourceMetadata.UpdateStrategy,
+			},
+		}); err != nil {
+			return fmt.Errorf("update Hermes skill %s: %w", candidate.Entry.Name, err)
+		}
+	}
+	return nil
+}
+
+func runGenericUpdate(cmd *cobra.Command, args []string) error {
+	global, _ := cmd.Flags().GetBool("global")
+
+	// Ensure project is initialized for non-global operations
+	if !global {
+		if !ensureInitialized() {
+			return nil
+		}
+	}
+
+	cfg, err := config.LoadConfigByScope(global)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	if len(cfg.Skills) == 0 && len(cfg.SkillsInfo) == 0 {
+		scopeLabel := "project"
+		if global {
+			scopeLabel = "global"
+		}
+		fmt.Printf("No %s skills installed.\n", scopeLabel)
+		return nil
+	}
+
+	allSkills := cfg.GetAllSkillNames()
+
+	var skillsToUpdate []string
+	if len(args) > 0 {
+		skillName := args[0]
+		found := false
+		for _, s := range cfg.Skills {
+			if s == skillName {
+				found = true
+				break
 			}
 		}
-
-		cfg, err := config.LoadConfigByScope(global)
-		if err != nil {
-			ui.Debug(fmt.Sprintf("Error loading config: %v", err))
-			os.Exit(1)
-		}
-
-		if len(cfg.Skills) == 0 && len(cfg.SkillsInfo) == 0 {
-			scopeLabel := "project"
-			if global {
-				scopeLabel = "global"
-			}
-			fmt.Printf("No %s skills installed.\n", scopeLabel)
-			return
-		}
-
-		// Build combined deduplicated skills list
-		allSkills := cfg.GetAllSkillNames()
-
-		// Determine which skills to update
-		var skillsToUpdate []string
-		if len(args) > 0 {
-			// Update specific skill
-			skillName := args[0]
-			found := false
-			for _, s := range cfg.Skills {
-				if s == skillName {
+		if !found {
+			for _, si := range cfg.SkillsInfo {
+				if si.Name == skillName {
 					found = true
 					break
 				}
 			}
-			if !found {
-				for _, si := range cfg.SkillsInfo {
-					if si.Name == skillName {
-						found = true
-						break
-					}
-				}
-			}
-			if !found {
-				fmt.Printf("Skill '%s' is not installed.\n", skillName)
-				os.Exit(1)
-			}
-			skillsToUpdate = []string{skillName}
-		} else {
-			// Update all skills
-			skillsToUpdate = allSkills
+		}
+		if !found {
+			return fmt.Errorf("skill %q is not installed", skillName)
+		}
+		skillsToUpdate = []string{skillName}
+	} else {
+		skillsToUpdate = allSkills
+	}
+
+	skillsDir, err := config.GetSkillsDirByScope(global)
+	if err != nil {
+		return err
+	}
+	for _, skillName := range skillsToUpdate {
+		skillPath := filepath.Join(skillsDir, skillName)
+
+		gitDir := filepath.Join(skillPath, ".git")
+		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+			ui.Debug(fmt.Sprintf("Skipping %s (not a git repository)", skillName))
+			continue
 		}
 
-		skillsDir, err := config.GetSkillsDirByScope(global)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+		ui.Debug(fmt.Sprintf("Updating %s...", skillName))
+
+		pullCtx, pullCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		gitCmd := exec.CommandContext(pullCtx, "git", "pull", "--ff-only")
+		gitCmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+		gitCmd.Dir = skillPath
+		gitCmd.Stdout = os.Stdout
+		gitCmd.Stderr = os.Stderr
+
+		runErr := gitCmd.Run()
+		pullCancel()
+		if runErr != nil {
+			ui.Warn(fmt.Sprintf("  Failed to update %s: %v", skillName, runErr))
+			continue
 		}
-		for _, skillName := range skillsToUpdate {
-			skillPath := filepath.Join(skillsDir, skillName)
 
-			// Check if it's a git repository
-			gitDir := filepath.Join(skillPath, ".git")
-			if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-				ui.Debug(fmt.Sprintf("Skipping %s (not a git repository)", skillName))
-				continue
-			}
-
-			ui.Debug(fmt.Sprintf("Updating %s...", skillName))
-
-			// Run git pull (use --ff-only to avoid leaving broken rebase state)
-			pullCtx, pullCancel := context.WithTimeout(context.Background(), 60*time.Second)
-			gitCmd := exec.CommandContext(pullCtx, "git", "pull", "--ff-only")
-			gitCmd.Dir = skillPath
-			gitCmd.Stdout = os.Stdout
-			gitCmd.Stderr = os.Stderr
-
-			runErr := gitCmd.Run()
-			pullCancel()
-			if runErr != nil {
-				ui.Warn(fmt.Sprintf("  Failed to update %s: %v", skillName, runErr))
-				continue
-			}
-
-			ui.Debug(fmt.Sprintf("  Updated %s successfully!", skillName))
-		}
-	},
-}
-
-func init() {
-	skillCmd.AddCommand(updateCmd)
+		ui.Debug(fmt.Sprintf("  Updated %s successfully!", skillName))
+	}
+	return nil
 }

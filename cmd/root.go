@@ -133,7 +133,7 @@ var updateRootCmd = &cobra.Command{
 	Short:   "Update installed skills (alias for 'skill update')",
 	Long:    "Update one or all installed skills to their latest versions.\nThis is a shortcut for 'ask skill update'.",
 	Example: updateCmd.Example,
-	Run:     updateCmd.Run,
+	RunE:    runUpdate,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -178,6 +178,7 @@ func init() {
 	rootCmd.AddCommand(checkRootCmd)
 	rootCmd.AddCommand(syncRootCmd)
 	rootCmd.AddCommand(updateRootCmd)
+	registerUpdateFlags(updateRootCmd)
 
 	// No specific flags to register for uninstall root shim as it uses uninstallCmd.Run directly?
 	// Actually uninstallCmd.Run uses flags so we should share flags definition or re-register.
