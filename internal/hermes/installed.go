@@ -150,8 +150,9 @@ func installedSkillFromDir(root, dir string) (InstalledHermesSkill, error) {
 }
 
 func applyLockMetadata(skills []InstalledHermesSkill, lockFile *config.LockFile) {
-	locks := lockedSkillsByName(lockFile)
-	if len(locks) == 0 {
+	locksByName := lockedHermesSkillsByName(lockFile)
+	locksByPath := lockedHermesSkillsByTargetPath(lockFile)
+	if len(locksByName) == 0 && len(locksByPath) == 0 {
 		return
 	}
 	nameCounts := make(map[string]int, len(skills))
@@ -159,34 +160,94 @@ func applyLockMetadata(skills []InstalledHermesSkill, lockFile *config.LockFile)
 		nameCounts[installed.Name]++
 	}
 	for i := range skills {
-		locked, ok := locks[skills[i].Name]
-		if !ok || nameCounts[skills[i].Name] != 1 || skills[i].RelativePath != skills[i].Name {
-			continue
+		locked, ok := locksByPath[normalizeInstalledPath(skills[i].Path)]
+		if !ok {
+			var byName config.LockEntry
+			byName, ok = locksByName[skills[i].Name]
+			if !ok || nameCounts[skills[i].Name] != 1 || skills[i].RelativePath != skills[i].Name {
+				continue
+			}
+			locked = byName
 		}
 		skills[i].Ownership = HermesSkillOwnershipASK
 		skills[i].Managed = true
 		skills[i].Source = locked.Source
+		if strings.TrimSpace(locked.Ownership) != "" {
+			skills[i].Ownership = HermesSkillOwnership(locked.Ownership)
+			skills[i].Managed = locked.Ownership == string(HermesSkillOwnershipASK)
+		}
+		if strings.TrimSpace(locked.UpdateStrategy) != "" {
+			skills[i].UpdateStrategy = locked.UpdateStrategy
+		}
 		if skills[i].Version == "" {
 			skills[i].Version = locked.Version
 		}
-		if strings.TrimSpace(locked.URL) != "" {
+		if strings.TrimSpace(locked.URL) != "" && strings.TrimSpace(locked.UpdateStrategy) == "" {
 			skills[i].UpdateStrategy = "git"
 		}
 	}
 }
 
-func lockedSkillsByName(lockFile *config.LockFile) map[string]config.LockEntry {
+func lockedHermesSkillsByName(lockFile *config.LockFile) map[string]config.LockEntry {
 	locks := make(map[string]config.LockEntry)
 	if lockFile == nil {
 		return locks
 	}
 	for _, locked := range lockFile.Skills {
+		if !isHermesLockEntry(locked) {
+			continue
+		}
 		name := strings.TrimSpace(locked.Name)
-		if name != "" {
+		if name != "" && strings.TrimSpace(locked.TargetPath) == "" {
 			locks[name] = locked
 		}
 	}
 	return locks
+}
+
+func lockedHermesSkillsByTargetPath(lockFile *config.LockFile) map[string]config.LockEntry {
+	locks := make(map[string]config.LockEntry)
+	if lockFile == nil {
+		return locks
+	}
+	for _, locked := range lockFile.Skills {
+		if !isHermesLockEntry(locked) {
+			continue
+		}
+		path := normalizeInstalledPath(locked.TargetPath)
+		if path != "" {
+			locks[path] = locked
+		}
+	}
+	return locks
+}
+
+func isHermesLockEntry(locked config.LockEntry) bool {
+	agent := strings.TrimSpace(locked.Agent)
+	if agent != "" {
+		return strings.EqualFold(agent, "hermes")
+	}
+	return isLegacyHermesSource(locked.Source) || isLegacyHermesSource(locked.URL)
+}
+
+func isLegacyHermesSource(source string) bool {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return false
+	}
+	if strings.EqualFold(source, "hermes-index") {
+		return true
+	}
+	classification := ClassifyHermesSource(source)
+	return classification.Kind == HermesSourceIndex || classification.Kind == HermesSourceOfficialOptional || classification.Kind == HermesSourceBundled
+}
+
+func normalizeInstalledPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	return filepath.Clean(path)
 }
 
 func isHiddenDir(name string) bool {

@@ -144,6 +144,56 @@ func TestGetEntry_ReturnsMutablePointer(t *testing.T) {
 	}
 }
 
+func TestLockEntryImportMetadataRoundTrip(t *testing.T) {
+	entry := LockEntry{
+		Name:           "local-skill",
+		Agent:          "hermes",
+		Ownership:      "imported",
+		InstallMode:    "in-place",
+		UpdateStrategy: "none",
+		TargetPath:     "/tmp/local-skill",
+		Checksum:       "sha256:abc123",
+	}
+	lock := &LockFile{Version: 1}
+	lock.AddEntry(entry)
+	got := lock.GetEntry("local-skill")
+	if got == nil {
+		t.Fatal("GetEntry returned nil")
+	}
+	if got.Agent != "hermes" || got.Ownership != "imported" || got.InstallMode != "in-place" || got.UpdateStrategy != "none" || got.TargetPath == "" || got.Checksum == "" {
+		t.Fatalf("import metadata = %#v", got)
+	}
+}
+
+func TestAddEntryKeepsAgentScopedEntriesDistinct(t *testing.T) {
+	lock := &LockFile{Version: 1}
+	lock.AddEntry(LockEntry{Name: "shared", Agent: "claude", Version: "1.0.0"})
+	lock.AddEntry(LockEntry{Name: "shared", Agent: "hermes", Version: "2.0.0", TargetPath: filepath.Join("skills", "one")})
+	lock.AddEntry(LockEntry{Name: "shared", Agent: "hermes", Version: "3.0.0", TargetPath: filepath.Join("skills", "one")})
+	lock.AddEntry(LockEntry{Name: "shared", Agent: "hermes", Version: "4.0.0", TargetPath: filepath.Join("skills", "two")})
+
+	if len(lock.Skills) != 3 {
+		t.Fatalf("got %d lock entries %#v, want distinct claude/hermes path entries", len(lock.Skills), lock.Skills)
+	}
+	if got := lock.GetEntryForAgent("shared", "claude"); got == nil || got.Version != "1.0.0" {
+		t.Fatalf("claude entry = %#v, want version 1.0.0", got)
+	}
+	if got := lock.GetEntryForAgentTargetPath("shared", "hermes", filepath.Join("skills", "one")); got == nil || got.Version != "3.0.0" {
+		t.Fatalf("hermes path one entry = %#v, want updated version 3.0.0", got)
+	}
+	if got := lock.GetEntryForAgentTargetPath("shared", "hermes", filepath.Join("skills", "two")); got == nil || got.Version != "4.0.0" {
+		t.Fatalf("hermes path two entry = %#v, want version 4.0.0", got)
+	}
+}
+
+func TestGetEntryForAgentMatchesLegacyEntryForCompatibility(t *testing.T) {
+	lock := &LockFile{Version: 1, Skills: []LockEntry{{Name: "legacy", Version: "1.0.0"}}}
+
+	if got := lock.GetEntryForAgent("legacy", "hermes"); got == nil || got.Version != "1.0.0" {
+		t.Fatalf("legacy hermes-compatible entry = %#v, want version 1.0.0", got)
+	}
+}
+
 func TestLoadLockFromSymlink(t *testing.T) {
 	dir := t.TempDir()
 

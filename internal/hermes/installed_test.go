@@ -128,6 +128,40 @@ func TestScanInstalledSkillsMarksLockfileBackedEntriesAsASKManaged(t *testing.T)
 	}
 }
 
+func TestScanInstalledSkillsIgnoresNonHermesLockEntries(t *testing.T) {
+	root := t.TempDir()
+	writeSkill(t, root, "shared", "shared", "Shared name", "1.0.0")
+
+	lock := &config.LockFile{Skills: []config.LockEntry{{Name: "shared", Agent: "claude", Source: "claude-source", Version: "9.9.9"}}}
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{LockFile: lock})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want 1", len(got), got)
+	}
+	if got[0].Ownership != HermesSkillOwnershipNative || got[0].Managed || got[0].Source != "local" || got[0].Version != "1.0.0" || got[0].UpdateStrategy != "none" {
+		t.Fatalf("skill = %#v, want native classification unaffected by non-Hermes lock entry", got[0])
+	}
+}
+
+func TestScanInstalledSkillsIgnoresLegacyNonHermesLockEntries(t *testing.T) {
+	root := t.TempDir()
+	writeSkill(t, root, "shared", "shared", "Shared name", "1.0.0")
+
+	lock := &config.LockFile{Skills: []config.LockEntry{{Name: "shared", Source: "legacy-non-hermes", Version: "9.9.9"}}}
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{LockFile: lock})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want 1", len(got), got)
+	}
+	if got[0].Ownership != HermesSkillOwnershipNative || got[0].Managed || got[0].Source != "local" || got[0].Version != "1.0.0" || got[0].UpdateStrategy != "none" {
+		t.Fatalf("skill = %#v, want native classification unaffected by legacy non-Hermes lock entry", got[0])
+	}
+}
+
 func TestScanInstalledSkillsDoesNotInferLockfileOwnershipFromNameAlone(t *testing.T) {
 	root := t.TempDir()
 	writeSkill(t, root, filepath.Join("research", "gitnexus-explorer"), "gitnexus-explorer", "Native duplicate name", "")
@@ -142,6 +176,33 @@ func TestScanInstalledSkillsDoesNotInferLockfileOwnershipFromNameAlone(t *testin
 	}
 	if got[0].Ownership != HermesSkillOwnershipNative || got[0].Managed || got[0].Source != "local" || got[0].UpdateStrategy != "none" {
 		t.Fatalf("nested same-name skill = %#v, want conservative native classification", got[0])
+	}
+}
+
+func TestScanInstalledSkillsMatchesImportedNestedSkillByTargetPath(t *testing.T) {
+	root := t.TempDir()
+	nestedRel := filepath.Join("research", "shared")
+	writeSkill(t, root, nestedRel, "shared", "Imported nested", "")
+	targetPath := filepath.Join(root, nestedRel)
+
+	lock := &config.LockFile{Skills: []config.LockEntry{{
+		Name:           "shared",
+		Agent:          "hermes",
+		Ownership:      string(HermesSkillOwnershipImported),
+		Source:         "local",
+		UpdateStrategy: "none",
+		TargetPath:     targetPath,
+		Version:        "2.0.0",
+	}}}
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{LockFile: lock})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want 1", len(got), got)
+	}
+	if got[0].Ownership != HermesSkillOwnershipImported || got[0].Managed || got[0].Source != "local" || got[0].Version != "2.0.0" || got[0].UpdateStrategy != "none" {
+		t.Fatalf("nested imported skill = %#v, want imported lock metadata matched by target path", got[0])
 	}
 }
 

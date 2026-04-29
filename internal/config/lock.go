@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/yeasy/ask/internal/filesystem"
@@ -17,10 +19,18 @@ const LockFileName = "ask.lock"
 type LockEntry struct {
 	Name        string    `yaml:"name"`
 	Source      string    `yaml:"source,omitempty"`
-	URL         string    `yaml:"url"`
+	URL         string    `yaml:"url,omitempty"`
 	Commit      string    `yaml:"commit,omitempty"`
 	Version     string    `yaml:"version,omitempty"`
 	InstalledAt time.Time `yaml:"installed_at"`
+
+	// Optional provenance metadata for adopted in-place agent skills.
+	Agent          string `yaml:"agent,omitempty"`
+	Ownership      string `yaml:"ownership,omitempty"`
+	InstallMode    string `yaml:"install_mode,omitempty"`
+	UpdateStrategy string `yaml:"update_strategy,omitempty"`
+	TargetPath     string `yaml:"target_path,omitempty"`
+	Checksum       string `yaml:"checksum,omitempty"`
 }
 
 // LockFile represents the ask.lock file structure
@@ -93,17 +103,39 @@ func (l *LockFile) Save() error {
 	return nil
 }
 
-// AddEntry adds or updates a lock entry
+// AddEntry adds or updates a lock entry.
+//
+// Entries with agent metadata are keyed by (name, agent) so different agents can
+// safely lock skills with the same name. Legacy entries without agent metadata
+// retain the original name-only identity.
 func (l *LockFile) AddEntry(entry LockEntry) {
-	// Update if exists
 	for i, e := range l.Skills {
-		if e.Name == entry.Name {
+		if lockEntrySameIdentity(e, entry) {
 			l.Skills[i] = entry
 			return
 		}
 	}
-	// Add new
 	l.Skills = append(l.Skills, entry)
+}
+
+func lockEntrySameIdentity(existing, incoming LockEntry) bool {
+	if existing.Name != incoming.Name {
+		return false
+	}
+	existingAgent := strings.TrimSpace(existing.Agent)
+	incomingAgent := strings.TrimSpace(incoming.Agent)
+	if existingAgent != "" || incomingAgent != "" {
+		if !strings.EqualFold(existingAgent, incomingAgent) {
+			return false
+		}
+		existingPath := normalizeLockTargetPath(existing.TargetPath)
+		incomingPath := normalizeLockTargetPath(incoming.TargetPath)
+		if existingPath != "" || incomingPath != "" {
+			return existingPath != "" && existingPath == incomingPath
+		}
+		return true
+	}
+	return true
 }
 
 // RemoveEntry removes a lock entry by name
@@ -116,7 +148,7 @@ func (l *LockFile) RemoveEntry(name string) {
 	}
 }
 
-// GetEntry gets a lock entry by name
+// GetEntry gets a lock entry by name.
 func (l *LockFile) GetEntry(name string) *LockEntry {
 	for i := range l.Skills {
 		if l.Skills[i].Name == name {
@@ -124,6 +156,53 @@ func (l *LockFile) GetEntry(name string) *LockEntry {
 		}
 	}
 	return nil
+}
+
+// GetEntryForAgent gets a lock entry by name and agent. Legacy lock entries
+// without agent metadata are treated as matching a requested agent for backward
+// compatibility with lockfiles created before agent-scoped provenance existed.
+func (l *LockFile) GetEntryForAgent(name, agent string) *LockEntry {
+	requestedAgent := strings.TrimSpace(agent)
+	for i := range l.Skills {
+		if l.Skills[i].Name != name {
+			continue
+		}
+		entryAgent := strings.TrimSpace(l.Skills[i].Agent)
+		if strings.EqualFold(entryAgent, requestedAgent) || (requestedAgent != "" && entryAgent == "") {
+			return &l.Skills[i]
+		}
+	}
+	return nil
+}
+
+// GetEntryForAgentTargetPath gets a lock entry by name, agent, and target path.
+// If a matching legacy entry has no target path, it is treated as a match for
+// compatibility with pre-provenance lockfiles.
+func (l *LockFile) GetEntryForAgentTargetPath(name, agent, targetPath string) *LockEntry {
+	requestedAgent := strings.TrimSpace(agent)
+	requestedPath := normalizeLockTargetPath(targetPath)
+	for i := range l.Skills {
+		if l.Skills[i].Name != name {
+			continue
+		}
+		entryAgent := strings.TrimSpace(l.Skills[i].Agent)
+		if !(strings.EqualFold(entryAgent, requestedAgent) || (requestedAgent != "" && entryAgent == "")) {
+			continue
+		}
+		entryPath := normalizeLockTargetPath(l.Skills[i].TargetPath)
+		if entryPath == "" || entryPath == requestedPath {
+			return &l.Skills[i]
+		}
+	}
+	return nil
+}
+
+func normalizeLockTargetPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	return filepath.Clean(path)
 }
 
 // LoadGlobalLockFile loads the global lock file (~/.ask/ask.lock)
