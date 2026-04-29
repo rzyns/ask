@@ -341,11 +341,12 @@ func runInstall(cmd *cobra.Command, args []string) {
 	minScore, _ := cmd.Flags().GetString("min-score")
 
 	opts := installer.InstallOptions{
-		Global:    global,
-		Agents:    agents,
-		Config:    cfg,
-		SkipScore: skipScore,
-		MinScore:  minScore,
+		Global:                   global,
+		Agents:                   agents,
+		Config:                   cfg,
+		SkipScore:                skipScore,
+		MinScore:                 minScore,
+		SuppressGenericLockEntry: suppressGenericLockEntryForInstall(agents),
 	}
 
 	// Install each expanded skill
@@ -412,6 +413,10 @@ func recordInstallSourceMetadata(dest map[string]installer.InstallSourceMetadata
 		SourceIdentifier: repo.SourceIdentifier,
 		UpdateStrategy:   repo.UpdateStrategy,
 	}
+}
+
+func suppressGenericLockEntryForInstall(agents []string) bool {
+	return onlyHermesAgents(agents)
 }
 
 func registerInstallFlags(cmd *cobra.Command) {

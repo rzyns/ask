@@ -76,6 +76,27 @@ func TestInstallValidation(t *testing.T) {
 	}
 }
 
+func TestSuppressGenericLockEntryForHermesOnlyInstall(t *testing.T) {
+	cases := []struct {
+		name   string
+		agents []string
+		want   bool
+	}{
+		{name: "hermes only", agents: []string{"hermes"}, want: true},
+		{name: "repeated hermes", agents: []string{"hermes", "hermes"}, want: true},
+		{name: "no explicit agent", agents: nil, want: false},
+		{name: "non hermes", agents: []string{"claude"}, want: false},
+		{name: "mixed agents", agents: []string{"hermes", "claude"}, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := suppressGenericLockEntryForInstall(tc.agents); got != tc.want {
+				t.Fatalf("suppressGenericLockEntryForInstall(%v) = %v, want %v", tc.agents, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestLoadInstallConfigUsesCommandScope(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)

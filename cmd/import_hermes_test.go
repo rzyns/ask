@@ -27,7 +27,7 @@ func TestSkillImportHermesDryRunDoesNotWriteLock(t *testing.T) {
 	defer restore()
 	writeCmdImportSkill(t, filepath.Join(workdir, ".hermes", "skills"), "native", "native")
 
-	buf, err := executeImportCommandForTest("skill", "import", "--agent", "hermes", "--dry-run", "--all")
+	buf, err := executeImportCommandForTest("skill", "import", "--agent", "hermes", "--dry-run")
 	if err != nil {
 		t.Fatalf("command returned error: %v output=%s", err, buf.String())
 	}

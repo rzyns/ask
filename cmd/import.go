@@ -23,6 +23,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 	all, _ := cmd.Flags().GetBool("all")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	global, _ := cmd.Flags().GetBool("global")
+	if dryRun && !all && len(args) == 0 {
+		all = true
+	}
 	if all && len(args) > 0 {
 		return fmt.Errorf("use either --all or specific skill name(s), not both")
 	}
