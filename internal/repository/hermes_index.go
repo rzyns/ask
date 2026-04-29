@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/hermes"
 )
 
 var fetchHermesIndexHTTPFunc = fetchHermesIndexHTTP
@@ -84,6 +85,9 @@ func hermesIndexSkillsToCandidates(skills []hermesIndexSkill, keyword string) []
 	for _, skill := range skills {
 		githubPath, ok := hermesGitHubPath(skill)
 		if !ok {
+			continue
+		}
+		if hermes.ClassifyHermesSource(githubPath).Kind == hermes.HermesSourceBundled {
 			continue
 		}
 

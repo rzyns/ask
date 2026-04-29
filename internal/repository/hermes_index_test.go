@@ -97,6 +97,18 @@ func TestHermesIndexCandidateMappingResolvesOfficialPathToHermesRepo(t *testing.
 	}
 }
 
+func TestHermesIndexCandidateMappingSkipsBundledHermesSkills(t *testing.T) {
+	skills := []hermesIndexSkill{{
+		Name:             "core-skill",
+		ResolvedGitHubID: "NousResearch/hermes-agent/skills/core-skill",
+	}}
+
+	candidates := hermesIndexSkillsToCandidates(skills, "")
+	if len(candidates) != 0 {
+		t.Fatalf("expected bundled Hermes skill to be skipped, got %#v", candidates)
+	}
+}
+
 func TestHermesIndexCandidateMappingFiltersKeywordCaseInsensitively(t *testing.T) {
 	skills := []hermesIndexSkill{
 		{Name: "Alpha", Description: "First", ResolvedGitHubID: "owner/repo/skills/alpha"},

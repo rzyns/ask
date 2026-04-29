@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/github"
 )
 
 func createFile(t *testing.T, baseDir, path, content string) {
@@ -41,6 +42,34 @@ func TestFetchSkillsDirInvalidURLReturnsError(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, "invalid repository URL format: owneronly") {
 		t.Fatalf("expected invalid repository URL format error, got %q", got)
+	}
+}
+
+func TestFetchSkillsDirRejectsBundledHermesSkills(t *testing.T) {
+	origFetchViaGit := fetchSkillsViaGitFunc
+	origSearchDir := searchDirFunc
+	t.Cleanup(func() {
+		fetchSkillsViaGitFunc = origFetchViaGit
+		searchDirFunc = origSearchDir
+	})
+	fetchSkillsViaGitFunc = func(config.Repo) ([]github.Repository, error) {
+		t.Fatal("bundled Hermes dir source should be rejected before git fetch")
+		return nil, nil
+	}
+	searchDirFunc = func(_, _, _ string) ([]github.Repository, error) {
+		t.Fatal("bundled Hermes dir source should be rejected before GitHub search fallback")
+		return nil, nil
+	}
+
+	_, err := FetchSkills(config.Repo{
+		Type: config.RepoTypeDir,
+		URL:  "NousResearch/hermes-agent/skills",
+	})
+	if err == nil {
+		t.Fatal("expected bundled Hermes skills error")
+	}
+	if got := err.Error(); !strings.Contains(got, "bundled Hermes skills") {
+		t.Fatalf("expected bundled Hermes skills error, got %q", got)
 	}
 }
 

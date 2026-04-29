@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/yeasy/ask/internal/config"
@@ -113,5 +114,45 @@ func TestSearchSkillsDirInvalidURLPreservesNoopBehavior(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Fatalf("expected no results, got %d", len(results))
+	}
+}
+
+func TestSearchSkillsDirRejectsBundledHermesSkills(t *testing.T) {
+	origSearchDir := searchDirFunc
+	t.Cleanup(func() { searchDirFunc = origSearchDir })
+	searchDirFunc = func(_, _, _ string) ([]github.Repository, error) {
+		t.Fatal("bundled Hermes dir source should be rejected before GitHub search")
+		return nil, nil
+	}
+
+	_, err := SearchSkills(context.Background(), config.Repo{
+		Type: config.RepoTypeDir,
+		URL:  "NousResearch/hermes-agent/skills",
+	}, "foo")
+	if err == nil {
+		t.Fatal("expected bundled Hermes skills error")
+	}
+	if got := err.Error(); !strings.Contains(got, "bundled Hermes skills") {
+		t.Fatalf("expected bundled Hermes skills error, got %q", got)
+	}
+}
+
+func TestSearchSkillsDirRejectsBundledHermesSkillChildren(t *testing.T) {
+	origSearchDir := searchDirFunc
+	t.Cleanup(func() { searchDirFunc = origSearchDir })
+	searchDirFunc = func(_, _, _ string) ([]github.Repository, error) {
+		t.Fatal("bundled Hermes dir source should be rejected before GitHub search")
+		return nil, nil
+	}
+
+	_, err := SearchSkills(context.Background(), config.Repo{
+		Type: config.RepoTypeDir,
+		URL:  "NousResearch/hermes-agent/skills/core-skill",
+	}, "foo")
+	if err == nil {
+		t.Fatal("expected bundled Hermes skills error")
+	}
+	if got := err.Error(); !strings.Contains(got, "bundled Hermes skills") {
+		t.Fatalf("expected bundled Hermes skills error, got %q", got)
 	}
 }
