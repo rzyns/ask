@@ -240,6 +240,35 @@ func TestClone_RejectsNonHTTPS(t *testing.T) {
 	}
 }
 
+func TestClone_DisablesInteractiveCredentialPrompts(t *testing.T) {
+	binDir := t.TempDir()
+	capturePath := filepath.Join(t.TempDir(), "env.txt")
+	gitPath := filepath.Join(binDir, "git")
+	script := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$GIT_TERMINAL_PROMPT\" > \"$ASK_TEST_ENV_CAPTURE\"\n" +
+		"exit 1\n"
+	if err := os.WriteFile(gitPath, []byte(script), 0755); err != nil {
+		t.Fatalf("failed to write fake git: %v", err)
+	}
+
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("ASK_TEST_ENV_CAPTURE", capturePath)
+	t.Setenv("GIT_TERMINAL_PROMPT", "1")
+
+	err := Clone(context.Background(), "https://github.com/owner/repo", filepath.Join(t.TempDir(), "repo"))
+	if err == nil {
+		t.Fatal("expected fake git clone to fail")
+	}
+
+	promptBytes, readErr := os.ReadFile(capturePath)
+	if readErr != nil {
+		t.Fatalf("failed to read captured prompt setting: %v", readErr)
+	}
+	if strings.TrimSpace(string(promptBytes)) != "0" {
+		t.Fatalf("expected Clone to disable terminal prompts, got GIT_TERMINAL_PROMPT=%q", strings.TrimSpace(string(promptBytes)))
+	}
+}
+
 // TestSparseClone_RejectsNonHTTPS verifies SparseClone rejects non-HTTPS URLs
 func TestSparseClone_RejectsNonHTTPS(t *testing.T) {
 	err := SparseClone(context.Background(), "http://github.com/owner/repo", "main", "subdir", t.TempDir())

@@ -24,7 +24,7 @@ func Clone(ctx context.Context, url, dest string) error {
 		return fmt.Errorf("git clone requires HTTPS URL: %s", url)
 	}
 	bar := ui.NewSpinner(fmt.Sprintf("Cloning %s...", filepath.Base(url)))
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--progress", "--", url, dest)
+	cmd := gitCommand(ctx, "clone", "--depth", "1", "--progress", "--", url, dest)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	err := cmd.Run()
@@ -33,6 +33,12 @@ func Clone(ctx context.Context, url, dest string) error {
 		return fmt.Errorf("git clone %s: %w", url, err)
 	}
 	return nil
+}
+
+func gitCommand(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	return cmd
 }
 
 // SparseClone clones only a specific subdirectory using sparse checkout.
@@ -64,7 +70,7 @@ func SparseClone(ctx context.Context, repoURL, branch, subDir, dest string) erro
 	}
 	args = append(args, "--", repoURL, dest)
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := gitCommand(ctx, args...)
 	cmd.Stdout = bar
 	cmd.Stderr = bar
 	if err := cmd.Run(); err != nil {
@@ -79,7 +85,7 @@ func SparseClone(ctx context.Context, repoURL, branch, subDir, dest string) erro
 
 	// Step 2: Initialize sparse-checkout in cone mode
 	ui.UpdateDescription(bar, "Configuring sparse checkout...")
-	cmd = exec.CommandContext(ctx, "git", "sparse-checkout", "init", "--cone")
+	cmd = gitCommand(ctx, "sparse-checkout", "init", "--cone")
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
@@ -89,7 +95,7 @@ func SparseClone(ctx context.Context, repoURL, branch, subDir, dest string) erro
 
 	// Step 3: Set the subdirectory to checkout
 	ui.UpdateDescription(bar, fmt.Sprintf("Setting checkout path to %s...", subDir))
-	cmd = exec.CommandContext(ctx, "git", "sparse-checkout", "set", "--", subDir)
+	cmd = gitCommand(ctx, "sparse-checkout", "set", "--", subDir)
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
@@ -99,7 +105,7 @@ func SparseClone(ctx context.Context, repoURL, branch, subDir, dest string) erro
 
 	// Step 4: Checkout
 	ui.UpdateDescription(bar, "Checking out files...")
-	cmd = exec.CommandContext(ctx, "git", "checkout")
+	cmd = gitCommand(ctx, "checkout")
 	cmd.Dir = dest
 	cmd.Stdout = bar
 	cmd.Stderr = bar
@@ -179,7 +185,7 @@ func Checkout(ctx context.Context, repoPath, ref string) error {
 	if err := validateGitRef(ref); err != nil {
 		return fmt.Errorf("invalid git ref: %w", err)
 	}
-	cmd := exec.CommandContext(ctx, "git", "checkout", ref)
+	cmd := gitCommand(ctx, "checkout", ref)
 	cmd.Dir = repoPath
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

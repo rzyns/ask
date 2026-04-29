@@ -62,6 +62,15 @@ If no agent is specified, skills are installed to .agent/skills/ by default.`,
 
 const maxInputLength = 255
 
+func loadInstallConfig(cmd *cobra.Command) *config.Config {
+	cfg, err := loadConfigForCommand(cmd)
+	if err != nil {
+		def := config.DefaultConfig()
+		cfg = &def
+	}
+	return cfg
+}
+
 func runInstall(cmd *cobra.Command, args []string) {
 	// Check for offline mode
 	if offline, _ := cmd.Flags().GetBool("offline"); offline || config.IsOffline() {
@@ -166,11 +175,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 	}
 
 	// Load config
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		def := config.DefaultConfig()
-		cfg = &def
-	}
+	cfg := loadInstallConfig(cmd)
 
 	var expandedArgs []string
 	sourceMetadataByInput := make(map[string]installer.InstallSourceMetadata)

@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestInstallAliases(t *testing.T) {
@@ -69,5 +73,25 @@ func TestInstallValidation(t *testing.T) {
 	err = installCmd.Args(installCmd, []string{"some-skill"})
 	if err != nil {
 		t.Errorf("installCmd should accept 1 arg, got error: %v", err)
+	}
+}
+
+func TestLoadInstallConfigUsesCommandScope(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	globalDir := filepath.Join(tmp, ".ask")
+	if err := os.MkdirAll(globalDir, 0o700); err != nil {
+		t.Fatalf("mkdir global config dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(globalDir, "config.yaml"), []byte("version: \"1.2\"\nrepos:\n  - name: hermes-index\n    type: hermes\n    url: https://example.test/skills-index.json\n"), 0o600); err != nil {
+		t.Fatalf("write global config: %v", err)
+	}
+
+	cmd := &cobra.Command{}
+	cmd.Flags().BoolP("global", "g", true, "")
+
+	cfg := loadInstallConfig(cmd)
+	if len(cfg.Repos) == 0 || cfg.Repos[0].Name != "hermes-index" {
+		t.Fatalf("expected install config loader to honor --global scope, got %#v", cfg.Repos)
 	}
 }
