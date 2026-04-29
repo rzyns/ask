@@ -11,14 +11,15 @@ import (
 	"github.com/yeasy/ask/internal/config"
 )
 
-func TestSkillsSHSearchRequestsV1Endpoint(t *testing.T) {
-	t.Setenv("SKILLS_SH_API_KEY", "")
-	var gotPath, gotQuery, gotUA string
+func TestSkillsSHSearchUsesPublicLegacyEndpointWithoutAuth(t *testing.T) {
+	t.Setenv("SKILLS_SH_API_KEY", "env-token")
+	var gotPath, gotQuery, gotUA, gotAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
 		gotUA = r.Header.Get("User-Agent")
-		_, _ = w.Write([]byte(`{"data":[{"id":"react","name":"React","sourceType":"github","installUrl":"https://github.com/owner/repo"}]}`))
+		gotAuth = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"skills":[{"id":"vercel-labs/agent-skills/vercel-react-best-practices","skillId":"vercel-react-best-practices","name":"vercel-react-best-practices","installs":358797,"source":"vercel-labs/agent-skills"}],"count":1}`))
 	}))
 	defer server.Close()
 
@@ -26,18 +27,42 @@ func TestSkillsSHSearchRequestsV1Endpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
-	if gotPath != "/api/v1/skills/search" || !strings.Contains(gotQuery, "q=react") || !strings.Contains(gotQuery, "limit=") {
+	if gotPath != "/api/search" || !strings.Contains(gotQuery, "q=react") || !strings.Contains(gotQuery, "limit=10") {
 		t.Fatalf("request path/query = %q?%q", gotPath, gotQuery)
 	}
 	if gotUA != "ask-cli" {
 		t.Fatalf("user-agent=%q", gotUA)
 	}
-	if len(candidates) != 1 || candidates[0].Name != "React" {
+	if gotAuth != "" {
+		t.Fatalf("public search should not send Authorization header, got %q", gotAuth)
+	}
+	if len(candidates) != 1 || candidates[0].Name != "vercel-react-best-practices" {
 		t.Fatalf("candidates=%#v", candidates)
+	}
+	if !candidates[0].Supported || candidates[0].Install.Value != "https://github.com/vercel-labs/agent-skills" {
+		t.Fatalf("public search GitHub source was not natively installable: %#v", candidates[0])
 	}
 }
 
-func TestSkillsSHFetchRequestsV1Endpoint(t *testing.T) {
+func TestSkillsSHFetchRequiresTokenForFullCatalog(t *testing.T) {
+	t.Setenv("SKILLS_SH_API_KEY", "")
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	_, err := fetchSkillsSHSource(config.Repo{Type: config.RepoTypeSkillsSH, URL: server.URL})
+	if err == nil || !strings.Contains(err.Error(), "full catalog listing requires") || !strings.Contains(err.Error(), "SKILLS_SH_API_KEY") {
+		t.Fatalf("expected clear full-catalog auth error, got %v", err)
+	}
+	if called {
+		t.Fatal("full catalog fetch without token should fail before making HTTP request")
+	}
+}
+
+func TestSkillsSHFetchRequestsAuthenticatedV1Endpoint(t *testing.T) {
 	t.Setenv("SKILLS_SH_API_KEY", "")
 	var gotPath, gotQuery string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

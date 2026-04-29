@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultSkillsSHBaseURL = "https://skills.sh"
-	skillsSHSearchLimit    = "20"
+	skillsSHSearchLimit    = "10"
 	skillsSHFetchPerPage   = "100"
 )
 
@@ -29,11 +29,11 @@ func searchSkillsSHSource(ctx context.Context, repo config.Repo, keyword string)
 	query := url.Values{}
 	query.Set("q", keyword)
 	query.Set("limit", skillsSHSearchLimit)
-	body, err := doSkillsSHRequest(ctx, repo, "/api/v1/skills/search", query)
+	body, err := doSkillsSHPublicRequest(ctx, repo, "/api/search", query)
 	if err != nil {
 		return nil, err
 	}
-	candidates, err := parseSkillsSHV1Candidates(body)
+	candidates, err := parseSkillsSHLegacySearchCandidatesTrusted(body)
 	if err != nil {
 		return nil, fmt.Errorf("parse skills.sh response: %w", err)
 	}
@@ -45,11 +45,14 @@ func fetchSkillsSHSource(repo config.Repo) ([]SkillCandidate, error) {
 }
 
 func fetchSkillsSHSourceContext(ctx context.Context, repo config.Repo) ([]SkillCandidate, error) {
+	if skillsSHToken(repo) == "" {
+		return nil, fmt.Errorf("skills.sh full catalog listing requires SKILLS_SH_API_KEY or repo token; public skills.sh supports search only")
+	}
 	query := url.Values{}
 	query.Set("view", "all-time")
 	query.Set("page", "0")
 	query.Set("per_page", skillsSHFetchPerPage)
-	body, err := doSkillsSHRequest(ctx, repo, "/api/v1/skills", query)
+	body, err := doSkillsSHAuthenticatedRequest(ctx, repo, "/api/v1/skills", query)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +82,16 @@ func skillsSHBaseURL(repo config.Repo) (*url.URL, error) {
 	return base, nil
 }
 
-func doSkillsSHRequest(ctx context.Context, repo config.Repo, path string, query url.Values) ([]byte, error) {
+func doSkillsSHPublicRequest(ctx context.Context, repo config.Repo, path string, query url.Values) ([]byte, error) {
+	return doSkillsSHRequest(ctx, repo, path, query, "")
+}
+
+func doSkillsSHAuthenticatedRequest(ctx context.Context, repo config.Repo, path string, query url.Values) ([]byte, error) {
+	token := skillsSHToken(repo)
+	return doSkillsSHRequest(ctx, repo, path, query, token)
+}
+
+func doSkillsSHRequest(ctx context.Context, repo config.Repo, path string, query url.Values, token string) ([]byte, error) {
 	base, err := skillsSHBaseURL(repo)
 	if err != nil {
 		return nil, err
@@ -93,7 +105,7 @@ func doSkillsSHRequest(ctx context.Context, repo config.Repo, path string, query
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "ask-cli")
-	if token := skillsSHToken(repo); token != "" {
+	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
@@ -109,7 +121,7 @@ func doSkillsSHRequest(ctx context.Context, repo config.Repo, path string, query
 		return nil, fmt.Errorf("read skills.sh response: %w", readErr)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, skillsSHStatusError(resp, body, skillsSHToken(repo))
+		return nil, skillsSHStatusError(resp, body, token)
 	}
 	if int64(len(body)) > skillsSHMaxBodyBytes {
 		return nil, fmt.Errorf("skills.sh response body too large (limit %d bytes)", skillsSHMaxBodyBytes)
@@ -193,13 +205,21 @@ func parseSkillsSHV1Candidates(body []byte) ([]SkillCandidate, error) {
 }
 
 func parseSkillsSHLegacySearchCandidates(body []byte) ([]SkillCandidate, error) {
+	return parseSkillsSHLegacySearchCandidatesWithTrust(body, false)
+}
+
+func parseSkillsSHLegacySearchCandidatesTrusted(body []byte) ([]SkillCandidate, error) {
+	return parseSkillsSHLegacySearchCandidatesWithTrust(body, true)
+}
+
+func parseSkillsSHLegacySearchCandidatesWithTrust(body []byte, allowBareOwnerRepo bool) ([]SkillCandidate, error) {
 	var wrapper skillsSHLegacySearchWrapper
 	if err := json.Unmarshal(body, &wrapper); err != nil {
 		return nil, err
 	}
 	candidates := make([]SkillCandidate, 0, len(wrapper.Skills))
 	for _, skill := range wrapper.Skills {
-		candidates = append(candidates, candidateFromSkillsSHLegacy(skill))
+		candidates = append(candidates, candidateFromSkillsSHLegacy(skill, allowBareOwnerRepo))
 	}
 	return candidates, nil
 }
@@ -228,9 +248,9 @@ func candidateFromSkillsSHV1(skill skillsSHV1Skill) SkillCandidate {
 	return c
 }
 
-func candidateFromSkillsSHLegacy(skill skillsSHLegacySkill) SkillCandidate {
+func candidateFromSkillsSHLegacy(skill skillsSHLegacySkill, allowBareOwnerRepo bool) SkillCandidate {
 	c := baseSkillsSHCandidate(skill.Name, "", skill.URL, skill.Installs, firstNonEmpty(skill.ID, skill.SkillID, skill.Source))
-	if ref, ok := resolveSkillsSHGitHubSource(skill.Source, false); ok {
+	if ref, ok := resolveSkillsSHGitHubSource(skill.Source, allowBareOwnerRepo); ok {
 		markSupported(&c, ref)
 		return c
 	}
