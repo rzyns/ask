@@ -47,6 +47,9 @@ repos:
   - name: openclaw
     type: dir
     url: openclaw/openclaw/skills
+  - name: hermes-index
+    type: hermes
+    url: https://hermes-agent.nousresearch.com/docs/api/skills-index.json
 ```
 
 ### Fields
@@ -127,6 +130,9 @@ ASK automatically includes these sources, even if not in your `ask.yaml`:
 | `composio` | dir | `ComposioHQ/awesome-claude-skills` |
 | `vercel` | dir | `vercel-labs/agent-skills` |
 | `openclaw` | dir | `openclaw/openclaw/skills` |
+| `hermes-index` | hermes | `https://hermes-agent.nousresearch.com/docs/api/skills-index.json` |
+
+`hermes-index` is the canonical source for user-installable Hermes optional skills. Do not add `NousResearch/hermes-agent/skills` as a repository: that tree contains bundled/core Hermes skills that ASK intentionally refuses to install, update, or uninstall. If you explicitly need direct repository access to official optional skills, use `NousResearch/hermes-agent/optional-skills` rather than the bundled `skills` tree.
 
 To add custom sources, see [Skill Sources](skill-sources.md).
 

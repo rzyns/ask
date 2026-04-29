@@ -110,7 +110,7 @@ ask skill install anthropics/skills/computer-use  # 指定路径
 - 添加条目到 `ask.yaml`
 - 在 `ask.lock` 中记录版本信息
 
-**Hermes 说明：** Hermes 默认加载 `$HERMES_HOME/skills`（通常是 `~/.hermes/skills`）。使用 `--agent hermes --global` 会安装到该默认位置；项目本地安装会写入 `.hermes/skills`，如需 Hermes 自动加载，请将该项目本地目录的绝对路径加入 Hermes 的 `skills.external_dirs`。
+**Hermes 说明：** Hermes 默认加载 `$HERMES_HOME/skills`（通常是 `~/.hermes/skills`）。使用 `--agent hermes --global` 会安装到该默认位置；项目本地安装会写入 `.hermes/skills`，如需 Hermes 自动加载，请将该项目本地目录的绝对路径加入 Hermes 的 `skills.external_dirs`。请使用内置的 `hermes-index` 来源安装可由用户安装的 Hermes 技能；ASK 会拒绝 `NousResearch/hermes-agent/skills` 下的 bundled/core 来源，因为这些技能由 Hermes Agent 自身管理。
 
 ---
 
@@ -120,16 +120,22 @@ ask skill install anthropics/skills/computer-use  # 指定路径
 
 ```bash
 ask skill uninstall <skill>
+ask skill uninstall <skill> --agent hermes --global
+ask skill uninstall <skill> --agent hermes --global --forget
+ask skill uninstall <skill> --agent hermes --global --delete-files
 ```
 
 **参数：**
 - `--agent, -a`: 卸载的目标 Agent
 - `--global, -g`: 全局卸载
-- `--all`: 移除源文件和所有符号链接（完全移除）
+- `--all`: 移除源文件和所有符号链接（非 Hermes 安装的完全移除）
+- `--forget`: 仅 Hermes：移除 ASK 跟踪记录但保留技能文件
+- `--delete-files`: 仅 Hermes：明确删除导入/原地管理的 Hermes 文件
 
 **功能说明：**
 - 从 Agent 目录中删除技能（符号链接或副本）
-- 使用 `--all` 时：同时删除源文件及 `ask.yaml` 和 `ask.lock` 中的条目
+- 使用 `--all` 时：对非 Hermes 安装同时删除源文件及 `ask.yaml` 和 `ask.lock` 中的条目
+- 对 Hermes，ASK 拥有/缓存管理的技能可安全移除；导入/原地技能默认保留，需使用 `--forget` 或 `--delete-files`；bundled/core Hermes 技能永远不会由 ASK 删除
 
 ---
 
@@ -184,11 +190,14 @@ ask skill info <skill> --json     # 以 JSON 格式输出
 ```bash
 ask skill update            # 更新所有技能
 ask skill update <skill>    # 更新特定技能
+ask skill update --agent hermes --global
+ask skill update <skill> --agent hermes --global --force
 ```
 
 **功能说明：**
 - 从源获取最新版本
 - 更新 `ask.lock` 中的提交哈希
+- 对 Hermes，仅更新 ASK 拥有且记录了 `hermes-index`/Git 来源的技能；导入/原地技能会跳过，bundled/core 技能会被拒绝，存在本地改动时需显式使用 `--force`
 
 ---
 

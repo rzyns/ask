@@ -15,9 +15,9 @@ func TestDefaultConfig(t *testing.T) {
 	if len(config.Skills) != 0 {
 		t.Errorf("Expected empty skills list, got %d", len(config.Skills))
 	}
-	// We now have 6 default repos: featured, anthropics, openai, composio, vercel, openclaw
-	if len(config.Repos) != 6 {
-		t.Errorf("Expected 6 default repos, got %d", len(config.Repos))
+	// We now have 7 default repos: featured, anthropics, openai, composio, vercel, openclaw, hermes-index.
+	if len(config.Repos) != 7 {
+		t.Errorf("Expected 7 default repos, got %d", len(config.Repos))
 	}
 }
 
@@ -43,12 +43,13 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		repoType string
 		url      string
 	}{
-		"featured":   {repoType: "registry", url: "yeasy/awesome-agent-skills/registry/index.json"},
-		"anthropics": {repoType: "dir", url: "anthropics/skills/skills"},
-		"openai":     {repoType: "dir", url: "openai/skills/skills"},
-		"composio":   {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
-		"vercel":     {repoType: "dir", url: "vercel-labs/agent-skills"},
-		"openclaw":   {repoType: "dir", url: "openclaw/openclaw/skills"},
+		"featured":     {repoType: "registry", url: "yeasy/awesome-agent-skills/registry/index.json"},
+		"anthropics":   {repoType: "dir", url: "anthropics/skills/skills"},
+		"openai":       {repoType: "dir", url: "openai/skills/skills"},
+		"composio":     {repoType: "dir", url: "ComposioHQ/awesome-claude-skills"},
+		"vercel":       {repoType: "dir", url: "vercel-labs/agent-skills"},
+		"openclaw":     {repoType: "dir", url: "openclaw/openclaw/skills"},
+		"hermes-index": {repoType: RepoTypeHermes, url: "https://hermes-agent.nousresearch.com/docs/api/skills-index.json"},
 	}
 
 	for _, repo := range config.Repos {
@@ -63,6 +64,13 @@ func TestDefaultReposConfiguration(t *testing.T) {
 		if repo.URL != expected.url {
 			t.Errorf("Repo %s: expected URL '%s', got '%s'", repo.Name, expected.url, repo.URL)
 		}
+		if strings.Contains(repo.URL, "NousResearch/hermes-agent/skills") {
+			t.Errorf("Default repos must not include bundled Hermes skills source: %s", repo.URL)
+		}
+	}
+
+	if len(config.Repos) != len(expectedRepos) {
+		t.Errorf("Expected %d default repos, got %d", len(expectedRepos), len(config.Repos))
 	}
 
 	// Verify OptionalRepos

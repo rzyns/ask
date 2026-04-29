@@ -6,7 +6,7 @@ ASK can search and install skills from multiple sources. This document explains 
 
 ## Default Sources
 
-ASK comes with six pre-configured sources:
+ASK comes with seven pre-configured sources:
 
 | Name | Type | URL | Description |
 |------|------|-----|-------------|
@@ -16,6 +16,7 @@ ASK comes with six pre-configured sources:
 | `composio` | dir | `ComposioHQ/awesome-claude-skills` | Awesome Claude Skills |
 | `vercel` | dir | `vercel-labs/agent-skills` | Vercel AI SDK skills |
 | `openclaw` | dir | `openclaw/openclaw/skills` | OpenClaw skills |
+| `hermes-index` | hermes | `https://hermes-agent.nousresearch.com/docs/api/skills-index.json` | Canonical user-installable Hermes optional skills index |
 
 ---
 
@@ -78,6 +79,19 @@ repos:
 
 **Cons:**
 - New skills require repository updates
+
+### Hermes Index Sources (`hermes`)
+
+Hermes sources point to the canonical Hermes Agent skills index JSON. Use this source type for user-installable Hermes optional skills:
+
+```yaml
+repos:
+  - name: hermes-index
+    type: hermes
+    url: https://hermes-agent.nousresearch.com/docs/api/skills-index.json
+```
+
+ASK does not manage Hermes bundled/core skills from `NousResearch/hermes-agent/skills`; those ship with Hermes Agent and are refused for install/update/uninstall. If you explicitly need direct repository access to optional skills, use `NousResearch/hermes-agent/optional-skills`, not the bundled `skills` tree.
 
 ---
 

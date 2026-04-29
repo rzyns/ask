@@ -168,6 +168,8 @@ ask skill install --repo anthropics
 
 Hermes 默认加载 `$HERMES_HOME/skills`（通常是 `~/.hermes/skills`）。ASK 全局安装（`--agent hermes --global`）会使用该目录；项目本地安装会写入 `.hermes/skills`，如需 Hermes 自动加载，请在 Hermes 配置中将该项目绝对路径加入 `skills.external_dirs`。
 
+对于可由用户安装的 Hermes 技能，请使用内置的 `hermes-index` 来源（`type: hermes`，`https://hermes-agent.nousresearch.com/docs/api/skills-index.json`）。ASK 有意不管理 `NousResearch/hermes-agent/skills` 下随 Hermes Agent 自带的 bundled/core 技能。直接配置 `NousResearch/hermes-agent/optional-skills` 仍可作为高级显式用法保留，但推荐使用 `hermes-index`，因为它会记录来源信息，以支持安全的更新和卸载行为。
+
 ## 📋 命令参考
 
 ### Skill 管理
@@ -219,6 +221,7 @@ ASK 默认内置了以下受信源：
 | **OpenAI** | 官方库 [openai/skills](https://github.com/openai/skills) |
 | **Vercel** | AI SDK [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) |
 | **OpenClaw** | [openclaw/openclaw](https://github.com/openclaw/openclaw/tree/main/skills) OpenClaw 内置技能 |
+| **Hermes Index** | 面向可由用户安装的 Hermes optional skills 的官方 [Hermes Agent 技能索引](https://hermes-agent.nousresearch.com/docs/api/skills-index.json) |
 
 ### 可选技能仓库
 

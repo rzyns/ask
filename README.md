@@ -168,6 +168,8 @@ ask skill install --repo anthropics
 
 Hermes loads `$HERMES_HOME/skills` by default (usually `~/.hermes/skills`). ASK global installs (`--agent hermes --global`) use that directory. Project-local installs go to `.hermes/skills`; configure Hermes `skills.external_dirs` to include the absolute project path if you want Hermes to load those skills automatically.
 
+For user-installable Hermes skills, use the built-in `hermes-index` source (`type: hermes`, `https://hermes-agent.nousresearch.com/docs/api/skills-index.json`). ASK intentionally does **not** manage Hermes bundled/core skills from `NousResearch/hermes-agent/skills`; those ship with Hermes Agent itself. Direct `NousResearch/hermes-agent/optional-skills` sources remain available for advanced explicit configuration, but `hermes-index` is the recommended source because it records provenance for safe update and uninstall behavior.
+
 ## 📋 Commands
 
 ### Skill Management
@@ -219,6 +221,7 @@ ASK comes pre-configured with trusted sources:
 | **OpenAI** | Official [openai/skills](https://github.com/openai/skills) |
 | **Vercel** | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) AI SDK skills |
 | **OpenClaw** | [openclaw/openclaw](https://github.com/openclaw/openclaw/tree/main/skills) Built-in skills from OpenClaw |
+| **Hermes Index** | Canonical [Hermes Agent skills index](https://hermes-agent.nousresearch.com/docs/api/skills-index.json) for user-installable Hermes optional skills |
 
 ### Optional Repositories
 

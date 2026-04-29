@@ -110,7 +110,7 @@ ask skill install anthropics/skills/computer-use  # From path
 - Adds entry to `ask.yaml`
 - Records version info in `ask.lock`
 
-**Hermes note:** Hermes loads `$HERMES_HOME/skills` by default (usually `~/.hermes/skills`). Use `--agent hermes --global` for that default location. Project-local ASK installs go to `.hermes/skills`; configure Hermes `skills.external_dirs` with the absolute project-local path for automatic loading.
+**Hermes note:** Hermes loads `$HERMES_HOME/skills` by default (usually `~/.hermes/skills`). Use `--agent hermes --global` for that default location. Project-local ASK installs go to `.hermes/skills`; configure Hermes `skills.external_dirs` with the absolute project-local path for automatic loading. Use the built-in `hermes-index` source for user-installable Hermes skills; ASK refuses bundled/core sources under `NousResearch/hermes-agent/skills` because those are managed by Hermes Agent itself.
 
 ---
 
@@ -120,16 +120,22 @@ Remove a skill from your project.
 
 ```bash
 ask skill uninstall <skill>
+ask skill uninstall <skill> --agent hermes --global
+ask skill uninstall <skill> --agent hermes --global --forget
+ask skill uninstall <skill> --agent hermes --global --delete-files
 ```
 
 **Flags:**
 - `--agent, -a`: Target agent(s) for uninstallation
 - `--global, -g`: Uninstall globally
-- `--all`: Remove source and all symlinks (complete removal)
+- `--all`: Remove source and all symlinks (complete removal for non-Hermes installs)
+- `--forget`: Hermes only: remove ASK tracking while preserving skill files
+- `--delete-files`: Hermes only: explicitly remove imported/in-place Hermes files
 
 **What it does:**
 - Removes skill from agent directories (symlinks or copies)
-- With `--all`: also removes source and entries from `ask.yaml` and `ask.lock`
+- With `--all`: also removes source and entries from `ask.yaml` and `ask.lock` for non-Hermes installs
+- For Hermes, ASK-owned/cache-managed skills can be removed safely; imported/in-place skills are preserved by default and require `--forget` or `--delete-files`; bundled/core Hermes skills are never removed by ASK
 
 ---
 
@@ -184,11 +190,14 @@ Update skills to their latest versions.
 ```bash
 ask skill update            # Update all skills
 ask skill update <skill>    # Update specific skill
+ask skill update --agent hermes --global
+ask skill update <skill> --agent hermes --global --force
 ```
 
 **What it does:**
 - Fetches latest version from source
 - Updates `ask.lock` with new commit hash
+- For Hermes, only ASK-owned skills with recorded `hermes-index`/Git provenance are updated; imported/in-place skills are skipped, bundled/core skills are refused, and dirty local changes require explicit `--force`
 
 ---
 

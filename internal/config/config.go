@@ -306,6 +306,11 @@ func DefaultConfig() Config {
 				Type: "dir",
 				URL:  "openclaw/openclaw/skills",
 			},
+			{
+				Name: "hermes-index",
+				Type: RepoTypeHermes,
+				URL:  "https://hermes-agent.nousresearch.com/docs/api/skills-index.json",
+			},
 		},
 	}
 }

@@ -47,6 +47,9 @@ repos:
   - name: openclaw
     type: dir
     url: openclaw/openclaw/skills
+  - name: hermes-index
+    type: hermes
+    url: https://hermes-agent.nousresearch.com/docs/api/skills-index.json
 ```
 
 ### 字段说明
@@ -127,6 +130,9 @@ ASK 自动包含这些源，即使它们不在您的 `ask.yaml` 中：
 | `composio` | dir | `ComposioHQ/awesome-claude-skills` |
 | `vercel` | dir | `vercel-labs/agent-skills` |
 | `openclaw` | dir | `openclaw/openclaw/skills` |
+| `hermes-index` | hermes | `https://hermes-agent.nousresearch.com/docs/api/skills-index.json` |
+
+`hermes-index` 是可由用户安装的 Hermes optional skills 的规范来源。不要将 `NousResearch/hermes-agent/skills` 添加为仓库：该目录包含 bundled/core Hermes 技能，ASK 会有意拒绝安装、更新或卸载这些技能。如果确实需要直接访问官方 optional skills 仓库，请使用 `NousResearch/hermes-agent/optional-skills`，而不是 bundled `skills` 目录。
 
 要添加自定义源，请参阅 [技能源](skill-sources_zh.md)。
 
