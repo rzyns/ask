@@ -225,8 +225,10 @@ func runInstall(cmd *cobra.Command, args []string) {
 				found := false
 				for _, r := range repos {
 					if r.Name == wanted {
-						expandedArgs = append(expandedArgs, r.HTMLURL)
-						recordInstallSourceMetadata(sourceMetadataByInput, r)
+						ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
+						if !ok {
+							fmt.Fprintln(os.Stderr, message)
+						}
 						found = true
 						break
 					}
@@ -240,8 +242,10 @@ func runInstall(cmd *cobra.Command, args []string) {
 			// Install all skills from repo
 			fmt.Printf("Found %d skills in repo '%s'. Queueing all for installation...\n", len(repos), repoName)
 			for _, r := range repos {
-				expandedArgs = append(expandedArgs, r.HTMLURL)
-				recordInstallSourceMetadata(sourceMetadataByInput, r)
+				ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
+				if !ok {
+					fmt.Fprintln(os.Stderr, message)
+				}
 			}
 		}
 	} else {
@@ -298,8 +302,10 @@ func runInstall(cmd *cobra.Command, args []string) {
 
 				fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
 				for _, r := range repos {
-					expandedArgs = append(expandedArgs, r.HTMLURL)
-					recordInstallSourceMetadata(sourceMetadataByInput, r)
+					ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
+					if !ok {
+						fmt.Fprintln(os.Stderr, message)
+					}
 				}
 			} else {
 				expandedArgs = append(expandedArgs, input)
@@ -413,6 +419,20 @@ func recordInstallSourceMetadata(dest map[string]installer.InstallSourceMetadata
 		SourceIdentifier: repo.SourceIdentifier,
 		UpdateStrategy:   repo.UpdateStrategy,
 	}
+}
+
+func appendInstallableRepoSkill(expandedArgs *[]string, failed *[]string, repo github.Repository, sourceMetadataByInput map[string]installer.InstallSourceMetadata) (bool, string) {
+	if repo.UnsupportedReason != "" || (repo.Source == config.RepoTypeSkillsSH && repo.HTMLURL == "") {
+		reason := repo.UnsupportedReason
+		if reason == "" {
+			reason = "no native ASK install ref for skills.sh entry"
+		}
+		*failed = append(*failed, repo.Name)
+		return false, fmt.Sprintf("Warning: Skill '%s' is not installable: %s", repo.Name, reason)
+	}
+	*expandedArgs = append(*expandedArgs, repo.HTMLURL)
+	recordInstallSourceMetadata(sourceMetadataByInput, repo)
+	return true, ""
 }
 
 func suppressGenericLockEntryForInstall(agents []string) bool {

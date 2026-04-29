@@ -64,6 +64,63 @@ func TestFetchSkillsRoutesThroughSourceDispatcher(t *testing.T) {
 	}
 }
 
+func TestSourceForRepoRecognizesSkillsSH(t *testing.T) {
+	_, err := sourceForRepo(config.Repo{Type: config.RepoTypeSkillsSH})
+	if err != nil {
+		t.Fatalf("expected skills.sh source to be recognized, got %v", err)
+	}
+}
+
+func TestSearchSkillsSkillsSHDispatchesThroughSeam(t *testing.T) {
+	origSearch := searchSkillsSHFunc
+	t.Cleanup(func() { searchSkillsSHFunc = origSearch })
+
+	called := false
+	searchSkillsSHFunc = func(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
+		called = true
+		if repo.Type != config.RepoTypeSkillsSH || repo.URL != "skills.sh" || keyword != "docker" {
+			t.Fatalf("unexpected skills.sh search args: repo=%#v keyword=%q", repo, keyword)
+		}
+		return []SkillCandidate{{Name: "skills-sh-search", Install: InstallRef{Kind: InstallRefSlug, Value: "skills-sh-search"}}}, nil
+	}
+
+	results, err := SearchSkills(context.Background(), config.Repo{Type: config.RepoTypeSkillsSH, URL: "skills.sh"}, "docker")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Fatal("expected SearchSkills to dispatch through skills.sh seam")
+	}
+	if len(results) != 1 || results[0].Name != "skills-sh-search" {
+		t.Fatalf("unexpected results: %#v", results)
+	}
+}
+
+func TestFetchSkillsSkillsSHDispatchesThroughSeam(t *testing.T) {
+	origFetch := fetchSkillsSHFunc
+	t.Cleanup(func() { fetchSkillsSHFunc = origFetch })
+
+	called := false
+	fetchSkillsSHFunc = func(repo config.Repo) ([]SkillCandidate, error) {
+		called = true
+		if repo.Type != config.RepoTypeSkillsSH || repo.URL != "skills.sh" {
+			t.Fatalf("unexpected skills.sh fetch args: repo=%#v", repo)
+		}
+		return []SkillCandidate{{Name: "skills-sh-fetch", Install: InstallRef{Kind: InstallRefSlug, Value: "skills-sh-fetch"}}}, nil
+	}
+
+	results, err := FetchSkills(config.Repo{Type: config.RepoTypeSkillsSH, URL: "skills.sh"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Fatal("expected FetchSkills to dispatch through skills.sh seam")
+	}
+	if len(results) != 1 || results[0].Name != "skills-sh-fetch" {
+		t.Fatalf("unexpected results: %#v", results)
+	}
+}
+
 func TestSearchSkillsUnknownTypeReturnsError(t *testing.T) {
 	_, err := SearchSkills(context.Background(), config.Repo{Type: "bogus"}, "")
 	if err == nil {

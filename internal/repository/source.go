@@ -36,6 +36,8 @@ var (
 	fetchSkillsViaGitFunc       = FetchSkillsViaGit
 	fetchSkillsFromRegistryFunc = FetchSkillsFromRegistry
 	fetchSkillsFromSkillHubFunc = FetchSkillsFromSkillHub
+	searchSkillsSHFunc          = searchSkillsSHSource
+	fetchSkillsSHFunc           = fetchSkillsSHSource
 )
 
 func sourceForRepo(repo config.Repo) (repositorySource, error) {
@@ -55,6 +57,10 @@ func sourceForRepo(repo config.Repo) (repositorySource, error) {
 		config.RepoTypeSkillHub: sourceFuncSet{
 			search: searchSkillHubSource,
 			fetch:  fetchSkillHubSource,
+		},
+		config.RepoTypeSkillsSH: sourceFuncSet{
+			search: searchSkillsSHFunc,
+			fetch:  fetchSkillsSHFunc,
 		},
 		config.RepoTypeHermes: sourceFuncSet{
 			search: searchHermesSource,

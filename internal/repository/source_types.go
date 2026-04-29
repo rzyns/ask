@@ -8,8 +8,9 @@ import (
 type InstallRefKind string
 
 const (
-	InstallRefGitHubPath InstallRefKind = "github_path"
-	InstallRefSlug       InstallRefKind = "slug"
+	InstallRefGitHubPath  InstallRefKind = "github_path"
+	InstallRefSlug        InstallRefKind = "slug"
+	InstallRefUnsupported InstallRefKind = "unsupported"
 )
 
 type InstallRef struct {
@@ -18,14 +19,17 @@ type InstallRef struct {
 }
 
 type SkillCandidate struct {
-	Name             string
-	FullName         string
-	Description      string
-	Source           string
-	SourceIdentifier string
-	UpdateStrategy   string
-	Install          InstallRef
-	Stars            int
+	Name              string
+	FullName          string
+	Description       string
+	Source            string
+	SourceIdentifier  string
+	UpdateStrategy    string
+	Install           InstallRef
+	Stars             int
+	PageURL           string
+	Supported         bool
+	UnsupportedReason string
 }
 
 func repositoryToCandidate(repo github.Repository) SkillCandidate {
@@ -44,7 +48,10 @@ func repositoryToCandidate(repo github.Repository) SkillCandidate {
 			Kind:  kind,
 			Value: repo.HTMLURL,
 		},
-		Stars: repo.StargazersCount,
+		Stars:             repo.StargazersCount,
+		PageURL:           repo.PageURL,
+		Supported:         repo.Supported,
+		UnsupportedReason: repo.UnsupportedReason,
 	}
 }
 
@@ -61,14 +68,17 @@ func repositoriesToCandidates(repos []github.Repository) []SkillCandidate {
 
 func candidateToRepository(candidate SkillCandidate) github.Repository {
 	return github.Repository{
-		Name:             candidate.Name,
-		FullName:         candidate.FullName,
-		Description:      candidate.Description,
-		HTMLURL:          candidate.Install.Value,
-		StargazersCount:  candidate.Stars,
-		Source:           candidate.Source,
-		SourceIdentifier: candidate.SourceIdentifier,
-		UpdateStrategy:   candidate.UpdateStrategy,
+		Name:              candidate.Name,
+		FullName:          candidate.FullName,
+		Description:       candidate.Description,
+		HTMLURL:           candidate.Install.Value,
+		StargazersCount:   candidate.Stars,
+		Source:            candidate.Source,
+		SourceIdentifier:  candidate.SourceIdentifier,
+		UpdateStrategy:    candidate.UpdateStrategy,
+		PageURL:           candidate.PageURL,
+		Supported:         candidate.Supported,
+		UnsupportedReason: candidate.UnsupportedReason,
 	}
 }
 

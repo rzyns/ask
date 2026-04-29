@@ -252,9 +252,11 @@ func runSearch(cmd *cobra.Command, args []string) {
 			defer func() { <-sem }()
 			repos, err := repository.SearchSkills(searchCtx, r, keyword)
 
-			// Set source name for each repo
+			// Set source name for repos that do not carry stronger provenance.
 			for i := range repos {
-				repos[i].Source = r.Name
+				if repos[i].Source == "" {
+					repos[i].Source = r.Name
+				}
 			}
 
 			results <- searchResult{source: r.Name, repos: repos, err: err}
@@ -307,21 +309,27 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 
 	if jsonOutput {
 		type searchResultJSON struct {
-			Name        string `json:"name"`
-			Source      string `json:"source"`
-			Installed   bool   `json:"installed"`
-			Stars       int    `json:"stars"`
-			Description string `json:"description"`
+			Name              string `json:"name"`
+			Source            string `json:"source"`
+			Installed         bool   `json:"installed"`
+			Stars             int    `json:"stars"`
+			Description       string `json:"description"`
+			Supported         bool   `json:"supported"`
+			UnsupportedReason string `json:"unsupported_reason,omitempty"`
+			PageURL           string `json:"page_url,omitempty"`
 		}
 
 		var results []searchResultJSON
 		for _, repo := range displayRepos {
 			results = append(results, searchResultJSON{
-				Name:        repo.Name,
-				Source:      repo.Source,
-				Installed:   installedSkills[repo.Name],
-				Stars:       repo.StargazersCount,
-				Description: repo.Description,
+				Name:              repo.Name,
+				Source:            repo.Source,
+				Installed:         installedSkills[repo.Name],
+				Stars:             repo.StargazersCount,
+				Description:       repo.Description,
+				Supported:         repo.Supported,
+				UnsupportedReason: repo.UnsupportedReason,
+				PageURL:           repo.PageURL,
 			})
 		}
 
@@ -352,6 +360,10 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 		stars := fmt.Sprintf("%d", repo.StargazersCount)
 		if repo.StargazersCount == 0 {
 			stars = "-"
+		}
+
+		if repo.UnsupportedReason != "" {
+			desc = fmt.Sprintf("UNSUPPORTED: %s", repo.UnsupportedReason)
 		}
 
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)

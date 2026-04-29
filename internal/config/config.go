@@ -31,6 +31,7 @@ const (
 	RepoTypeDir      = "dir"
 	RepoTypeRegistry = "registry"
 	RepoTypeSkillHub = "skillhub"
+	RepoTypeSkillsSH = "skills.sh"
 	RepoTypeHermes   = "hermes"
 )
 
