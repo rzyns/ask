@@ -27,6 +27,36 @@ func captureStdoutForTask4(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
+func TestDisplaySearchResultsShowsInstallRefTextAndJSON(t *testing.T) {
+	repos := []github.Repository{{
+		Name:            "grill-me",
+		Description:     "roast your code",
+		Source:          config.RepoTypeSkillsSH,
+		InstallRef:      "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me",
+		HTMLURL:         "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me",
+		StargazersCount: 5,
+		Supported:       true,
+	}}
+
+	text := captureStdoutForTask4(t, func() {
+		displaySearchResults(repos, nil, "remote", 0, false)
+	})
+	for _, want := range []string{"INSTALL", "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("text output missing %q:\n%s", want, text)
+		}
+	}
+
+	jsonOut := captureStdoutForTask4(t, func() {
+		displaySearchResults(repos, nil, "remote", 0, true)
+	})
+	for _, want := range []string{`"supported": true`, `"install_ref": "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me"`} {
+		if !strings.Contains(jsonOut, want) {
+			t.Fatalf("JSON output missing %s:\n%s", want, jsonOut)
+		}
+	}
+}
+
 func TestDisplaySearchResultsShowsUnsupportedReasonTextAndJSON(t *testing.T) {
 	repos := []github.Repository{{
 		Name:              "mintlify",

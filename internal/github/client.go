@@ -109,6 +109,7 @@ type Repository struct {
 	FullName          string    `json:"full_name"`
 	Description       string    `json:"description"`
 	HTMLURL           string    `json:"html_url"`
+	InstallRef        string    `json:"install_ref,omitempty"`
 	StargazersCount   int       `json:"stargazers_count"`
 	CloneURL          string    `json:"clone_url"`
 	UpdatedAt         time.Time `json:"updated_at"`

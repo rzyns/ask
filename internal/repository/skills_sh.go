@@ -21,8 +21,9 @@ const (
 )
 
 var (
-	skillsSHHTTPClient   = &http.Client{Timeout: 30 * time.Second}
-	skillsSHMaxBodyBytes = int64(5 << 20)
+	skillsSHHTTPClient                 = &http.Client{Timeout: 30 * time.Second}
+	skillsSHMaxBodyBytes               = int64(5 << 20)
+	resolveSkillsSHGitHubSkillPathFunc = resolveSkillsSHGitHubSkillPath
 )
 
 func searchSkillsSHSource(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
@@ -250,6 +251,15 @@ func candidateFromSkillsSHV1(skill skillsSHV1Skill) SkillCandidate {
 
 func candidateFromSkillsSHLegacy(skill skillsSHLegacySkill, allowBareOwnerRepo bool) SkillCandidate {
 	c := baseSkillsSHCandidate(skill.Name, "", skill.URL, skill.Installs, firstNonEmpty(skill.ID, skill.SkillID, skill.Source))
+	if allowBareOwnerRepo {
+		if ref, reason := resolveSkillsSHGitHubSkillPathFunc(skill.Source, skill.SkillID, skill.Name); ref != "" {
+			markSupported(&c, ref)
+			return c
+		} else if reason != "" {
+			markUnsupported(&c, reason)
+			return c
+		}
+	}
 	if ref, ok := resolveSkillsSHGitHubSource(skill.Source, allowBareOwnerRepo); ok {
 		markSupported(&c, ref)
 		return c
@@ -317,6 +327,85 @@ func resolveSkillsSHGitHubRef(raw string) (string, bool) {
 		return "", false
 	}
 	return fmt.Sprintf("https://github.com/%s", strings.Join(parts, "/")), true
+}
+
+type skillsSHGitTree struct {
+	Tree []struct {
+		Path string `json:"path"`
+		Type string `json:"type"`
+	} `json:"tree"`
+}
+
+func resolveSkillsSHGitHubSkillPath(source, skillID, name string) (string, string) {
+	ownerRepo, ok := skillsSHBareOwnerRepo(source)
+	if !ok {
+		return "", ""
+	}
+	apiURL := "https://api.github.com/repos/" + ownerRepo + "/git/trees/main?recursive=1"
+	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	if err != nil {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "ask-cli")
+	resp, err := skillsSHHTTPClient.Do(req)
+	if err != nil {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	var tree skillsSHGitTree
+	if err := json.NewDecoder(io.LimitReader(resp.Body, skillsSHMaxBodyBytes)).Decode(&tree); err != nil {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	paths := make([]string, 0, len(tree.Tree))
+	for _, item := range tree.Tree {
+		paths = append(paths, item.Path)
+	}
+	return resolveSkillsSHGitHubSkillPathFromTreePaths(ownerRepo, skillID, name, paths, "main")
+}
+
+func skillsSHBareOwnerRepo(source string) (string, bool) {
+	parts := strings.Split(strings.Trim(strings.TrimSpace(source), "/"), "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" || strings.Contains(parts[0], ".") || strings.Contains(parts[1], ".") {
+		return "", false
+	}
+	return parts[0] + "/" + parts[1], true
+}
+
+func resolveSkillsSHGitHubSkillPathFromTreePaths(ownerRepo, skillID, name string, paths []string, branch string) (string, string) {
+	wanted := map[string]bool{}
+	if strings.TrimSpace(skillID) != "" {
+		wanted[strings.TrimSpace(skillID)] = true
+	}
+	if strings.TrimSpace(name) != "" {
+		wanted[strings.TrimSpace(name)] = true
+	}
+	matches := []string{}
+	for _, p := range paths {
+		p = strings.Trim(p, "/")
+		if !strings.EqualFold(lastPathSegment(p), "SKILL.md") {
+			continue
+		}
+		dir := strings.TrimSuffix(p, "/"+lastPathSegment(p))
+		if wanted[lastPathSegment(dir)] {
+			matches = append(matches, dir)
+		}
+	}
+	if len(matches) == 0 {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	if len(matches) > 1 {
+		return "", "ambiguous GitHub skill path for skills.sh entry"
+	}
+	return fmt.Sprintf("https://github.com/%s/tree/%s/%s", ownerRepo, branch, matches[0]), ""
+}
+
+func lastPathSegment(p string) string {
+	parts := strings.Split(strings.Trim(p, "/"), "/")
+	return parts[len(parts)-1]
 }
 
 func firstNonEmpty(values ...string) string {

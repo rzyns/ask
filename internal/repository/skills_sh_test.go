@@ -12,6 +12,11 @@ import (
 )
 
 func TestSkillsSHSearchUsesPublicLegacyEndpointWithoutAuth(t *testing.T) {
+	oldResolver := resolveSkillsSHGitHubSkillPathFunc
+	resolveSkillsSHGitHubSkillPathFunc = func(source, skillID, name string) (string, string) {
+		return "https://github.com/vercel-labs/agent-skills/tree/main/vercel-react-best-practices", ""
+	}
+	t.Cleanup(func() { resolveSkillsSHGitHubSkillPathFunc = oldResolver })
 	t.Setenv("SKILLS_SH_API_KEY", "env-token")
 	var gotPath, gotQuery, gotUA, gotAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,8 +44,91 @@ func TestSkillsSHSearchUsesPublicLegacyEndpointWithoutAuth(t *testing.T) {
 	if len(candidates) != 1 || candidates[0].Name != "vercel-react-best-practices" {
 		t.Fatalf("candidates=%#v", candidates)
 	}
-	if !candidates[0].Supported || candidates[0].Install.Value != "https://github.com/vercel-labs/agent-skills" {
+	if !candidates[0].Supported || candidates[0].Install.Value != "https://github.com/vercel-labs/agent-skills/tree/main/vercel-react-best-practices" {
 		t.Fatalf("public search GitHub source was not natively installable: %#v", candidates[0])
+	}
+}
+
+func TestSkillsSHPublicLegacySearchResolvesBareGitHubSourceToExactSkillPath(t *testing.T) {
+	oldResolver := resolveSkillsSHGitHubSkillPathFunc
+	var gotSource, gotSkillID, gotName string
+	resolveSkillsSHGitHubSkillPathFunc = func(source, skillID, name string) (string, string) {
+		gotSource, gotSkillID, gotName = source, skillID, name
+		return "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me", ""
+	}
+	t.Cleanup(func() { resolveSkillsSHGitHubSkillPathFunc = oldResolver })
+
+	candidates, err := parseSkillsSHLegacySearchCandidatesTrusted([]byte(`{"skills":[{"source":"mattpocock/skills","skillId":"grill-me","name":"grill-me"}]}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if gotSource != "mattpocock/skills" || gotSkillID != "grill-me" || gotName != "grill-me" {
+		t.Fatalf("resolver args = %q %q %q", gotSource, gotSkillID, gotName)
+	}
+	if len(candidates) != 1 || !candidates[0].Supported || candidates[0].Install.Value != "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me" {
+		t.Fatalf("candidate=%#v", candidates)
+	}
+}
+
+func TestSkillsSHPublicLegacySearchDuplicatePathsUnsupportedAmbiguous(t *testing.T) {
+	oldResolver := resolveSkillsSHGitHubSkillPathFunc
+	resolveSkillsSHGitHubSkillPathFunc = func(source, skillID, name string) (string, string) {
+		return "", "ambiguous GitHub skill path for skills.sh entry"
+	}
+	t.Cleanup(func() { resolveSkillsSHGitHubSkillPathFunc = oldResolver })
+	candidates, err := parseSkillsSHLegacySearchCandidatesTrusted([]byte(`{"skills":[{"source":"mattpocock/skills","skillId":"grill-me","name":"grill-me"}]}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].Supported || !strings.Contains(candidates[0].UnsupportedReason, "ambiguous") {
+		t.Fatalf("candidate=%#v", candidates)
+	}
+}
+
+func TestSkillsSHPublicLegacySearchMissingPathUnsupportedClearReason(t *testing.T) {
+	oldResolver := resolveSkillsSHGitHubSkillPathFunc
+	resolveSkillsSHGitHubSkillPathFunc = func(source, skillID, name string) (string, string) {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	t.Cleanup(func() { resolveSkillsSHGitHubSkillPathFunc = oldResolver })
+	candidates, err := parseSkillsSHLegacySearchCandidatesTrusted([]byte(`{"skills":[{"source":"mattpocock/skills","skillId":"grill-me","name":"grill-me"}]}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].Supported || !strings.Contains(candidates[0].UnsupportedReason, "no GitHub skill path found") {
+		t.Fatalf("candidate=%#v", candidates)
+	}
+}
+
+func TestResolveSkillsSHGitHubSkillPathFromTreePaths(t *testing.T) {
+	paths := []string{"README.md", "skills/productivity/grill-me/SKILL.md"}
+	got, reason := resolveSkillsSHGitHubSkillPathFromTreePaths("mattpocock/skills", "grill-me", "grill-me", paths, "main")
+	if reason != "" || got != "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me" {
+		t.Fatalf("got ref=%q reason=%q", got, reason)
+	}
+}
+
+func TestResolveSkillsSHGitHubSkillPathFromTreePathsRejectsDuplicatesAndMissing(t *testing.T) {
+	_, duplicateReason := resolveSkillsSHGitHubSkillPathFromTreePaths("owner/repo", "grill-me", "grill-me", []string{
+		"skills/productivity/grill-me/SKILL.md",
+		"skills/fun/grill-me/SKILL.md",
+	}, "main")
+	if !strings.Contains(duplicateReason, "ambiguous") {
+		t.Fatalf("duplicate reason=%q", duplicateReason)
+	}
+	_, missingReason := resolveSkillsSHGitHubSkillPathFromTreePaths("owner/repo", "grill-me", "grill-me", []string{"skills/other/SKILL.md"}, "main")
+	if !strings.Contains(missingReason, "no GitHub skill path found") {
+		t.Fatalf("missing reason=%q", missingReason)
+	}
+}
+
+func TestSkillsSHPublicLegacyDomainBackedRemainsUnsupported(t *testing.T) {
+	candidates, err := parseSkillsSHLegacySearchCandidatesTrusted([]byte(`{"skills":[{"source":"mintlify.com","skillId":"mintlify","name":"Mintlify"}]}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].Supported || candidates[0].UnsupportedReason == "" {
+		t.Fatalf("domain candidate=%#v", candidates)
 	}
 }
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -203,48 +204,62 @@ func runInstall(cmd *cobra.Command, args []string) {
 		var repos []github.Repository
 		var err error
 
-		if targetRepo.Type == "dir" {
-			repos, err = repository.FetchSkillsViaGit(*targetRepo)
-		} else {
-			repos, err = repository.FetchSkills(*targetRepo)
-		}
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to fetch skills from repo '%s': %v\n", repoName, err)
-			os.Exit(1)
-		}
-
-		if len(repos) == 0 {
-			fmt.Printf("No skills found in repo '%s'\n", repoName)
-			return
-		}
-
-		// Filter skills if args provided
-		if len(skillArgs) > 0 {
+		if targetRepo.Type == config.RepoTypeSkillsSH && len(skillArgs) > 0 {
 			for _, wanted := range skillArgs {
-				found := false
-				for _, r := range repos {
-					if r.Name == wanted {
-						ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
-						if !ok {
-							fmt.Fprintln(os.Stderr, message)
-						}
-						found = true
-						break
-					}
-				}
-				if !found {
-					fmt.Fprintf(os.Stderr, "Warning: Skill '%s' not found in repo '%s'\n", wanted, repoName)
+				foundRepos, searchErr := repository.SearchSkills(context.Background(), *targetRepo, wanted)
+				if searchErr != nil {
+					fmt.Fprintf(os.Stderr, "Failed to search repo '%s' for skill '%s': %v\n", repoName, wanted, searchErr)
 					failed = append(failed, wanted)
+					continue
+				}
+				for _, message := range appendSkillsSHSearchSelection(&expandedArgs, &failed, repoName, wanted, foundRepos, sourceMetadataByInput) {
+					fmt.Fprintln(os.Stderr, message)
 				}
 			}
 		} else {
-			// Install all skills from repo
-			fmt.Printf("Found %d skills in repo '%s'. Queueing all for installation...\n", len(repos), repoName)
-			for _, r := range repos {
-				ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
-				if !ok {
-					fmt.Fprintln(os.Stderr, message)
+			if targetRepo.Type == "dir" {
+				repos, err = repository.FetchSkillsViaGit(*targetRepo)
+			} else {
+				repos, err = repository.FetchSkills(*targetRepo)
+			}
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to fetch skills from repo '%s': %v\n", repoName, err)
+				os.Exit(1)
+			}
+
+			if len(repos) == 0 {
+				fmt.Printf("No skills found in repo '%s'\n", repoName)
+				return
+			}
+
+			// Filter skills if args provided
+			if len(skillArgs) > 0 {
+				for _, wanted := range skillArgs {
+					found := false
+					for _, r := range repos {
+						if r.Name == wanted {
+							ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
+							if !ok {
+								fmt.Fprintln(os.Stderr, message)
+							}
+							found = true
+							break
+						}
+					}
+					if !found {
+						fmt.Fprintf(os.Stderr, "Warning: Skill '%s' not found in repo '%s'\n", wanted, repoName)
+						failed = append(failed, wanted)
+					}
+				}
+			} else {
+				// Install all skills from repo
+				fmt.Printf("Found %d skills in repo '%s'. Queueing all for installation...\n", len(repos), repoName)
+				for _, r := range repos {
+					ok, message := appendInstallableRepoSkill(&expandedArgs, &failed, r, sourceMetadataByInput)
+					if !ok {
+						fmt.Fprintln(os.Stderr, message)
+					}
 				}
 			}
 		}
@@ -414,7 +429,11 @@ func recordInstallSourceMetadata(dest map[string]installer.InstallSourceMetadata
 	if repo.Source == "" && repo.SourceIdentifier == "" && repo.UpdateStrategy == "" {
 		return
 	}
-	dest[repo.HTMLURL] = installer.InstallSourceMetadata{
+	ref := installRefForRepository(repo)
+	if ref == "" {
+		return
+	}
+	dest[ref] = installer.InstallSourceMetadata{
 		Source:           repo.Source,
 		SourceIdentifier: repo.SourceIdentifier,
 		UpdateStrategy:   repo.UpdateStrategy,
@@ -422,7 +441,8 @@ func recordInstallSourceMetadata(dest map[string]installer.InstallSourceMetadata
 }
 
 func appendInstallableRepoSkill(expandedArgs *[]string, failed *[]string, repo github.Repository, sourceMetadataByInput map[string]installer.InstallSourceMetadata) (bool, string) {
-	if repo.UnsupportedReason != "" || (repo.Source == config.RepoTypeSkillsSH && repo.HTMLURL == "") {
+	installRef := installRefForRepository(repo)
+	if repo.UnsupportedReason != "" || (repo.Source == config.RepoTypeSkillsSH && installRef == "") {
 		reason := repo.UnsupportedReason
 		if reason == "" {
 			reason = "no native ASK install ref for skills.sh entry"
@@ -430,9 +450,62 @@ func appendInstallableRepoSkill(expandedArgs *[]string, failed *[]string, repo g
 		*failed = append(*failed, repo.Name)
 		return false, fmt.Sprintf("Warning: Skill '%s' is not installable: %s", repo.Name, reason)
 	}
-	*expandedArgs = append(*expandedArgs, repo.HTMLURL)
+	*expandedArgs = append(*expandedArgs, installRef)
 	recordInstallSourceMetadata(sourceMetadataByInput, repo)
 	return true, ""
+}
+
+func installRefForRepository(repo github.Repository) string {
+	if strings.TrimSpace(repo.InstallRef) != "" {
+		return repo.InstallRef
+	}
+	return repo.HTMLURL
+}
+
+func appendSkillsSHSearchSelection(expandedArgs *[]string, failed *[]string, repoName, wanted string, repos []github.Repository, sourceMetadataByInput map[string]installer.InstallSourceMetadata) []string {
+	var exact []github.Repository
+	for _, repo := range repos {
+		if repo.Name == wanted {
+			exact = append(exact, repo)
+		}
+	}
+	if len(exact) == 0 {
+		*failed = append(*failed, wanted)
+		return []string{fmt.Sprintf("Warning: Skill '%s' not found in repo '%s'", wanted, repoName)}
+	}
+
+	var supported []github.Repository
+	var unsupported []string
+	for _, repo := range exact {
+		if repo.UnsupportedReason != "" || installRefForRepository(repo) == "" {
+			reason := repo.UnsupportedReason
+			if reason == "" {
+				reason = "no native ASK install ref for skills.sh entry"
+			}
+			unsupported = append(unsupported, fmt.Sprintf("%s: %s", repo.Name, reason))
+			continue
+		}
+		supported = append(supported, repo)
+	}
+
+	if len(supported) == 0 {
+		*failed = append(*failed, wanted)
+		return []string{fmt.Sprintf("Warning: Skill '%s' is not installable from repo '%s': %s", wanted, repoName, strings.Join(unsupported, "; "))}
+	}
+	if len(supported) > 1 {
+		*failed = append(*failed, wanted)
+		refs := make([]string, 0, len(supported))
+		for _, repo := range supported {
+			refs = append(refs, installRefForRepository(repo))
+		}
+		return []string{fmt.Sprintf("Warning: Skill '%s' is ambiguous in repo '%s'; install one of these refs directly: %s", wanted, repoName, strings.Join(refs, ", "))}
+	}
+
+	ok, message := appendInstallableRepoSkill(expandedArgs, failed, supported[0], sourceMetadataByInput)
+	if !ok {
+		return []string{message}
+	}
+	return nil
 }
 
 func suppressGenericLockEntryForInstall(agents []string) bool {

@@ -15,6 +15,7 @@ func TestRepositoryCandidateAdaptersPreserveGitHubPathResult(t *testing.T) {
 		FullName:        "anthropics/skills",
 		Description:     "desc",
 		HTMLURL:         "anthropics/skills/skills/browser-use",
+		InstallRef:      "anthropics/skills/skills/browser-use",
 		StargazersCount: 42,
 		Source:          "anthropics",
 	}
@@ -33,12 +34,35 @@ func TestRepositoryCandidateAdaptersPreserveGitHubPathResult(t *testing.T) {
 	}
 }
 
+func TestCandidateToRepositoryPreservesNativeInstallRefSeparatelyFromHTMLURL(t *testing.T) {
+	candidate := SkillCandidate{
+		Name:     "grill-me",
+		FullName: "mattpocock/skills",
+		Install:  InstallRef{Kind: InstallRefGitHubPath, Value: "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me"},
+		Source:   config.RepoTypeSkillsSH,
+	}
+
+	repo := candidateToRepository(candidate)
+	if repo.HTMLURL != candidate.Install.Value {
+		t.Fatalf("HTMLURL must remain installer-compatible, got %q", repo.HTMLURL)
+	}
+	if repo.InstallRef != candidate.Install.Value {
+		t.Fatalf("InstallRef not preserved: got %q want %q", repo.InstallRef, candidate.Install.Value)
+	}
+
+	roundTrip := repositoryToCandidate(repo)
+	if roundTrip.Install.Value != candidate.Install.Value {
+		t.Fatalf("round-trip install value = %q", roundTrip.Install.Value)
+	}
+}
+
 func TestRepositoryCandidateAdaptersPreserveSkillHubSlugResult(t *testing.T) {
 	repo := github.Repository{
 		Name:            "foo",
 		FullName:        "foo-slug",
 		Description:     "desc",
 		HTMLURL:         "foo-slug",
+		InstallRef:      "foo-slug",
 		StargazersCount: 7,
 		Source:          config.RepoTypeSkillHub,
 	}
@@ -85,6 +109,7 @@ func TestSourceDispatcherUsesCandidatesInternallyWhilePublicSearchReturnsReposit
 		FullName:        "owner/repo",
 		Description:     "desc",
 		HTMLURL:         "owner/repo/skills/candidate-skill",
+		InstallRef:      "owner/repo/skills/candidate-skill",
 		StargazersCount: 3,
 		Source:          config.RepoTypeTopic,
 	}}

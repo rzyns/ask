@@ -314,6 +314,7 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 			Installed         bool   `json:"installed"`
 			Stars             int    `json:"stars"`
 			Description       string `json:"description"`
+			InstallRef        string `json:"install_ref,omitempty"`
 			Supported         bool   `json:"supported"`
 			UnsupportedReason string `json:"unsupported_reason,omitempty"`
 			PageURL           string `json:"page_url,omitempty"`
@@ -327,6 +328,7 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 				Installed:         installedSkills[repo.Name],
 				Stars:             repo.StargazersCount,
 				Description:       repo.Description,
+				InstallRef:        displayInstallRef(repo),
 				Supported:         repo.Supported,
 				UnsupportedReason: repo.UnsupportedReason,
 				PageURL:           repo.PageURL,
@@ -342,7 +344,7 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tDESCRIPTION")
+	_, _ = fmt.Fprintln(w, "NAME\tSOURCE\tINSTALLED\tSTARS\tINSTALL\tDESCRIPTION")
 	for _, repo := range displayRepos {
 		// Truncate description if too long
 		desc := repo.Description
@@ -366,7 +368,7 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 			desc = fmt.Sprintf("UNSUPPORTED: %s", repo.UnsupportedReason)
 		}
 
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, desc)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", repo.Name, repo.Source, installed, stars, displayInstallRef(repo), desc)
 	}
 	_ = w.Flush()
 
@@ -379,6 +381,16 @@ func displaySearchResults(repos []github.Repository, installedSkills map[string]
 	if source == "local" {
 		ui.Debug("(from local cache - run 'ask repo sync' to update)")
 	}
+}
+
+func displayInstallRef(repo github.Repository) string {
+	if strings.TrimSpace(repo.InstallRef) != "" {
+		return repo.InstallRef
+	}
+	if strings.TrimSpace(repo.HTMLURL) != "" && (repo.Supported || repo.Source != config.RepoTypeSkillsSH) {
+		return repo.HTMLURL
+	}
+	return ""
 }
 
 func registerSearchFlags(cmd *cobra.Command) {

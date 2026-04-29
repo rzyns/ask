@@ -37,6 +37,10 @@ func repositoryToCandidate(repo github.Repository) SkillCandidate {
 	if repo.Source == config.RepoTypeSkillHub {
 		kind = InstallRefSlug
 	}
+	installValue := repo.HTMLURL
+	if repo.InstallRef != "" {
+		installValue = repo.InstallRef
+	}
 	return SkillCandidate{
 		Name:             repo.Name,
 		FullName:         repo.FullName,
@@ -46,7 +50,7 @@ func repositoryToCandidate(repo github.Repository) SkillCandidate {
 		UpdateStrategy:   repo.UpdateStrategy,
 		Install: InstallRef{
 			Kind:  kind,
-			Value: repo.HTMLURL,
+			Value: installValue,
 		},
 		Stars:             repo.StargazersCount,
 		PageURL:           repo.PageURL,
@@ -72,6 +76,7 @@ func candidateToRepository(candidate SkillCandidate) github.Repository {
 		FullName:          candidate.FullName,
 		Description:       candidate.Description,
 		HTMLURL:           candidate.Install.Value,
+		InstallRef:        candidate.Install.Value,
 		StargazersCount:   candidate.Stars,
 		Source:            candidate.Source,
 		SourceIdentifier:  candidate.SourceIdentifier,
