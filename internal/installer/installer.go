@@ -3,9 +3,13 @@ package installer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,6 +18,7 @@ import (
 	"github.com/yeasy/ask/internal/filesystem"
 	"github.com/yeasy/ask/internal/git"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/hermes"
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/skill"
 	"github.com/yeasy/ask/internal/skillhub"
@@ -28,12 +33,19 @@ const gitOpTimeout = 30 * time.Second
 
 // InstallOptions contains options for installing a skill
 type InstallOptions struct {
-	Global    bool
-	Agents    []string
-	Config    *config.Config
-	SkipScore bool   // Skip trust score check
-	MinScore  string // Minimum acceptable grade (A/B/C/D/F), default "D"
-	depth     int    // current recursion depth (internal use only)
+	Global         bool
+	Agents         []string
+	Config         *config.Config
+	SkipScore      bool   // Skip trust score check
+	MinScore       string // Minimum acceptable grade (A/B/C/D/F), default "D"
+	SourceMetadata *InstallSourceMetadata
+	depth          int // current recursion depth (internal use only)
+}
+
+type InstallSourceMetadata struct {
+	Source           string
+	SourceIdentifier string
+	UpdateStrategy   string
 }
 
 type installTarget struct {
@@ -45,6 +57,7 @@ type installTarget struct {
 	originalInput   string
 	input           string
 	localSourcePath string
+	sourceMetadata  *InstallSourceMetadata
 }
 
 func resolveDirectInstallTarget(input string) (installTarget, bool, error) {
@@ -123,6 +136,7 @@ func resolveTwoPartInstallTarget(input string, opts InstallOptions) (installTarg
 						target.subDir = rel
 					}
 					target.skillName = s.Name
+					target.sourceMetadata = inferHermesInstallSourceMetadata(input, target.repoURL, target.subDir)
 					return target, true, nil
 				}
 			}
@@ -142,6 +156,15 @@ func resolveTwoPartInstallTarget(input string, opts InstallOptions) (installTarg
 				target.subDir = skillNamePart
 			}
 			target.skillName = skillNamePart
+			if r.Type == config.RepoTypeHermes {
+				target.sourceMetadata = &InstallSourceMetadata{
+					Source:           config.RepoTypeHermes,
+					SourceIdentifier: strings.Trim(input, "/"),
+					UpdateStrategy:   "hermes-index",
+				}
+			} else {
+				target.sourceMetadata = inferHermesInstallSourceMetadata(input, target.repoURL, target.subDir)
+			}
 			return target, true, nil
 		}
 	}
@@ -259,6 +282,26 @@ func baseSubDirFromConfigURL(url string) string {
 	return ""
 }
 
+func inferHermesInstallSourceMetadata(input, repoURL, subDir string) *InstallSourceMetadata {
+	identifier := strings.Trim(input, "/")
+	if identifier == "" {
+		return nil
+	}
+	candidateSource := strings.Trim(strings.TrimSpace(repoURL), "/")
+	if subDir != "" {
+		candidateSource = strings.Trim(candidateSource+"/"+strings.Trim(subDir, "/"), "/")
+	}
+	classification := hermes.ClassifyHermesSource(candidateSource)
+	if classification.Kind != hermes.HermesSourceIndex && classification.Kind != hermes.HermesSourceOfficialOptional {
+		return nil
+	}
+	return &InstallSourceMetadata{
+		Source:           config.RepoTypeHermes,
+		SourceIdentifier: identifier,
+		UpdateStrategy:   "hermes-index",
+	}
+}
+
 // Install installs a single skill
 func Install(input string, opts InstallOptions) error {
 	if strings.TrimSpace(input) == "" {
@@ -283,6 +326,7 @@ func Install(input string, opts InstallOptions) error {
 	}
 
 	var repoURL, subDir, skillName, branch, localSourcePath string
+	effectiveSourceMetadata := opts.SourceMetadata
 
 	directTarget, directOK, err := resolveDirectInstallTarget(originalInput)
 	if err != nil {
@@ -298,6 +342,9 @@ func Install(input string, opts InstallOptions) error {
 		branch = directTarget.branch
 		subDir = directTarget.subDir
 		skillName = directTarget.skillName
+		if effectiveSourceMetadata == nil {
+			effectiveSourceMetadata = directTarget.sourceMetadata
+		}
 	} else {
 		parts := strings.Split(input, "/")
 		if len(parts) == 2 {
@@ -312,6 +359,9 @@ func Install(input string, opts InstallOptions) error {
 				subDir = twoPartTarget.subDir
 				skillName = twoPartTarget.skillName
 				localSourcePath = twoPartTarget.localSourcePath
+				if effectiveSourceMetadata == nil {
+					effectiveSourceMetadata = twoPartTarget.sourceMetadata
+				}
 			}
 		}
 	}
@@ -351,6 +401,7 @@ func Install(input string, opts InstallOptions) error {
 
 	// Determine target directories based on agents
 	var targetDirs []string
+	targetAgents := make(map[string]string)
 	var scopeLabel string
 
 	if len(opts.Agents) > 0 {
@@ -367,6 +418,7 @@ func Install(input string, opts InstallOptions) error {
 				return fmt.Errorf("no skills directory configured for agent %s", agentName)
 			}
 			targetDirs = append(targetDirs, dir)
+			targetAgents[filepath.Clean(dir)] = string(agentType)
 		}
 		scopeLabel = strings.Join(opts.Agents, ", ")
 		if opts.Global {
@@ -401,6 +453,12 @@ func Install(input string, opts InstallOptions) error {
 
 	if skillName == "" || strings.TrimSpace(skillName) == "" {
 		return fmt.Errorf("could not determine skill name from input '%s'", input)
+	}
+	if repoURL != "" && hermes.ClassifyHermesSource(repoURL).Kind == hermes.HermesSourceBundled {
+		return fmt.Errorf("refusing to install bundled Hermes skills source %q; use hermes-index for user-installable Hermes skills", repoURL)
+	}
+	if repoURL == "" && localSourcePath != "" && hermes.ClassifyHermesSource(input).Kind == hermes.HermesSourceBundled {
+		return fmt.Errorf("refusing to install bundled Hermes skills source %q; use hermes-index for user-installable Hermes skills", input)
 	}
 
 	fmt.Printf("Installing %s to %s...\n", skillName, scopeLabel)
@@ -661,6 +719,32 @@ func Install(input string, opts InstallOptions) error {
 			InstalledAt: time.Now(),
 		}
 		lockFile.AddEntry(lockEntry)
+		for _, dir := range targetDirs {
+			agentName := targetAgents[filepath.Clean(dir)]
+			if agentName != string(config.AgentHermes) {
+				continue
+			}
+			hermesEntry := lockEntry
+			hermesEntry.Agent = string(config.AgentHermes)
+			hermesEntry.Ownership = "ask"
+			hermesEntry.InstallMode = "ask-cache"
+			hermesEntry.SourcePath = centralPath
+			hermesEntry.TargetPath = filepath.Join(dir, skillName)
+			if effectiveSourceMetadata != nil {
+				hermesEntry.Source = effectiveSourceMetadata.Source
+				hermesEntry.SourceIdentifier = effectiveSourceMetadata.SourceIdentifier
+				hermesEntry.UpdateStrategy = effectiveSourceMetadata.UpdateStrategy
+			}
+			if hermesEntry.UpdateStrategy == "" {
+				hermesEntry.UpdateStrategy = "git"
+			}
+			checksum, checksumErr := directoryChecksum(centralPath)
+			if checksumErr != nil {
+				return fmt.Errorf("failed to checksum Hermes skill source %s: %w", centralPath, checksumErr)
+			}
+			hermesEntry.Checksum = "sha256:" + checksum
+			lockFile.AddEntry(hermesEntry)
+		}
 		if err := lockFile.SaveByScope(opts.Global); err != nil {
 			lockFileName := "ask.lock"
 			if opts.Global {
@@ -686,6 +770,51 @@ func checkAllExist(targetDirs []string, skillName string) bool {
 		}
 	}
 	return true
+}
+
+func directoryChecksum(root string) (string, error) {
+	var files []string
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	}); err != nil {
+		return "", err
+	}
+	sort.Strings(files)
+	h := sha256.New()
+	for _, path := range files {
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return "", err
+		}
+		_, _ = io.WriteString(h, filepath.ToSlash(rel))
+		_, _ = io.WriteString(h, "\x00")
+		f, err := os.Open(path)
+		if err != nil {
+			return "", err
+		}
+		if _, err := io.Copy(h, f); err != nil {
+			_ = f.Close()
+			return "", err
+		}
+		if err := f.Close(); err != nil {
+			return "", err
+		}
+		_, _ = io.WriteString(h, "\x00")
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // resolveAgentFromDir tries to identify the agent name from a skills directory path

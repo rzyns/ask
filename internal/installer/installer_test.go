@@ -183,6 +183,118 @@ func TestInstall_UsesResolverHelperSeams(t *testing.T) {
 	})
 }
 
+func TestInstall_HermesAgentWritesProvenanceLockMetadata(t *testing.T) {
+	home := t.TempDir()
+	hermesHome := filepath.Join(t.TempDir(), "hermes-home")
+	t.Setenv("HOME", home)
+	t.Setenv("HERMES_HOME", hermesHome)
+	source := setupLocalSkillSource(t, "gitnexus-explorer")
+
+	oldTwoPart := resolveTwoPartInstallTargetForInstall
+	resolveTwoPartInstallTargetForInstall = func(input string, opts InstallOptions) (installTarget, bool, error) {
+		assert.Equal(t, "official/gitnexus-explorer", input)
+		return installTarget{
+			repoURL:         "",
+			skillName:       "gitnexus-explorer",
+			localSourcePath: source,
+			originalInput:   input,
+			input:           input,
+			sourceMetadata: &InstallSourceMetadata{
+				Source:           config.RepoTypeHermes,
+				SourceIdentifier: "official/research/gitnexus-explorer",
+				UpdateStrategy:   "hermes-index",
+			},
+		}, true, nil
+	}
+	defer func() { resolveTwoPartInstallTargetForInstall = oldTwoPart }()
+
+	err := Install("official/gitnexus-explorer", InstallOptions{
+		Global:    true,
+		Agents:    []string{"hermes"},
+		SkipScore: true,
+	})
+
+	assert.NoError(t, err)
+	lockFile, lockErr := config.LoadGlobalLockFile()
+	assert.NoError(t, lockErr)
+	entry := lockFile.GetEntryForAgentTargetPath("gitnexus-explorer", "hermes", filepath.Join(hermesHome, "skills", "gitnexus-explorer"))
+	if assert.NotNil(t, entry) {
+		assert.Equal(t, "hermes", entry.Agent)
+		assert.Equal(t, "ask", entry.Ownership)
+		assert.Equal(t, "ask-cache", entry.InstallMode)
+		assert.Equal(t, "hermes-index", entry.UpdateStrategy)
+		assert.Equal(t, "official/research/gitnexus-explorer", entry.SourceIdentifier)
+		assert.Equal(t, filepath.Join(home, ".ask", "skills", "gitnexus-explorer"), entry.SourcePath)
+		assert.Equal(t, filepath.Join(hermesHome, "skills", "gitnexus-explorer"), entry.TargetPath)
+		assert.True(t, strings.HasPrefix(entry.Checksum, "sha256:"), entry.Checksum)
+	}
+}
+
+func TestInstall_HermesAgentInfersCachedOfficialOptionalProvenance(t *testing.T) {
+	home := t.TempDir()
+	hermesHome := filepath.Join(t.TempDir(), "hermes-home")
+	t.Setenv("HOME", home)
+	t.Setenv("HERMES_HOME", hermesHome)
+	setupCachedSkill(t, "official", "gitnexus-explorer", "NousResearch/hermes-agent/optional-skills/research")
+
+	err := Install("official/gitnexus-explorer", InstallOptions{
+		Global:    true,
+		Agents:    []string{"hermes"},
+		SkipScore: true,
+	})
+
+	assert.NoError(t, err)
+	lockFile, lockErr := config.LoadGlobalLockFile()
+	assert.NoError(t, lockErr)
+	entry := lockFile.GetEntryForAgentTargetPath("gitnexus-explorer", "hermes", filepath.Join(hermesHome, "skills", "gitnexus-explorer"))
+	if assert.NotNil(t, entry) {
+		assert.Equal(t, config.RepoTypeHermes, entry.Source)
+		assert.Equal(t, "official/gitnexus-explorer", entry.SourceIdentifier)
+		assert.Equal(t, "hermes-index", entry.UpdateStrategy)
+		assert.Equal(t, filepath.Join(home, ".ask", "skills", "gitnexus-explorer"), entry.SourcePath)
+		assert.Equal(t, filepath.Join(hermesHome, "skills", "gitnexus-explorer"), entry.TargetPath)
+		assert.True(t, strings.HasPrefix(entry.Checksum, "sha256:"), entry.Checksum)
+	}
+}
+
+func TestDirectoryChecksumIsDeterministicAndIgnoresGitAndSymlinks(t *testing.T) {
+	rootA := t.TempDir()
+	rootB := t.TempDir()
+	writeChecksumFixture(t, rootA)
+	writeChecksumFixtureReverse(t, rootB)
+
+	checksumA, err := directoryChecksum(rootA)
+	assert.NoError(t, err)
+	checksumB, err := directoryChecksum(rootB)
+	assert.NoError(t, err)
+	assert.Equal(t, checksumA, checksumB)
+
+	assert.NoError(t, os.WriteFile(filepath.Join(rootB, ".git", "ignored"), []byte("changed"), 0644))
+	if err := os.Symlink(filepath.Join(rootB, "missing-target"), filepath.Join(rootB, "ignored-link")); err == nil {
+		checksumAfterIgnoredChanges, checksumErr := directoryChecksum(rootB)
+		assert.NoError(t, checksumErr)
+		assert.Equal(t, checksumA, checksumAfterIgnoredChanges)
+	}
+}
+
+func writeChecksumFixture(t *testing.T, root string) {
+	t.Helper()
+	assert.NoError(t, os.MkdirAll(filepath.Join(root, "nested"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "b.txt"), []byte("bravo"), 0644))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "nested", "a.txt"), []byte("alpha"), 0644))
+	assert.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, ".git", "ignored"), []byte("ignored"), 0644))
+}
+
+func writeChecksumFixtureReverse(t *testing.T, root string) {
+	t.Helper()
+	assert.NoError(t, os.MkdirAll(filepath.Join(root, ".git"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, ".git", "ignored"), []byte("different ignored content"), 0644))
+	assert.NoError(t, os.MkdirAll(filepath.Join(root, "nested"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "nested", "a.txt"), []byte("alpha"), 0644))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "b.txt"), []byte("bravo"), 0644))
+}
+
 func setupLocalSkillSource(t *testing.T, skillName string) string {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), skillName)

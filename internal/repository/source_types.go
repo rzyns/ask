@@ -18,12 +18,14 @@ type InstallRef struct {
 }
 
 type SkillCandidate struct {
-	Name        string
-	FullName    string
-	Description string
-	Source      string
-	Install     InstallRef
-	Stars       int
+	Name             string
+	FullName         string
+	Description      string
+	Source           string
+	SourceIdentifier string
+	UpdateStrategy   string
+	Install          InstallRef
+	Stars            int
 }
 
 func repositoryToCandidate(repo github.Repository) SkillCandidate {
@@ -32,10 +34,12 @@ func repositoryToCandidate(repo github.Repository) SkillCandidate {
 		kind = InstallRefSlug
 	}
 	return SkillCandidate{
-		Name:        repo.Name,
-		FullName:    repo.FullName,
-		Description: repo.Description,
-		Source:      repo.Source,
+		Name:             repo.Name,
+		FullName:         repo.FullName,
+		Description:      repo.Description,
+		Source:           repo.Source,
+		SourceIdentifier: repo.SourceIdentifier,
+		UpdateStrategy:   repo.UpdateStrategy,
 		Install: InstallRef{
 			Kind:  kind,
 			Value: repo.HTMLURL,
@@ -57,12 +61,14 @@ func repositoriesToCandidates(repos []github.Repository) []SkillCandidate {
 
 func candidateToRepository(candidate SkillCandidate) github.Repository {
 	return github.Repository{
-		Name:            candidate.Name,
-		FullName:        candidate.FullName,
-		Description:     candidate.Description,
-		HTMLURL:         candidate.Install.Value,
-		StargazersCount: candidate.Stars,
-		Source:          candidate.Source,
+		Name:             candidate.Name,
+		FullName:         candidate.FullName,
+		Description:      candidate.Description,
+		HTMLURL:          candidate.Install.Value,
+		StargazersCount:  candidate.Stars,
+		Source:           candidate.Source,
+		SourceIdentifier: candidate.SourceIdentifier,
+		UpdateStrategy:   candidate.UpdateStrategy,
 	}
 }
 

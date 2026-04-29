@@ -97,10 +97,12 @@ func hermesIndexSkillsToCandidates(skills []hermesIndexSkill, keyword string) []
 		}
 
 		candidate := SkillCandidate{
-			Name:        name,
-			FullName:    githubPath,
-			Description: skill.Description,
-			Source:      config.RepoTypeHermes,
+			Name:             name,
+			FullName:         githubPath,
+			Description:      skill.Description,
+			Source:           config.RepoTypeHermes,
+			SourceIdentifier: hermesSourceIdentifier(skill),
+			UpdateStrategy:   "hermes-index",
 			Install: InstallRef{
 				Kind:  InstallRefGitHubPath,
 				Value: githubPath,
@@ -113,6 +115,19 @@ func hermesIndexSkillsToCandidates(skills []hermesIndexSkill, keyword string) []
 		candidates = append(candidates, candidate)
 	}
 	return candidates
+}
+
+func hermesSourceIdentifier(skill hermesIndexSkill) string {
+	if identifier := strings.Trim(strings.TrimSpace(skill.Identifier), "/"); identifier != "" {
+		return identifier
+	}
+	if slug := strings.Trim(strings.TrimSpace(skill.Slug), "/"); slug != "" {
+		return slug
+	}
+	if id := strings.Trim(strings.TrimSpace(skill.ID), "/"); id != "" {
+		return id
+	}
+	return ""
 }
 
 func hermesGitHubPath(skill hermesIndexSkill) (string, bool) {

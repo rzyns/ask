@@ -173,6 +173,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 	}
 
 	var expandedArgs []string
+	sourceMetadataByInput := make(map[string]installer.InstallSourceMetadata)
 	// Check for repo flag
 	repoName, _ := cmd.Flags().GetString("repo")
 
@@ -220,6 +221,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 				for _, r := range repos {
 					if r.Name == wanted {
 						expandedArgs = append(expandedArgs, r.HTMLURL)
+						recordInstallSourceMetadata(sourceMetadataByInput, r)
 						found = true
 						break
 					}
@@ -234,6 +236,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 			fmt.Printf("Found %d skills in repo '%s'. Queueing all for installation...\n", len(repos), repoName)
 			for _, r := range repos {
 				expandedArgs = append(expandedArgs, r.HTMLURL)
+				recordInstallSourceMetadata(sourceMetadataByInput, r)
 			}
 		}
 	} else {
@@ -291,6 +294,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 				fmt.Printf("Found %d skills in repo '%s'. Queueing for installation...\n", len(repos), input)
 				for _, r := range repos {
 					expandedArgs = append(expandedArgs, r.HTMLURL)
+					recordInstallSourceMetadata(sourceMetadataByInput, r)
 				}
 			} else {
 				expandedArgs = append(expandedArgs, input)
@@ -341,7 +345,11 @@ func runInstall(cmd *cobra.Command, args []string) {
 
 	// Install each expanded skill
 	for _, input := range expandedArgs {
-		err := installer.Install(input, opts)
+		installOpts := opts
+		if metadata, ok := sourceMetadataByInput[input]; ok {
+			installOpts.SourceMetadata = &metadata
+		}
+		err := installer.Install(input, installOpts)
 		if err != nil {
 			failed = append(failed, input)
 			fmt.Fprintf(os.Stderr, "Failed to install %s: %v\n", input, err)
@@ -387,6 +395,17 @@ func runInstall(cmd *cobra.Command, args []string) {
 
 	if len(failed) > 0 {
 		os.Exit(1)
+	}
+}
+
+func recordInstallSourceMetadata(dest map[string]installer.InstallSourceMetadata, repo github.Repository) {
+	if repo.Source == "" && repo.SourceIdentifier == "" && repo.UpdateStrategy == "" {
+		return
+	}
+	dest[repo.HTMLURL] = installer.InstallSourceMetadata{
+		Source:           repo.Source,
+		SourceIdentifier: repo.SourceIdentifier,
+		UpdateStrategy:   repo.UpdateStrategy,
 	}
 }
 

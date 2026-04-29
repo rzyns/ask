@@ -105,15 +105,17 @@ type SearchResult struct {
 
 // Repository represents a GitHub repository structure
 type Repository struct {
-	Name            string    `json:"name"`
-	FullName        string    `json:"full_name"`
-	Description     string    `json:"description"`
-	HTMLURL         string    `json:"html_url"`
-	StargazersCount int       `json:"stargazers_count"`
-	CloneURL        string    `json:"clone_url"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	Source          string    `json:"-"` // Source name (e.g., "community", "anthropics")
-	Owner           struct {
+	Name             string    `json:"name"`
+	FullName         string    `json:"full_name"`
+	Description      string    `json:"description"`
+	HTMLURL          string    `json:"html_url"`
+	StargazersCount  int       `json:"stargazers_count"`
+	CloneURL         string    `json:"clone_url"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Source           string    `json:"-"` // Source name (e.g., "community", "anthropics")
+	SourceIdentifier string    `json:"-"`
+	UpdateStrategy   string    `json:"-"`
+	Owner            struct {
 		Login string `json:"login"`
 	} `json:"owner"`
 }

@@ -25,12 +25,14 @@ type LockEntry struct {
 	InstalledAt time.Time `yaml:"installed_at"`
 
 	// Optional provenance metadata for adopted in-place agent skills.
-	Agent          string `yaml:"agent,omitempty"`
-	Ownership      string `yaml:"ownership,omitempty"`
-	InstallMode    string `yaml:"install_mode,omitempty"`
-	UpdateStrategy string `yaml:"update_strategy,omitempty"`
-	TargetPath     string `yaml:"target_path,omitempty"`
-	Checksum       string `yaml:"checksum,omitempty"`
+	Agent            string `yaml:"agent,omitempty"`
+	Ownership        string `yaml:"ownership,omitempty"`
+	InstallMode      string `yaml:"install_mode,omitempty"`
+	UpdateStrategy   string `yaml:"update_strategy,omitempty"`
+	SourceIdentifier string `yaml:"source_identifier,omitempty"`
+	SourcePath       string `yaml:"source_path,omitempty"`
+	TargetPath       string `yaml:"target_path,omitempty"`
+	Checksum         string `yaml:"checksum,omitempty"`
 }
 
 // LockFile represents the ask.lock file structure
@@ -181,20 +183,26 @@ func (l *LockFile) GetEntryForAgent(name, agent string) *LockEntry {
 func (l *LockFile) GetEntryForAgentTargetPath(name, agent, targetPath string) *LockEntry {
 	requestedAgent := strings.TrimSpace(agent)
 	requestedPath := normalizeLockTargetPath(targetPath)
+	var legacy *LockEntry
 	for i := range l.Skills {
 		if l.Skills[i].Name != name {
 			continue
 		}
 		entryAgent := strings.TrimSpace(l.Skills[i].Agent)
-		if !(strings.EqualFold(entryAgent, requestedAgent) || (requestedAgent != "" && entryAgent == "")) {
+		entryPath := normalizeLockTargetPath(l.Skills[i].TargetPath)
+		if strings.EqualFold(entryAgent, requestedAgent) {
+			if entryPath == "" || entryPath == requestedPath {
+				return &l.Skills[i]
+			}
 			continue
 		}
-		entryPath := normalizeLockTargetPath(l.Skills[i].TargetPath)
-		if entryPath == "" || entryPath == requestedPath {
-			return &l.Skills[i]
+		if requestedAgent != "" && entryAgent == "" && legacy == nil {
+			if entryPath == "" || entryPath == requestedPath {
+				legacy = &l.Skills[i]
+			}
 		}
 	}
-	return nil
+	return legacy
 }
 
 func normalizeLockTargetPath(path string) string {

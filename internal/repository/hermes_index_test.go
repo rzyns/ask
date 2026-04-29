@@ -95,6 +95,12 @@ func TestHermesIndexCandidateMappingResolvesOfficialPathToHermesRepo(t *testing.
 	if candidates[0].FullName != want || candidates[0].Install.Value != want {
 		t.Fatalf("expected official install path %q, got full=%q install=%q", want, candidates[0].FullName, candidates[0].Install.Value)
 	}
+	if candidates[0].SourceIdentifier != "official/research/gitnexus-explorer" {
+		t.Fatalf("expected source identifier to be preserved, got %q", candidates[0].SourceIdentifier)
+	}
+	if candidates[0].UpdateStrategy != "hermes-index" {
+		t.Fatalf("expected hermes-index update strategy, got %q", candidates[0].UpdateStrategy)
+	}
 }
 
 func TestHermesIndexCandidateMappingSkipsBundledHermesSkills(t *testing.T) {
