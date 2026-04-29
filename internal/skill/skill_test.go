@@ -320,7 +320,8 @@ metadata:
 	if len(meta.AllowedTools) != 2 || meta.AllowedTools[0] != "bash" {
 		t.Errorf("Expected allowed-tools [bash, curl], got %v", meta.AllowedTools)
 	}
-	if len(meta.Metadata) != 2 || meta.Metadata["category"] != "devtools" {
+	category, ok := meta.Metadata.String("category")
+	if len(meta.Metadata) != 2 || !ok || category != "devtools" {
 		t.Errorf("Expected metadata map with category=devtools, got %v", meta.Metadata)
 	}
 	if len(meta.Dependencies) != 2 {
