@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/filesystem"
+	"github.com/yeasy/ask/internal/hermes"
 	"github.com/yeasy/ask/internal/ui"
 )
 
@@ -33,6 +34,8 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 		global, _ := cmd.Flags().GetBool("global")
 		agents, _ := cmd.Flags().GetStringSlice("agent")
 		removeAll, _ := cmd.Flags().GetBool("all")
+		forget, _ := cmd.Flags().GetBool("forget")
+		deleteFiles, _ := cmd.Flags().GetBool("delete-files")
 
 		// Ensure project is initialized for non-global operations
 		if !global && len(agents) == 0 {
@@ -56,6 +59,37 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 		if targetName == "." || targetName == ".." || targetName == "" {
 			fmt.Fprintf(os.Stderr, "Error: Invalid skill name '%s'\n", skillName)
 			os.Exit(1)
+		}
+
+		if hasHermesAgent(agents) {
+			lockFile, err := config.LoadLockFileByScope(global)
+			if err != nil || lockFile == nil {
+				fmt.Fprintf(os.Stderr, "Error: %s is not tracked by ASK for Hermes\n", targetName)
+				os.Exit(1)
+			}
+			action, err := hermes.UninstallSkill(lockFile, targetName, hermes.UninstallOptions{Global: global, Forget: forget, DeleteFiles: deleteFiles || removeAll})
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if cfg, cfgErr := config.LoadConfigByScope(global); cfgErr == nil && cfg != nil {
+				cfg.RemoveSkill(targetName)
+				cfg.RemoveSkillInfo(targetName)
+				if saveErr := cfg.SaveByScope(global); saveErr != nil {
+					fmt.Fprintf(os.Stderr, "Error saving config: %v\n", saveErr)
+					os.Exit(1)
+				}
+			}
+			if err := lockFile.SaveByScope(global); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving lock file: %v\n", err)
+				os.Exit(1)
+			}
+			if action.RemovedFiles || action.RemovedSource {
+				fmt.Printf("Successfully uninstalled %s from Hermes\n", targetName)
+			} else if action.Forgot {
+				fmt.Printf("Forgot Hermes skill %s; files left untouched\n", targetName)
+			}
+			return
 		}
 
 		// Determine target directories
@@ -206,6 +240,8 @@ func init() {
 	skillCmd.AddCommand(uninstallCmd)
 	uninstallCmd.Flags().StringSliceP("agent", "a", []string{}, "target agent(s) for uninstallation")
 	uninstallCmd.Flags().Bool("all", false, "remove source and all symlinks (complete removal)")
+	uninstallCmd.Flags().Bool("forget", false, "remove ASK tracking without deleting files (Hermes imports)")
+	uninstallCmd.Flags().Bool("delete-files", false, "delete imported in-place Hermes files")
 
 	// Register installed skill name completion
 	uninstallCmd.ValidArgsFunction = completeInstalledSkills

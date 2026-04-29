@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yeasy/ask/internal/config"
+	"github.com/yeasy/ask/internal/hermes"
 	"github.com/yeasy/ask/internal/skill"
 )
 
@@ -54,7 +55,7 @@ func runList(cmd *cobra.Command, _ []string) {
 			if all || (!global) {
 				// Project level
 				dir, _ := config.GetAgentSkillsDir(agentType, false)
-				items := showAgentSkills(agentName, dir, "Project", jsonOutput)
+				items := showAgentSkillsForType(agentName, agentType, dir, "Project", false, jsonOutput)
 				if jsonOutput {
 					collectedItems = append(collectedItems, items...)
 				}
@@ -63,7 +64,7 @@ func runList(cmd *cobra.Command, _ []string) {
 			if all || global {
 				// Global level
 				dir, _ := config.GetAgentSkillsDir(agentType, true)
-				items := showAgentSkills(agentName, dir, "Global", jsonOutput)
+				items := showAgentSkillsForType(agentName, agentType, dir, "Global", true, jsonOutput)
 				if jsonOutput {
 					collectedItems = append(collectedItems, items...)
 				}
@@ -114,6 +115,17 @@ type SkillListItem struct {
 	Agent       string   `json:"agent,omitempty"`
 	Agents      []string `json:"agents,omitempty"`
 	Path        string   `json:"path,omitempty"`
+	ManagedBy   string   `json:"managed_by,omitempty"`
+	Status      string   `json:"status,omitempty"`
+	Source      string   `json:"source,omitempty"`
+	Update      string   `json:"update,omitempty"`
+}
+
+func showAgentSkillsForType(agentName string, agentType config.AgentType, dir, scope string, global, jsonOutput bool) []SkillListItem {
+	if agentType == config.AgentHermes {
+		return showHermesAgentSkills(agentName, dir, scope, global, jsonOutput)
+	}
+	return showAgentSkills(agentName, dir, scope, jsonOutput)
 }
 
 func showAgentSkills(agentName, dir, scope string, jsonOutput bool) []SkillListItem {
@@ -216,6 +228,117 @@ func showAgentSkills(agentName, dir, scope string, jsonOutput bool) []SkillListI
 		fmt.Println()
 	}
 	return items
+}
+
+func showHermesAgentSkills(agentName, dir, scope string, global, jsonOutput bool) []SkillListItem {
+	if !jsonOutput {
+		fmt.Printf("%s Skills for %s (%s):\n\n", scope, agentName, dir)
+	}
+
+	lockFile, lockErr := config.LoadLockFileByScope(global)
+	if lockErr != nil {
+		fmt.Fprintf(os.Stderr, "  Error loading lock file: %v\n", lockErr)
+	}
+
+	items, err := buildHermesSkillListItems(agentName, dir, scope, lockFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  Error scanning directory: %v\n", err)
+		if !jsonOutput {
+			fmt.Println()
+		}
+		return nil
+	}
+	if len(items) == 0 {
+		if !jsonOutput {
+			fmt.Println("  (none)")
+			fmt.Println()
+		}
+		return nil
+	}
+
+	if !jsonOutput {
+		printHermesSkillRows(items)
+	}
+	return items
+}
+
+func buildHermesSkillListItems(agentName, dir, scope string, lockFile *config.LockFile) ([]SkillListItem, error) {
+	installed, err := hermes.ScanInstalledSkills(dir, hermes.InstalledScanOptions{LockFile: lockFile})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]SkillListItem, 0, len(installed))
+	for _, installedSkill := range installed {
+		managedBy := string(installedSkill.Ownership)
+		if managedBy == "" {
+			managedBy = string(hermes.HermesSkillOwnershipNative)
+		}
+		update := installedSkill.UpdateStrategy
+		if update == "git" {
+			update = "current"
+		}
+		items = append(items, SkillListItem{
+			Name:        installedSkill.Name,
+			Version:     installedSkill.Version,
+			Description: installedSkill.Description,
+			Scope:       scope,
+			Agent:       agentName,
+			Path:        installedSkill.Path,
+			ManagedBy:   managedBy,
+			Status:      "installed",
+			Source:      installedSkill.Source,
+			Update:      update,
+		})
+	}
+	return items, nil
+}
+
+func printHermesSkillRows(items []SkillListItem) {
+	nameW, verW, managedW, statusW, sourceW, updateW := 4, 7, 10, 6, 6, 6
+	for _, item := range items {
+		if len(item.Name) > nameW {
+			nameW = len(item.Name)
+		}
+		if len(item.Version) > verW {
+			verW = len(item.Version)
+		}
+		if len(item.ManagedBy) > managedW {
+			managedW = len(item.ManagedBy)
+		}
+		if len(item.Status) > statusW {
+			statusW = len(item.Status)
+		}
+		if len(item.Source) > sourceW {
+			sourceW = len(item.Source)
+		}
+		if len(item.Update) > updateW {
+			updateW = len(item.Update)
+		}
+	}
+	header := fmt.Sprintf("  %-*s  %-*s  %-*s  %-*s  %-*s  %-*s  DESCRIPTION", nameW, "NAME", verW, "VERSION", managedW, "MANAGED_BY", statusW, "STATUS", sourceW, "SOURCE", updateW, "UPDATE")
+	fmt.Println(header)
+	fmt.Println("  " + strings.Repeat("-", len(header)-2))
+	for _, item := range items {
+		ver, source, update, desc := item.Version, item.Source, item.Update, item.Description
+		if ver == "" {
+			ver = "-"
+		}
+		if source == "" {
+			source = "-"
+		}
+		if update == "" {
+			update = "-"
+		}
+		if desc == "" {
+			desc = "-"
+		}
+		if len(desc) > 50 {
+			desc = desc[:47] + "..."
+		}
+		fmt.Printf("  %-*s  %-*s  %-*s  %-*s  %-*s  %-*s  %s\n", nameW, item.Name, verW, ver, managedW, item.ManagedBy, statusW, item.Status, sourceW, source, updateW, update, desc)
+	}
+	fmt.Println()
 }
 
 func showSkills(scope string, global bool, jsonOutput bool) []SkillListItem {

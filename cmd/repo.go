@@ -17,6 +17,7 @@ import (
 	"github.com/yeasy/ask/internal/cache"
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/hermes"
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/ui"
 )
@@ -78,6 +79,11 @@ Examples:
 		path := ""
 		if len(parts) > 2 {
 			path = strings.Join(parts[2:], "/")
+		}
+
+		if err := rejectBundledHermesRepoSource(owner, repo, path); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 
 		ui.Debug(fmt.Sprintf("Validating repository %s/%s...", owner, repo))
@@ -175,6 +181,17 @@ Examples:
 			fmt.Println("Run 'ask repo sync' to download content.")
 		}
 	},
+}
+
+func rejectBundledHermesRepoSource(owner, repo, sourcePath string) error {
+	source := fmt.Sprintf("%s/%s", owner, repo)
+	if strings.Trim(sourcePath, "/") != "" {
+		source += "/" + strings.Trim(sourcePath, "/")
+	}
+	if hermes.ClassifyHermesSource(source).Kind == hermes.HermesSourceBundled {
+		return fmt.Errorf("Repository %s contains bundled Hermes skills. ASK does not manage bundled Hermes skills. Use hermes-index for user-installable Hermes skills.", source)
+	}
+	return nil
 }
 
 // repoListCmd represents the repo list command

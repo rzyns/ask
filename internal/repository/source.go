@@ -7,7 +7,10 @@ import (
 
 	"github.com/yeasy/ask/internal/config"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/hermes"
 )
+
+const bundledHermesSkillsErrorFormat = "Repository %s contains bundled Hermes skills. ASK does not manage bundled Hermes skills. Use hermes-index for user-installable Hermes skills."
 
 type repositorySource interface {
 	Search(ctx context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error)
@@ -96,6 +99,9 @@ func fetchTopicSource(repo config.Repo) ([]SkillCandidate, error) {
 }
 
 func searchDirSource(_ context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {
+	if err := rejectBundledHermesDirSource(repo); err != nil {
+		return nil, err
+	}
 	parts := strings.Split(repo.URL, "/")
 	if len(parts) < 2 {
 		return nil, nil
@@ -125,6 +131,9 @@ func searchDirSource(_ context.Context, repo config.Repo, keyword string) ([]Ski
 }
 
 func fetchDirSource(repo config.Repo) ([]SkillCandidate, error) {
+	if err := rejectBundledHermesDirSource(repo); err != nil {
+		return nil, err
+	}
 	// Try git-based discovery first (recursive and more reliable for deep structures)
 	skills, err := fetchSkillsViaGitFunc(repo)
 	if err == nil && len(skills) > 0 {
@@ -144,6 +153,13 @@ func fetchDirSource(repo config.Repo) ([]SkillCandidate, error) {
 		return repositoriesToCandidates(repos), err
 	}
 	return nil, fmt.Errorf("invalid repository URL format: %s", repo.URL)
+}
+
+func rejectBundledHermesDirSource(repo config.Repo) error {
+	if repo.Type == config.RepoTypeDir && hermes.ClassifyHermesSource(repo.URL).Kind == hermes.HermesSourceBundled {
+		return fmt.Errorf(bundledHermesSkillsErrorFormat, repo.URL)
+	}
+	return nil
 }
 
 func searchRegistrySource(_ context.Context, repo config.Repo, keyword string) ([]SkillCandidate, error) {

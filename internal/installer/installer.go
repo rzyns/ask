@@ -14,6 +14,7 @@ import (
 	"github.com/yeasy/ask/internal/filesystem"
 	"github.com/yeasy/ask/internal/git"
 	"github.com/yeasy/ask/internal/github"
+	"github.com/yeasy/ask/internal/hermes"
 	"github.com/yeasy/ask/internal/repository"
 	"github.com/yeasy/ask/internal/skill"
 	"github.com/yeasy/ask/internal/skillhub"
@@ -35,6 +36,12 @@ type InstallOptions struct {
 	MinScore  string // Minimum acceptable grade (A/B/C/D/F), default "D"
 	depth     int    // current recursion depth (internal use only)
 }
+
+const (
+	lockOwnershipASK      = "ask"
+	lockInstallModeCache  = "ask-cache"
+	lockUpdateStrategyGit = "git"
+)
 
 type installTarget struct {
 	repoURL         string
@@ -402,6 +409,18 @@ func Install(input string, opts InstallOptions) error {
 	if skillName == "" || strings.TrimSpace(skillName) == "" {
 		return fmt.Errorf("could not determine skill name from input '%s'", input)
 	}
+	if isHermesInstall(opts.Agents) {
+		classificationInput := repoURL
+		if subDir != "" {
+			classificationInput = strings.TrimRight(repoURL, "/") + "/" + strings.TrimLeft(subDir, "/")
+		}
+		if classificationInput == "" {
+			classificationInput = input
+		}
+		if hermes.ClassifyHermesSource(classificationInput).Kind == hermes.HermesSourceBundled {
+			return fmt.Errorf("Hermes bundled skills are not installable through ASK: %s", classificationInput)
+		}
+	}
 
 	fmt.Printf("Installing %s to %s...\n", skillName, scopeLabel)
 
@@ -653,14 +672,10 @@ func Install(input string, opts InstallOptions) error {
 		if lockErr != nil || lockFile == nil {
 			lockFile = &config.LockFile{Version: 1, Skills: []config.LockEntry{}}
 		}
-		lockEntry := config.LockEntry{
-			Name:        skillName,
-			URL:         skillInfo.URL,
-			Commit:      commitHash,
-			Version:     version,
-			InstalledAt: time.Now(),
+		lockEntries := lockEntriesForInstall(skillName, skillInfo.URL, commitHash, version, centralPath, targetDirs, opts)
+		for _, lockEntry := range lockEntries {
+			lockFile.AddEntry(lockEntry)
 		}
-		lockFile.AddEntry(lockEntry)
 		if err := lockFile.SaveByScope(opts.Global); err != nil {
 			lockFileName := "ask.lock"
 			if opts.Global {
@@ -676,6 +691,57 @@ func Install(input string, opts InstallOptions) error {
 }
 
 // checkAllExist returns true if skillName already exists in every target directory.
+func isHermesInstall(agents []string) bool {
+	for _, agentName := range agents {
+		agentType, ok := config.ResolveAgentType(agentName)
+		if ok && agentType == config.AgentHermes {
+			return true
+		}
+	}
+	return false
+}
+
+func lockEntriesForInstall(skillName, url, commitHash, version, centralPath string, targetDirs []string, opts InstallOptions) []config.LockEntry {
+	now := time.Now()
+	base := config.LockEntry{
+		Name:        skillName,
+		URL:         url,
+		Commit:      commitHash,
+		Version:     version,
+		InstalledAt: now,
+	}
+	if len(opts.Agents) == 0 {
+		return []config.LockEntry{base}
+	}
+
+	entries := make([]config.LockEntry, 0, len(opts.Agents))
+	for i, agentName := range opts.Agents {
+		agentType, ok := config.ResolveAgentType(agentName)
+		if !ok {
+			continue
+		}
+		entry := base
+		entry.Agent = string(agentType)
+		if agentType == config.AgentHermes {
+			entry.Ownership = lockOwnershipASK
+			entry.InstallMode = lockInstallModeCache
+			entry.UpdateStrategy = lockUpdateStrategyGit
+			entry.SourcePath = centralPath
+			if i < len(targetDirs) {
+				entry.TargetPath = filepath.Join(targetDirs[i], skillName)
+			}
+			if checksum, err := hermes.ChecksumSkillDir(centralPath); err == nil {
+				entry.Checksum = checksum
+			}
+		}
+		entries = append(entries, entry)
+	}
+	if len(entries) == 0 {
+		return []config.LockEntry{base}
+	}
+	return entries
+}
+
 func checkAllExist(targetDirs []string, skillName string) bool {
 	if len(targetDirs) == 0 {
 		return false
