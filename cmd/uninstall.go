@@ -67,7 +67,7 @@ Use --all to remove both symlinks AND the source files in .agent/skills/.`,
 				fmt.Fprintf(os.Stderr, "Error: %s is not tracked by ASK for Hermes\n", targetName)
 				os.Exit(1)
 			}
-			action, err := hermes.UninstallSkill(lockFile, targetName, hermes.UninstallOptions{Forget: forget, DeleteFiles: deleteFiles || removeAll})
+			action, err := hermes.UninstallSkill(lockFile, targetName, hermes.UninstallOptions{Global: global, Forget: forget, DeleteFiles: deleteFiles || removeAll})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)

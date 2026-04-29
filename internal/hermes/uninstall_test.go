@@ -35,11 +35,105 @@ func TestUninstallSkillForgetImportedLeavesFiles(t *testing.T) {
 	}
 }
 
-func TestUninstallSkillASKRemovesTargetAndSource(t *testing.T) {
+func TestUninstallSkillProjectScopeRejectsGlobalLockPaths(t *testing.T) {
+	globalHermes, globalASK, _, _ := scopedSkillRootsForTest(t, "managed")
+	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "managed", Agent: "hermes", Ownership: "ask", SourcePath: globalASK, TargetPath: globalHermes}}}
+
+	_, err := UninstallSkill(lock, "managed", UninstallOptions{Global: false})
+	if err == nil {
+		t.Fatal("expected project-scope uninstall to reject global lock paths")
+	}
+	if !strings.Contains(err.Error(), "refusing to remove") {
+		t.Fatalf("error = %q, want refusing to remove", err.Error())
+	}
+	if len(lock.Skills) != 1 {
+		t.Fatalf("lock entry removed despite rejection")
+	}
+	assertDirExists(t, globalHermes)
+	assertDirExists(t, globalASK)
+}
+
+func TestUninstallSkillGlobalScopeRejectsProjectLockPaths(t *testing.T) {
+	_, _, projectHermes, projectASK := scopedSkillRootsForTest(t, "managed")
+	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "managed", Agent: "hermes", Ownership: "ask", SourcePath: projectASK, TargetPath: projectHermes}}}
+
+	_, err := UninstallSkill(lock, "managed", UninstallOptions{Global: true})
+	if err == nil {
+		t.Fatal("expected global-scope uninstall to reject project lock paths")
+	}
+	if !strings.Contains(err.Error(), "refusing to remove") {
+		t.Fatalf("error = %q, want refusing to remove", err.Error())
+	}
+	if len(lock.Skills) != 1 {
+		t.Fatalf("lock entry removed despite rejection")
+	}
+	assertDirExists(t, projectHermes)
+	assertDirExists(t, projectASK)
+}
+
+func TestUninstallSkillProjectScopeASKRemovesTargetAndSource(t *testing.T) {
+	_, _, projectHermes, projectASK := scopedSkillRootsForTest(t, "managed")
+	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "managed", Agent: "hermes", Ownership: "ask", SourcePath: projectASK, TargetPath: projectHermes}}}
+
+	action, err := UninstallSkill(lock, "managed", UninstallOptions{Global: false})
+	if err != nil {
+		t.Fatalf("UninstallSkill returned error: %v", err)
+	}
+	if !action.Forgot || !action.RemovedFiles || !action.RemovedSource || len(lock.Skills) != 0 {
+		t.Fatalf("action/lock = %#v/%#v", action, lock.Skills)
+	}
+	assertDirRemoved(t, projectHermes)
+	assertDirRemoved(t, projectASK)
+}
+
+func TestUninstallSkillGlobalScopeASKRemovesTargetAndSource(t *testing.T) {
+	globalHermes, globalASK, _, _ := scopedSkillRootsForTest(t, "managed")
+	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "managed", Agent: "hermes", Ownership: "ask", SourcePath: globalASK, TargetPath: globalHermes}}}
+
+	action, err := UninstallSkill(lock, "managed", UninstallOptions{Global: true})
+	if err != nil {
+		t.Fatalf("UninstallSkill returned error: %v", err)
+	}
+	if !action.Forgot || !action.RemovedFiles || !action.RemovedSource || len(lock.Skills) != 0 {
+		t.Fatalf("action/lock = %#v/%#v", action, lock.Skills)
+	}
+	assertDirRemoved(t, globalHermes)
+	assertDirRemoved(t, globalASK)
+}
+
+func TestUninstallSkillProjectScopeImportedDeleteFilesRemovesHermesTarget(t *testing.T) {
+	_, _, projectHermes, _ := scopedSkillRootsForTest(t, "local")
+	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "local", Agent: "hermes", Ownership: "imported", InstallMode: "in-place", TargetPath: projectHermes, SourcePath: projectHermes}}}
+
+	action, err := UninstallSkill(lock, "local", UninstallOptions{Global: false, DeleteFiles: true})
+	if err != nil {
+		t.Fatalf("UninstallSkill returned error: %v", err)
+	}
+	if !action.Forgot || !action.RemovedFiles || action.RemovedSource || len(lock.Skills) != 0 {
+		t.Fatalf("action/lock = %#v/%#v", action, lock.Skills)
+	}
+	assertDirRemoved(t, projectHermes)
+}
+
+func TestUninstallSkillGlobalScopeImportedDeleteFilesRemovesHermesTarget(t *testing.T) {
+	globalHermes, _, _, _ := scopedSkillRootsForTest(t, "local")
+	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "local", Agent: "hermes", Ownership: "imported", InstallMode: "in-place", TargetPath: globalHermes, SourcePath: globalHermes}}}
+
+	action, err := UninstallSkill(lock, "local", UninstallOptions{Global: true, DeleteFiles: true})
+	if err != nil {
+		t.Fatalf("UninstallSkill returned error: %v", err)
+	}
+	if !action.Forgot || !action.RemovedFiles || action.RemovedSource || len(lock.Skills) != 0 {
+		t.Fatalf("action/lock = %#v/%#v", action, lock.Skills)
+	}
+	assertDirRemoved(t, globalHermes)
+}
+
+func TestUninstallSkillGlobalASKRemovesTargetAndSourceLegacy(t *testing.T) {
 	source := askSourcePathForTest(t, "managed")
 	target := hermesTargetPathForTest(t, "managed")
 	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "managed", Agent: "hermes", Ownership: "ask", SourcePath: source, TargetPath: target}}}
-	action, err := UninstallSkill(lock, "managed", UninstallOptions{})
+	action, err := UninstallSkill(lock, "managed", UninstallOptions{Global: true})
 	if err != nil {
 		t.Fatalf("UninstallSkill returned error: %v", err)
 	}
@@ -54,11 +148,11 @@ func TestUninstallSkillASKRemovesTargetAndSource(t *testing.T) {
 	}
 }
 
-func TestUninstallSkillImportedDeleteFilesRemovesHermesTarget(t *testing.T) {
+func TestUninstallSkillGlobalImportedDeleteFilesRemovesHermesTargetLegacy(t *testing.T) {
 	target := hermesTargetPathForTest(t, "local")
 	lock := &config.LockFile{Version: 1, Skills: []config.LockEntry{{Name: "local", Agent: "hermes", Ownership: "imported", InstallMode: "in-place", TargetPath: target, SourcePath: target}}}
 
-	action, err := UninstallSkill(lock, "local", UninstallOptions{DeleteFiles: true})
+	action, err := UninstallSkill(lock, "local", UninstallOptions{Global: true, DeleteFiles: true})
 	if err != nil {
 		t.Fatalf("UninstallSkill returned error: %v", err)
 	}
@@ -158,6 +252,54 @@ func askSourcePathForTest(t *testing.T, name string) string {
 	path := filepath.Join(home, ".ask", "skills", name)
 	mustMkdir(t, path)
 	return path
+}
+
+func scopedSkillRootsForTest(t *testing.T, name string) (globalHermes, globalASK, projectHermes, projectASK string) {
+	t.Helper()
+	root := t.TempDir()
+	globalHome := filepath.Join(root, "global-home")
+	hermesHome := filepath.Join(root, "hermes-home")
+	projectRoot := filepath.Join(root, "project")
+	mustMkdir(t, globalHome)
+	mustMkdir(t, hermesHome)
+	mustMkdir(t, projectRoot)
+	t.Setenv("HOME", globalHome)
+	t.Setenv("HERMES_HOME", hermesHome)
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(projectRoot); err != nil {
+		t.Fatalf("chdir %s: %v", projectRoot, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(oldWd); err != nil {
+			t.Fatalf("restore wd %s: %v", oldWd, err)
+		}
+	})
+
+	globalHermes = filepath.Join(hermesHome, "skills", name)
+	globalASK = filepath.Join(globalHome, ".ask", "skills", name)
+	projectHermes = filepath.Join(projectRoot, ".hermes", "skills", name)
+	projectASK = filepath.Join(projectRoot, config.DefaultSkillsDir, name)
+	for _, path := range []string{globalHermes, globalASK, projectHermes, projectASK} {
+		mustMkdir(t, path)
+	}
+	return globalHermes, globalASK, projectHermes, projectASK
+}
+
+func assertDirExists(t *testing.T, path string) {
+	t.Helper()
+	if info, err := os.Stat(path); err != nil || !info.IsDir() {
+		t.Fatalf("directory %s missing or inaccessible: info=%#v err=%v", path, info, err)
+	}
+}
+
+func assertDirRemoved(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("directory %s still exists or stat failed: %v", path, err)
+	}
 }
 
 func mustMkdir(t *testing.T, path string) {

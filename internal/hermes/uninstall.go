@@ -11,6 +11,7 @@ import (
 
 // UninstallOptions controls Hermes ownership-aware uninstall behavior.
 type UninstallOptions struct {
+	Global      bool
 	Forget      bool
 	DeleteFiles bool
 }
@@ -41,7 +42,7 @@ func UninstallSkill(lockFile *config.LockFile, name string, opts UninstallOption
 	case string(HermesSkillOwnershipASK), "":
 		var action UninstallAction
 		if entry.TargetPath != "" {
-			if err := validateASKOwnedTargetPath(*entry, safeName); err != nil {
+			if err := validateASKOwnedTargetPath(*entry, safeName, opts.Global); err != nil {
 				return action, err
 			}
 			if err := os.RemoveAll(entry.TargetPath); err != nil {
@@ -50,7 +51,7 @@ func UninstallSkill(lockFile *config.LockFile, name string, opts UninstallOption
 			action.RemovedFiles = true
 		}
 		if entry.SourcePath != "" && entry.SourcePath != entry.TargetPath {
-			if err := validateASKOwnedSourcePath(*entry, safeName); err != nil {
+			if err := validateASKOwnedSourcePath(*entry, safeName, opts.Global); err != nil {
 				return action, err
 			}
 			if err := os.RemoveAll(entry.SourcePath); err != nil {
@@ -67,7 +68,7 @@ func UninstallSkill(lockFile *config.LockFile, name string, opts UninstallOption
 		}
 		var action UninstallAction
 		if opts.DeleteFiles && entry.TargetPath != "" {
-			if err := validateImportedTargetPath(*entry, safeName); err != nil {
+			if err := validateImportedTargetPath(*entry, safeName, opts.Global); err != nil {
 				return action, err
 			}
 			if err := os.RemoveAll(entry.TargetPath); err != nil {
@@ -93,19 +94,33 @@ func validateHermesSkillName(name string) (string, error) {
 	return name, nil
 }
 
-func validateASKOwnedTargetPath(entry config.LockEntry, skillName string) error {
-	return validateHermesLockedPath(entry.TargetPath, skillName, []expectedSkillRootFunc{projectHermesSkillsRoot, globalHermesSkillsRoot}, "Hermes target")
+func validateASKOwnedTargetPath(entry config.LockEntry, skillName string, global bool) error {
+	return validateHermesLockedPath(entry.TargetPath, skillName, scopedHermesSkillRoots(global), "Hermes target")
 }
 
-func validateASKOwnedSourcePath(entry config.LockEntry, skillName string) error {
-	return validateHermesLockedPath(entry.SourcePath, skillName, []expectedSkillRootFunc{projectASKSkillsRoot, globalASKSkillsRoot}, "ASK source")
+func validateASKOwnedSourcePath(entry config.LockEntry, skillName string, global bool) error {
+	return validateHermesLockedPath(entry.SourcePath, skillName, scopedASKSkillRoots(global), "ASK source")
 }
 
-func validateImportedTargetPath(entry config.LockEntry, skillName string) error {
-	return validateHermesLockedPath(entry.TargetPath, skillName, []expectedSkillRootFunc{projectHermesSkillsRoot, globalHermesSkillsRoot}, "imported Hermes directory")
+func validateImportedTargetPath(entry config.LockEntry, skillName string, global bool) error {
+	return validateHermesLockedPath(entry.TargetPath, skillName, scopedHermesSkillRoots(global), "imported Hermes directory")
 }
 
 type expectedSkillRootFunc func() (string, bool)
+
+func scopedHermesSkillRoots(global bool) []expectedSkillRootFunc {
+	if global {
+		return []expectedSkillRootFunc{globalHermesSkillsRoot}
+	}
+	return []expectedSkillRootFunc{projectHermesSkillsRoot}
+}
+
+func scopedASKSkillRoots(global bool) []expectedSkillRootFunc {
+	if global {
+		return []expectedSkillRootFunc{globalASKSkillsRoot}
+	}
+	return []expectedSkillRootFunc{projectASKSkillsRoot}
+}
 
 func validateHermesLockedPath(path, skillName string, rootFuncs []expectedSkillRootFunc, label string) error {
 	cleanPath, err := cleanLockedSkillPath(path, skillName, label)
