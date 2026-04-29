@@ -128,6 +128,43 @@ func TestScanInstalledSkillsMarksLockfileBackedEntriesAsASKManaged(t *testing.T)
 	}
 }
 
+func TestScanInstalledSkillsOmitsBundledDistributionCopies(t *testing.T) {
+	root := t.TempDir()
+	bundled := t.TempDir()
+	writeSkill(t, bundled, filepath.Join("research", "arxiv"), "arxiv", "Bundled arXiv", "1.0.0")
+	writeSkill(t, root, filepath.Join("research", "arxiv"), "arxiv", "Bundled arXiv", "1.0.0")
+	writeSkill(t, root, filepath.Join("research", "gitnexus-explorer"), "gitnexus-explorer", "User installed", "2.0.0")
+
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{BundledSkillsDir: bundled})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want only non-bundled skill", len(got), got)
+	}
+	if got[0].Name != "gitnexus-explorer" || got[0].RelativePath != "research/gitnexus-explorer" {
+		t.Fatalf("remaining skill = %#v, want gitnexus-explorer", got[0])
+	}
+}
+
+func TestScanInstalledSkillsKeepsModifiedBundledPathCopy(t *testing.T) {
+	root := t.TempDir()
+	bundled := t.TempDir()
+	writeSkill(t, bundled, filepath.Join("software-development", "systematic-debugging"), "systematic-debugging", "Bundled", "1.0.0")
+	writeSkill(t, root, filepath.Join("software-development", "systematic-debugging"), "systematic-debugging", "Local override", "1.0.0")
+
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{BundledSkillsDir: bundled})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want modified local copy retained", len(got), got)
+	}
+	if got[0].Name != "systematic-debugging" || got[0].Description != "Local override" {
+		t.Fatalf("skill = %#v, want modified local copy", got[0])
+	}
+}
+
 func TestScanInstalledSkillsIgnoresNonHermesLockEntries(t *testing.T) {
 	root := t.TempDir()
 	writeSkill(t, root, "shared", "shared", "Shared name", "1.0.0")

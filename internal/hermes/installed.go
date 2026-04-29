@@ -1,6 +1,8 @@
 package hermes
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,8 +37,9 @@ type InstalledHermesSkill struct {
 
 // InstalledScanOptions configures ScanInstalledSkills.
 type InstalledScanOptions struct {
-	LockFile *config.LockFile
-	MaxDepth int
+	LockFile         *config.LockFile
+	MaxDepth         int
+	BundledSkillsDir string
 }
 
 const defaultInstalledScanMaxDepth = 5
@@ -65,6 +68,7 @@ func ScanInstalledSkills(skillsDir string, opts InstalledScanOptions) ([]Install
 	if err := scanInstalledDir(skillsDir, skillsDir, 0, maxDepth, &out); err != nil {
 		return nil, err
 	}
+	out = filterBundledDistributionCopies(skillsDir, out, opts.BundledSkillsDir)
 	applyLockMetadata(out, opts.LockFile)
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].RelativePath == out[j].RelativePath {
@@ -147,6 +151,97 @@ func installedSkillFromDir(root, dir string) (InstalledHermesSkill, error) {
 		UpdateStrategy: "none",
 	}
 	return installed, nil
+}
+
+func filterBundledDistributionCopies(skillsDir string, skills []InstalledHermesSkill, bundledSkillsDir string) []InstalledHermesSkill {
+	bundledSkillsDir = normalizeInstalledPath(bundledSkillsDir)
+	if bundledSkillsDir == "" {
+		bundledSkillsDir = defaultBundledSkillsDirFor(skillsDir)
+	}
+	if bundledSkillsDir == "" {
+		return skills
+	}
+	if info, err := os.Lstat(bundledSkillsDir); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return skills
+	}
+
+	filtered := skills[:0]
+	for _, installed := range skills {
+		bundledPath := filepath.Join(bundledSkillsDir, filepath.FromSlash(installed.RelativePath))
+		if dirsHaveSameRegularFiles(installed.Path, bundledPath) {
+			continue
+		}
+		filtered = append(filtered, installed)
+	}
+	return filtered
+}
+
+func defaultBundledSkillsDirFor(skillsDir string) string {
+	skillsDir = normalizeInstalledPath(skillsDir)
+	if skillsDir == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(skillsDir), "hermes-agent", "skills")
+}
+
+func dirsHaveSameRegularFiles(left, right string) bool {
+	leftFiles, err := dirRegularFileDigests(left)
+	if err != nil {
+		return false
+	}
+	rightFiles, err := dirRegularFileDigests(right)
+	if err != nil {
+		return false
+	}
+	if len(leftFiles) == 0 || len(leftFiles) != len(rightFiles) {
+		return false
+	}
+	for rel, leftDigest := range leftFiles {
+		if rightFiles[rel] != leftDigest {
+			return false
+		}
+	}
+	return true
+}
+
+func dirRegularFileDigests(root string) (map[string]string, error) {
+	files := make(map[string]string)
+	if info, err := os.Lstat(root); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		if err != nil {
+			return nil, err
+		}
+		return nil, os.ErrInvalid
+	}
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(content)
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		files[filepath.ToSlash(rel)] = hex.EncodeToString(sum[:])
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 func applyLockMetadata(skills []InstalledHermesSkill, lockFile *config.LockFile) {
