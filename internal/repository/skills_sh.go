@@ -23,6 +23,7 @@ const (
 var (
 	skillsSHHTTPClient                 = &http.Client{Timeout: 30 * time.Second}
 	skillsSHMaxBodyBytes               = int64(5 << 20)
+	skillsSHGitHubAPIBaseURL           = "https://api.github.com"
 	resolveSkillsSHGitHubSkillPathFunc = resolveSkillsSHGitHubSkillPath
 )
 
@@ -329,6 +330,10 @@ func resolveSkillsSHGitHubRef(raw string) (string, bool) {
 	return fmt.Sprintf("https://github.com/%s", strings.Join(parts, "/")), true
 }
 
+type skillsSHGitHubRepo struct {
+	DefaultBranch string `json:"default_branch"`
+}
+
 type skillsSHGitTree struct {
 	Tree []struct {
 		Path string `json:"path"`
@@ -341,30 +346,79 @@ func resolveSkillsSHGitHubSkillPath(source, skillID, name string) (string, strin
 	if !ok {
 		return "", ""
 	}
-	apiURL := "https://api.github.com/repos/" + ownerRepo + "/git/trees/main?recursive=1"
-	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
-	if err != nil {
+	branch, ok := fetchSkillsSHGitHubDefaultBranch(ownerRepo)
+	if !ok {
 		return "", "no GitHub skill path found for skills.sh entry"
 	}
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "ask-cli")
+	paths, ok := fetchSkillsSHGitHubTreePaths(ownerRepo, branch)
+	if !ok {
+		return "", "no GitHub skill path found for skills.sh entry"
+	}
+	return resolveSkillsSHGitHubSkillPathFromTreePaths(ownerRepo, skillID, name, paths, branch)
+}
+
+func fetchSkillsSHGitHubDefaultBranch(ownerRepo string) (string, bool) {
+	req, err := newSkillsSHGitHubAPIRequest("/repos/"+ownerRepo, nil)
+	if err != nil {
+		return "", false
+	}
 	resp, err := skillsSHHTTPClient.Do(req)
 	if err != nil {
-		return "", "no GitHub skill path found for skills.sh entry"
+		return "", false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", "no GitHub skill path found for skills.sh entry"
+		return "", false
+	}
+	var repo skillsSHGitHubRepo
+	if err := json.NewDecoder(io.LimitReader(resp.Body, skillsSHMaxBodyBytes)).Decode(&repo); err != nil {
+		return "", false
+	}
+	branch := strings.TrimSpace(repo.DefaultBranch)
+	return branch, branch != ""
+}
+
+func fetchSkillsSHGitHubTreePaths(ownerRepo, branch string) ([]string, bool) {
+	query := url.Values{}
+	query.Set("recursive", "1")
+	req, err := newSkillsSHGitHubAPIRequest("/repos/"+ownerRepo+"/git/trees/"+url.PathEscape(branch), query)
+	if err != nil {
+		return nil, false
+	}
+	resp, err := skillsSHHTTPClient.Do(req)
+	if err != nil {
+		return nil, false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, false
 	}
 	var tree skillsSHGitTree
 	if err := json.NewDecoder(io.LimitReader(resp.Body, skillsSHMaxBodyBytes)).Decode(&tree); err != nil {
-		return "", "no GitHub skill path found for skills.sh entry"
+		return nil, false
 	}
 	paths := make([]string, 0, len(tree.Tree))
 	for _, item := range tree.Tree {
 		paths = append(paths, item.Path)
 	}
-	return resolveSkillsSHGitHubSkillPathFromTreePaths(ownerRepo, skillID, name, paths, "main")
+	return paths, true
+}
+
+func newSkillsSHGitHubAPIRequest(path string, query url.Values) (*http.Request, error) {
+	base, err := url.Parse(skillsSHGitHubAPIBaseURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return nil, fmt.Errorf("invalid GitHub API base URL")
+	}
+	u := *base
+	u.Path = strings.TrimRight(base.Path, "/") + path
+	u.RawQuery = query.Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "ask-cli")
+	return req, nil
 }
 
 func skillsSHBareOwnerRepo(source string) (string, bool) {

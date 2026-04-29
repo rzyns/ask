@@ -100,6 +100,76 @@ func TestSkillsSHPublicLegacySearchMissingPathUnsupportedClearReason(t *testing.
 	}
 }
 
+func TestResolveSkillsSHGitHubSkillPathUsesDefaultBranch(t *testing.T) {
+	var requested []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requested = append(requested, r.URL.String())
+		switch r.URL.Path {
+		case "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"default_branch":"trunk"}`))
+		case "/repos/owner/repo/git/trees/trunk":
+			if r.URL.Query().Get("recursive") != "1" {
+				t.Fatalf("recursive query=%q", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`{"tree":[{"path":"skills/productivity/grill-with-docs/SKILL.md","type":"blob"}]}`))
+		default:
+			t.Fatalf("unexpected GitHub API path: %s", r.URL.String())
+		}
+	}))
+	defer server.Close()
+	oldBase := skillsSHGitHubAPIBaseURL
+	skillsSHGitHubAPIBaseURL = server.URL
+	t.Cleanup(func() { skillsSHGitHubAPIBaseURL = oldBase })
+
+	got, reason := resolveSkillsSHGitHubSkillPath("owner/repo", "grill-with-docs", "grill-with-docs")
+	if reason != "" || got != "https://github.com/owner/repo/tree/trunk/skills/productivity/grill-with-docs" {
+		t.Fatalf("got ref=%q reason=%q", got, reason)
+	}
+	if len(requested) != 2 || requested[0] != "/repos/owner/repo" || requested[1] != "/repos/owner/repo/git/trees/trunk?recursive=1" {
+		t.Fatalf("requested=%#v", requested)
+	}
+}
+
+func TestResolveSkillsSHGitHubSkillPathRejectsMissingDefaultBranch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/owner/repo" {
+			t.Fatalf("unexpected GitHub API path: %s", r.URL.String())
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	oldBase := skillsSHGitHubAPIBaseURL
+	skillsSHGitHubAPIBaseURL = server.URL
+	t.Cleanup(func() { skillsSHGitHubAPIBaseURL = oldBase })
+
+	got, reason := resolveSkillsSHGitHubSkillPath("owner/repo", "grill-with-docs", "grill-with-docs")
+	if got != "" || !strings.Contains(reason, "no GitHub skill path found") {
+		t.Fatalf("got ref=%q reason=%q", got, reason)
+	}
+}
+
+func TestResolveSkillsSHGitHubSkillPathRejectsGitHubFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/owner/repo":
+			_, _ = w.Write([]byte(`{"default_branch":"trunk"}`))
+		case "/repos/owner/repo/git/trees/trunk":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			t.Fatalf("unexpected GitHub API path: %s", r.URL.String())
+		}
+	}))
+	defer server.Close()
+	oldBase := skillsSHGitHubAPIBaseURL
+	skillsSHGitHubAPIBaseURL = server.URL
+	t.Cleanup(func() { skillsSHGitHubAPIBaseURL = oldBase })
+
+	got, reason := resolveSkillsSHGitHubSkillPath("owner/repo", "grill-with-docs", "grill-with-docs")
+	if got != "" || !strings.Contains(reason, "no GitHub skill path found") {
+		t.Fatalf("got ref=%q reason=%q", got, reason)
+	}
+}
+
 func TestResolveSkillsSHGitHubSkillPathFromTreePaths(t *testing.T) {
 	paths := []string{"README.md", "skills/productivity/grill-me/SKILL.md"}
 	got, reason := resolveSkillsSHGitHubSkillPathFromTreePaths("mattpocock/skills", "grill-me", "grill-me", paths, "main")
