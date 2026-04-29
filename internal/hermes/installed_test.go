@@ -62,7 +62,7 @@ func TestScanInstalledSkillsUsesDirectoryBasenameWhenNameMissing(t *testing.T) {
 	}
 }
 
-func TestScanInstalledSkillsSkipsSymlinkDirectories(t *testing.T) {
+func TestScanInstalledSkillsIncludesSymlinkedSkillDirectories(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation may require privileges on Windows")
 	}
@@ -73,12 +73,67 @@ func TestScanInstalledSkillsSkipsSymlinkDirectories(t *testing.T) {
 		t.Fatalf("create symlink: %v", err)
 	}
 
+	lock := &config.LockFile{Skills: []config.LockEntry{{Name: "external", Source: "hermes-index", Version: "1.0.0", URL: "https://example.test/external.git"}}}
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{LockFile: lock})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want linked skill visible", len(got), got)
+	}
+	if got[0].Name != "external" || got[0].RelativePath != "linked" || got[0].Path != filepath.Join(root, "linked") {
+		t.Fatalf("linked skill metadata = %#v, want name external, rel linked, path at symlink", got[0])
+	}
+	if got[0].Ownership != HermesSkillOwnershipNative || got[0].Managed {
+		t.Fatalf("linked skill with non-matching lock target = %#v, want conservative native classification", got[0])
+	}
+}
+
+func TestScanInstalledSkillsMarksASKManagedSymlinkedSkill(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation may require privileges on Windows")
+	}
+	hermesHome := t.TempDir()
+	root := filepath.Join(hermesHome, "skills")
+	central := filepath.Join(t.TempDir(), "skills")
+	writeSkill(t, central, "gitnexus-explorer", "gitnexus-explorer", "Explore GitNexus", "")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatalf("mkdir root: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(central, "gitnexus-explorer"), filepath.Join(root, "gitnexus-explorer")); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	lock := &config.LockFile{Skills: []config.LockEntry{{Name: "gitnexus-explorer", Source: "hermes-index", Version: "1.2.3", URL: "https://github.com/NousResearch/hermes-agent.git", TargetPath: filepath.Join(root, "gitnexus-explorer"), SourcePath: filepath.Join(central, "gitnexus-explorer")}}}
+	got, err := ScanInstalledSkills(root, InstalledScanOptions{LockFile: lock})
+	if err != nil {
+		t.Fatalf("ScanInstalledSkills returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d skills %#v, want symlinked ASK skill", len(got), got)
+	}
+	if got[0].Ownership != HermesSkillOwnershipASK || !got[0].Managed || got[0].Version != "1.2.3" || got[0].UpdateStrategy != "git" {
+		t.Fatalf("symlinked ASK skill = %#v, want lock metadata applied", got[0])
+	}
+}
+
+func TestScanInstalledSkillsDoesNotRecurseIntoSymlinkedDirectories(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation may require privileges on Windows")
+	}
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeSkill(t, outside, filepath.Join("category", "external"), "external", "Outside nested", "1.0.0")
+	if err := os.Symlink(filepath.Join(outside, "category"), filepath.Join(root, "linked-category")); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
 	got, err := ScanInstalledSkills(root, InstalledScanOptions{})
 	if err != nil {
 		t.Fatalf("ScanInstalledSkills returned error: %v", err)
 	}
 	if len(got) != 0 {
-		t.Fatalf("got %#v, want symlink dir skipped", got)
+		t.Fatalf("got %#v, want no recursion into symlinked directory trees", got)
 	}
 }
 

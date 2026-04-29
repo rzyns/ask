@@ -80,7 +80,10 @@ func scanInstalledDir(root, dir string, depth, maxDepth int, out *[]InstalledHer
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+	if info.Mode()&os.ModeSymlink != 0 {
+		return scanInstalledSymlinkDir(root, dir, out)
+	}
+	if !info.IsDir() {
 		return nil
 	}
 	if isHiddenDir(info.Name()) && dir != root {
@@ -104,14 +107,7 @@ func scanInstalledDir(root, dir string, depth, maxDepth int, out *[]InstalledHer
 		return err
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() || isHiddenDir(entry.Name()) {
-			continue
-		}
-		entryInfo, err := os.Lstat(filepath.Join(dir, entry.Name()))
-		if err != nil {
-			return err
-		}
-		if entryInfo.Mode()&os.ModeSymlink != 0 {
+		if !isDirectoryEntry(entry) || isHiddenDir(entry.Name()) {
 			continue
 		}
 		if err := scanInstalledDir(root, filepath.Join(dir, entry.Name()), depth+1, maxDepth, out); err != nil {
@@ -119,6 +115,38 @@ func scanInstalledDir(root, dir string, depth, maxDepth int, out *[]InstalledHer
 		}
 	}
 	return nil
+}
+
+func scanInstalledSymlinkDir(root, linkPath string, out *[]InstalledHermesSkill) error {
+	info, err := os.Stat(linkPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if !info.IsDir() || isHiddenDir(info.Name()) {
+		return nil
+	}
+	// ASK-managed Hermes installs are symlinks from $HERMES_HOME/skills/<name>
+	// into central ASK storage. Parse the linked directory itself if it is a
+	// skill, but do not recurse into symlinked directory trees.
+	if !skill.FindSkillMD(linkPath) {
+		return nil
+	}
+	installed, err := installedSkillFromDir(root, linkPath)
+	if err != nil {
+		return err
+	}
+	*out = append(*out, installed)
+	return nil
+}
+
+func isDirectoryEntry(entry os.DirEntry) bool {
+	if entry.IsDir() {
+		return true
+	}
+	return entry.Type()&os.ModeSymlink != 0
 }
 
 func installedSkillFromDir(root, dir string) (InstalledHermesSkill, error) {
