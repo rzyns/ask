@@ -150,6 +150,45 @@ func (l *LockFile) RemoveEntry(name string) {
 	}
 }
 
+// RemoveEntryForAgent removes a lock entry by name and agent.
+// It preserves generic and other-agent same-name entries.
+func (l *LockFile) RemoveEntryForAgent(name, agent string) bool {
+	requestedAgent := strings.TrimSpace(agent)
+	for i, e := range l.Skills {
+		if e.Name == name && strings.EqualFold(strings.TrimSpace(e.Agent), requestedAgent) {
+			l.Skills = append(l.Skills[:i], l.Skills[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// RemoveEntryForAgentTargetPath removes a lock entry by name, agent, and target path.
+// It is intentionally narrower than RemoveEntry so agent-scoped lock entries for
+// other agents or duplicate same-name targets are preserved.
+func (l *LockFile) RemoveEntryForAgentTargetPath(name, agent, targetPath string) bool {
+	requestedAgent := strings.TrimSpace(agent)
+	requestedPath := normalizeLockTargetPath(targetPath)
+	for i, e := range l.Skills {
+		if e.Name != name {
+			continue
+		}
+		entryAgent := strings.TrimSpace(e.Agent)
+		if !strings.EqualFold(entryAgent, requestedAgent) && !(requestedAgent != "" && entryAgent == "") {
+			continue
+		}
+		entryPath := normalizeLockTargetPath(e.TargetPath)
+		if requestedPath != "" || entryPath != "" {
+			if requestedPath == "" || entryPath == "" || requestedPath != entryPath {
+				continue
+			}
+		}
+		l.Skills = append(l.Skills[:i], l.Skills[i+1:]...)
+		return true
+	}
+	return false
+}
+
 // GetEntry gets a lock entry by name.
 func (l *LockFile) GetEntry(name string) *LockEntry {
 	for i := range l.Skills {

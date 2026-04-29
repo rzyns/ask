@@ -186,6 +186,41 @@ func TestAddEntryKeepsAgentScopedEntriesDistinct(t *testing.T) {
 	}
 }
 
+func TestRemoveEntryForAgentTargetPathRemovesOnlyExactScopedEntry(t *testing.T) {
+	lock := &LockFile{Version: 1, Skills: []LockEntry{
+		{Name: "shared", Agent: "claude", Version: "claude"},
+		{Name: "shared", Agent: "hermes", TargetPath: filepath.Join("skills", "one"), Version: "one"},
+		{Name: "shared", Agent: "hermes", TargetPath: filepath.Join("skills", "two"), Version: "two"},
+	}}
+
+	if !lock.RemoveEntryForAgentTargetPath("shared", "hermes", filepath.Join("skills", ".", "one")) {
+		t.Fatal("expected exact hermes/path removal")
+	}
+	if len(lock.Skills) != 2 {
+		t.Fatalf("remaining entries = %#v", lock.Skills)
+	}
+	if got := lock.GetEntryForAgentTargetPath("shared", "hermes", filepath.Join("skills", "two")); got == nil || got.Version != "two" {
+		t.Fatalf("hermes path two entry = %#v", got)
+	}
+	if got := lock.GetEntryForAgent("shared", "claude"); got == nil || got.Version != "claude" {
+		t.Fatalf("claude entry = %#v", got)
+	}
+}
+
+func TestRemoveEntryForAgentTargetPathRemovesLegacyExactScopedEntry(t *testing.T) {
+	lock := &LockFile{Version: 1, Skills: []LockEntry{
+		{Name: "shared", Version: "generic"},
+		{Name: "shared", TargetPath: "/tmp/hermes/shared", Version: "legacy-hermes"},
+	}}
+
+	if !lock.RemoveEntryForAgentTargetPath("shared", "hermes", "/tmp/hermes/shared") {
+		t.Fatal("expected legacy entry to be removed")
+	}
+	if len(lock.Skills) != 1 || lock.Skills[0].Version != "generic" {
+		t.Fatalf("unexpected remaining skills: %#v", lock.Skills)
+	}
+}
+
 func TestGetEntryForAgentMatchesLegacyEntryForCompatibility(t *testing.T) {
 	lock := &LockFile{Version: 1, Skills: []LockEntry{{Name: "legacy", Version: "1.0.0"}}}
 
