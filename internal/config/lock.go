@@ -15,12 +15,20 @@ const LockFileName = "ask.lock"
 
 // LockEntry represents a locked skill version
 type LockEntry struct {
-	Name        string    `yaml:"name"`
-	Source      string    `yaml:"source,omitempty"`
-	URL         string    `yaml:"url"`
-	Commit      string    `yaml:"commit,omitempty"`
-	Version     string    `yaml:"version,omitempty"`
-	InstalledAt time.Time `yaml:"installed_at"`
+	Name             string    `yaml:"name"`
+	Agent            string    `yaml:"agent,omitempty"`
+	Source           string    `yaml:"source,omitempty"`
+	SourceIdentifier string    `yaml:"source_identifier,omitempty"`
+	URL              string    `yaml:"url"`
+	Commit           string    `yaml:"commit,omitempty"`
+	Version          string    `yaml:"version,omitempty"`
+	InstalledAt      time.Time `yaml:"installed_at"`
+	Ownership        string    `yaml:"ownership,omitempty"`
+	InstallMode      string    `yaml:"install_mode,omitempty"`
+	UpdateStrategy   string    `yaml:"update_strategy,omitempty"`
+	TargetPath       string    `yaml:"target_path,omitempty"`
+	SourcePath       string    `yaml:"source_path,omitempty"`
+	Checksum         string    `yaml:"checksum,omitempty"`
 }
 
 // LockFile represents the ask.lock file structure
@@ -93,23 +101,54 @@ func (l *LockFile) Save() error {
 	return nil
 }
 
-// AddEntry adds or updates a lock entry
+// AddEntry adds or updates a lock entry.
+//
+// Legacy entries are keyed by name only. Agent-scoped entries are keyed by
+// name+agent so different agents can track the same skill name independently.
 func (l *LockFile) AddEntry(entry LockEntry) {
-	// Update if exists
 	for i, e := range l.Skills {
-		if e.Name == entry.Name {
+		if lockEntrySameIdentity(e, entry) {
 			l.Skills[i] = entry
 			return
 		}
 	}
-	// Add new
 	l.Skills = append(l.Skills, entry)
 }
 
-// RemoveEntry removes a lock entry by name
+func lockEntrySameIdentity(a, b LockEntry) bool {
+	if a.Name != b.Name {
+		return false
+	}
+	if a.Agent != "" || b.Agent != "" {
+		return a.Agent == b.Agent
+	}
+	return true
+}
+
+// GetEntryForAgent gets a lock entry by name and agent.
+func (l *LockFile) GetEntryForAgent(name, agent string) *LockEntry {
+	for i := range l.Skills {
+		if l.Skills[i].Name == name && l.Skills[i].Agent == agent {
+			return &l.Skills[i]
+		}
+	}
+	return nil
+}
+
+// RemoveEntry removes a legacy lock entry by name.
 func (l *LockFile) RemoveEntry(name string) {
 	for i, e := range l.Skills {
-		if e.Name == name {
+		if e.Name == name && e.Agent == "" {
+			l.Skills = append(l.Skills[:i], l.Skills[i+1:]...)
+			return
+		}
+	}
+}
+
+// RemoveEntryForAgent removes an agent-scoped lock entry by name and agent.
+func (l *LockFile) RemoveEntryForAgent(name, agent string) {
+	for i, e := range l.Skills {
+		if e.Name == name && e.Agent == agent {
 			l.Skills = append(l.Skills[:i], l.Skills[i+1:]...)
 			return
 		}
